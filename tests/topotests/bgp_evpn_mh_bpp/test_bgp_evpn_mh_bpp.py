@@ -723,9 +723,10 @@ def _expect_log(tgen, router, text, after):
 
 
 def _set_l3vni_neigh(router, enable):
+    asn = 65001 + TORS.index(router.name)
     router.vtysh_cmd(
-        "configure terminal\nrouter bgp 65001\naddress-family l2vpn evpn\n"
-        "%sadvertise-all-vni l3vni-neigh" % ("" if enable else "no ")
+        f"configure terminal\nrouter bgp {asn}\naddress-family l2vpn evpn\n"
+        f"{'' if enable else 'no '}advertise-all-vni l3vni-neigh"
     )
 
 
@@ -749,16 +750,17 @@ def test_bpp_debug():
     for line in ("debug zebra evpn mh protection", "debug bgp evpn mh protection"):
         assert line in output, "'%s' not in running-config" % line
 
-    marker = _log_text(tgen, tor1, "zebra")
     _set_bpp(tor1, True)
+    marker = _log_text(tgen, tor1, "zebra")
+    tor1.cmd_raises(f"/sbin/bridge vlan add vid 30 dev {ES_IF}")
     _expect_log(
         tgen,
         tor1,
-        "bridge-port protection %s vlan 10 add: no eligible peer" % ES_IF,
+        "bridge-port protection %s vlan 30 add: no eligible peer" % ES_IF,
         marker,
     )
     _expect_json(
-        tor1, cmd, {ES_IF: {"vlans": {"10": {"lastEvent": "created"}}}}, "created"
+        tor1, cmd, {ES_IF: {"vlans": {"30": {"lastEvent": "created"}}}}, "created"
     )
 
     marker = _log_text(tgen, tor1, "zebra")
@@ -787,8 +789,9 @@ def test_bpp_debug():
     )
 
     marker = _log_text(tgen, tor1, "zebra")
+    tor1.cmd_raises(f"/sbin/bridge vlan del vid 30 dev {ES_IF}")
+    _expect_log(tgen, tor1, "bridge-port protection %s vlan 30 del" % ES_IF, marker)
     _set_bpp(tor1, False)
-    _expect_log(tgen, tor1, "bridge-port protection %s vlan 10 del" % ES_IF, marker)
 
     tor1.vtysh_cmd(
         "configure terminal\nno debug zebra evpn mh protection\n"
@@ -866,12 +869,12 @@ def test_bpp_es_vrf_assoc():
 
     tor1 = tgen.gears["tor1"]
 
-    _expect_es_vrfs(tor1, ES1_ID, {}, "no ES-VRF without protection")
+    _expect_es_vrfs(tor1, ES1_ID, ES1_L3MH_VRFS, "unprotected ES-VRFs")
 
     _set_bpp(tor1, True)
     _expect_es_evi_l3vnis(tor1, ["__ordered__", 4001, 4002], "ES-EVIs sent")
     _expect_es_vrfs(tor1, ES1_ID, ES1_L3MH_VRFS, "ES-1 associated with both IP-VRFs")
-    _expect_es_vrfs(tor1, ES2_ID, {}, "unprotected ES-2 not associated")
+    _expect_es_vrfs(tor1, ES2_ID, ES1_L3MH_VRFS, "unprotected ES-2 associated")
 
     # A second VLAN in vrf-a does not add a reference.
     tor1.run("/sbin/bridge vlan add vid 30 dev %s" % ES_IF)
@@ -893,7 +896,7 @@ def test_bpp_es_vrf_assoc():
 
     _set_bpp(tor1, False)
     _expect_es_evi_l3vnis(tor1, None, "no ES-EVI after protection removed")
-    _expect_es_vrfs(tor1, ES1_ID, {}, "ES-VRFs released")
+    _expect_es_vrfs(tor1, ES1_ID, ES1_L3MH_VRFS, "ES-VRFs kept")
 
 
 def test_bpp_l3mh_gate():
@@ -914,7 +917,9 @@ def test_bpp_l3mh_gate():
     _expect_es_vrfs(tor1, ES1_ID, ES1_L3MH_VRFS, "l3vni-neigh on")
 
     _set_bpp(tor1, False)
-    _expect_es_vrfs(tor1, ES1_ID, {}, "protection removed")
+    _expect_es_vrfs(
+        tor1, ES1_ID, ES1_L3MH_VRFS, "ES-VRFs kept after protection removed"
+    )
 
 
 L2VNI = 1020
@@ -1029,10 +1034,12 @@ def test_bpp_l3mh_bd_gets_l2vni():
 
     _del_l2vni(tor1)
     _expect_es_vrfs(tor1, ES1_ID, ES1_L3MH_VRFS, "L2VNI removed")
-    _expect_es_vrfs(tor1, ES2_ID, {}, "ES-2 L2VNI ES-VRF released")
+    _expect_es_vrfs(tor1, ES2_ID, ES1_L3MH_VRFS, "ES-2 L3MH associations restored")
 
     _set_bpp(tor1, False)
-    _expect_es_vrfs(tor1, ES1_ID, {}, "protection removed")
+    _expect_es_vrfs(
+        tor1, ES1_ID, ES1_L3MH_VRFS, "ES-VRFs kept after protection removed"
+    )
 
 
 def test_bpp_es_evi_l2vni_unchanged():
@@ -1053,7 +1060,7 @@ def test_bpp_es_evi_l2vni_unchanged():
 
     _del_l2vni(tor1)
     _expect_l2_es_evi(tor1, ES2_ID, False, "L2VNI ES-EVI removed")
-    _expect_es_vrfs(tor1, ES2_ID, {}, "L2VNI ES-VRF released")
+    _expect_es_vrfs(tor1, ES2_ID, ES1_L3MH_VRFS, "L3MH associations restored")
 
 
 def test_bpp_es_evi_bgpd_restart():
@@ -1073,7 +1080,9 @@ def test_bpp_es_evi_bgpd_restart():
     _expect_es_vrfs(tor1, ES1_ID, ES1_L3MH_VRFS, "after bgpd restart")
 
     _set_bpp(tor1, False)
-    _expect_es_vrfs(tor1, ES1_ID, {}, "protection removed")
+    _expect_es_vrfs(
+        tor1, ES1_ID, ES1_L3MH_VRFS, "ES-VRFs kept after protection removed"
+    )
 
 
 # bgpd hidden test commands inject ES-EVIs in a chosen order.
@@ -1177,21 +1186,25 @@ def test_bpp_es_evi_l3vni_order():
         "es %s l3vni %d pending: no BGP VRF" % (ES1_ID, VRF_C_L3VNI),
         marker,
     )
-    _expect_es_vrfs(tor1, ES1_ID, {}, "L3VNI unknown")
+    _expect_es_vrfs(tor1, ES1_ID, ES1_L3MH_VRFS, "additional L3VNI unknown")
 
     _add_vrf_c(tor1)
-    _expect_es_vrfs(tor1, ES1_ID, {VRF_C: _l3mh_es_vrf()}, "L3VNI added")
+    _expect_es_vrfs(
+        tor1, ES1_ID, {**ES1_L3MH_VRFS, VRF_C: _l3mh_es_vrf()}, "L3VNI added"
+    )
 
     # L3VNI removed: back to pending; re-added: applied again.
     _del_vrf_c_l3vni(tor1)
-    _expect_es_vrfs(tor1, ES1_ID, {}, "L3VNI removed")
+    _expect_es_vrfs(tor1, ES1_ID, ES1_L3MH_VRFS, "additional L3VNI removed")
     tor1.vtysh_cmd(
         "configure terminal\nvrf %s\nvni %d\nexit-vrf" % (VRF_C, VRF_C_L3VNI)
     )
-    _expect_es_vrfs(tor1, ES1_ID, {VRF_C: _l3mh_es_vrf()}, "L3VNI re-added")
+    _expect_es_vrfs(
+        tor1, ES1_ID, {**ES1_L3MH_VRFS, VRF_C: _l3mh_es_vrf()}, "L3VNI re-added"
+    )
 
     _evpn_cmd(tor1, "no test es %s vni %d" % (ES1_ID, VRF_C_L3VNI))
-    _expect_es_vrfs(tor1, ES1_ID, {}, "ES-EVI deleted")
+    _expect_es_vrfs(tor1, ES1_ID, ES1_L3MH_VRFS, "injected ES-EVI deleted")
 
     _del_vrf_c(tor1)
     _set_bgp_prot_debug(tor1, False)
@@ -1212,7 +1225,9 @@ def test_bpp_es_evi_unknown_vni_rejected():
 
     _set_l3vni_neigh(tor1, True)
     _evpn_cmd(tor1, "test es %s" % ES9_ID)
-    _expect_es_vrfs(tor1, ES1_ID, {}, "ES-1 nothing kept")
+    _expect_es_vrfs(
+        tor1, ES1_ID, ES1_L3MH_VRFS, "ES-1 has only the original references"
+    )
     _expect_es_vrfs(tor1, ES9_ID, {}, "ES-9 nothing kept")
     _evpn_cmd(tor1, "no test es %s" % ES9_ID)
 
@@ -1499,11 +1514,11 @@ def test_bpp_ip_ead_tx():
     lo1 = tor_lo("tor1")
     rts = (_vrf_rt(tor1, "vrf-a"), _vrf_rt(tor1, "vrf-b"))
 
-    _set_bpp(tor2, True)
-    _expect_ip_ead(
-        tor1, "no IP A-D without protection", evi_absent=True, es_absent=True
+    _set_peer_ip_ead(tor2, ES_IF, True)
+    _expect_ip_ead(tor1, "unprotected IP A-D", evi_vrfs=tuple(VRFS))
+    _expect_export_clean(
+        tor2, "unprotected source supplies RT-1", members=1, vteps=(lo1,)
     )
-    _expect_no_exports(tor2, "receiver has no source RT-1")
 
     _set_bpp(tor1, True)
     _expect_ip_ead(tor1, "protected ES", evi_vrfs=("vrf-a", "vrf-b"), es_rts=rts)
@@ -1567,11 +1582,14 @@ def test_bpp_ip_ead_tx_per_es_frag():
     lo1 = tor_lo("tor1")
     rts = (_vrf_rt(tor1, "vrf-a"), _vrf_rt(tor1, "vrf-b"))
 
+    _set_ip_ead_vlans(tor1, ES_IF, False)
+    _expect_ip_ead(tor1, "before fragment setup", evi_absent=True, es_absent=True)
     tor1.vtysh_cmd(
         "configure terminal\nrouter bgp 65001\naddress-family l2vpn evpn\n"
         "ead-es-frag evi-limit 1"
     )
-    _set_bpp(tor2, True)
+    _set_ip_ead_vlans(tor1, ES_IF, True)
+    _set_peer_ip_ead(tor2, ES_IF, True)
     _set_bpp(tor1, True)
 
     def _check_frags():
@@ -1636,9 +1654,11 @@ def test_bpp_ip_ead_tx_no_l3mh():
     tor2 = tgen.gears["tor2"]
     lo1 = tor_lo("tor1")
 
-    _set_bpp(tor2, True)
-    _expect_ip_ead(tor1, "unprotected", evi_absent=True, es_absent=True)
-    _expect_no_exports(tor2, "unprotected source exports nothing")
+    _set_peer_ip_ead(tor2, ES_IF, True)
+    _expect_ip_ead(tor1, "unprotected", evi_vrfs=tuple(VRFS))
+    _expect_export_clean(
+        tor2, "unprotected source supplies RT-1", members=1, vteps=(lo1,)
+    )
 
     _set_bpp(tor1, True)
     _set_l3vni_neigh(tor1, False)
@@ -2407,7 +2427,7 @@ def test_bpp_ip_ead_rx_label_mismatch():
     _clear_ip_ead(tor2)
     _set_bpp(tor1, False)
     _expect_ip_ead(
-        tor1, "label mismatch local RT-1 cleanup", evi_absent=True, es_absent=True,
+        tor1, "unprotected local RT-1 stays advertised", evi_vrfs=tuple(VRFS),
     )
     tor1.vtysh_cmd(
         "configure terminal\nrouter bgp 65001 vrf %s\naddress-family l2vpn evpn\n"
@@ -2649,15 +2669,18 @@ def test_bpp_neigh_sync_coexist():
         pytest.skip(tgen.errors)
 
     tor1 = tgen.gears["tor1"]
-    tor2 = tgen.gears["tor2"]
     host = tgen.gears["hostd1"]
     host_mac = host.run("cat /sys/class/net/bond0/address").strip()
-    peers = (tor_vtep("tor2"),)
+    peer_tors = [tgen.gears[name] for name in TORS[1:]]
+    peers = tuple(tor_vtep(tor.name) for tor in peer_tors)
 
-    _set_bpp_if(tor2, ES_IF, True)
+    for tor in peer_tors:
+        _set_ip_ead_vlans(tor, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_ip_ead_rx_all(tor1, ES1_ID, peers, "neighbor-sync RT-1 baseline")
-    _expect_export_clean(tor1, "neighbor-sync BPP baseline", members=1, vteps=peers)
+    _expect_export_clean(
+        tor1, "neighbor-sync BPP baseline", members=len(peers), vteps=peers
+    )
     marker = _export_marker(tor1)
 
     expected = {}
@@ -2722,10 +2745,13 @@ def test_bpp_neigh_sync_coexist():
         assert result is None, result
 
     _expect_ip_ead_rx_all(tor1, ES1_ID, peers, "neighbor sync keeps RT-1")
-    _expect_export_clean(tor1, "neighbor sync keeps BPP export", members=1, vteps=peers)
+    _expect_export_clean(
+        tor1, "neighbor sync keeps BPP export", members=len(peers), vteps=peers
+    )
     _expect_export_events(tor1, marker, [], "neighbor sync sends no BPP export")
 
-    _clear_ip_ead(tor2)
+    for tor in peer_tors:
+        _set_ip_ead_vlans(tor, ES_IF, False)
     _expect_no_ip_ead_rx(tor1, ES1_ID, "neighbor-sync RT-1 cleanup")
     _expect_no_exports(tor1, "neighbor-sync BPP cleanup", released=True)
     _set_bpp(tor1, False)
@@ -2992,11 +3018,22 @@ def test_bpp_eligibility():
     tor2 = tgen.gears["tor2"]
     tor3 = tgen.gears["tor3"]
     peers = (tor_lo("tor2"), tor_vtep("tor3"))
+    rt4_only = tor_vtep("tor4")
+
+    def zebra_ops(vteps):
+        output = json.loads(
+            tor1.vtysh_cmd("show bgp l2vpn evpn es l3-eligibility json")
+        )
+        es = next((entry for entry in output if entry.get("esi") == ES1_ID), {})
+        candidates = {entry["vtep"]: entry for entry in es.get("vteps") or []}
+        return {vtep: candidates.get(vtep, {}).get("zebraOp") for vtep in vteps}
 
     _set_prot_debug(tor1, True)
     snap = _log_text(tgen, tor1, "zebra")
-    _set_bpp_if(tor2, ES_IF, True)
-    _set_bpp_if(tor3, ES_IF, True)
+    original_rt4_op = zebra_ops((rt4_only,))[rt4_only]
+    assert original_rt4_op in ("none", "del"), original_rt4_op
+    _set_peer_ip_ead(tor2, ES_IF, True)
+    _set_peer_ip_ead(tor3, ES_IF, True)
     _set_bpp(tor1, True)
     _expect_eligible(tor1, ES1_ID, peers, "tor2 and tor3 eligible")
 
@@ -3064,12 +3101,7 @@ def test_bpp_eligibility():
 
     def _expect_zebra_ops(expected, msg):
         def _check():
-            output = json.loads(
-                tor1.vtysh_cmd("show bgp l2vpn evpn es l3-eligibility json")
-            )
-            es = next((entry for entry in output if entry.get("esi") == ES1_ID), {})
-            candidates = {entry["vtep"]: entry for entry in es.get("vteps") or []}
-            got = {vtep: candidates.get(vtep, {}).get("zebraOp") for vtep in expected}
+            got = zebra_ops(expected)
             return None if got == expected else got
 
         _, result = topotest.run_and_expect(
@@ -3078,7 +3110,7 @@ def test_bpp_eligibility():
         assert result is None, "%s: %s" % (msg, result)
 
     expected_ops = {lo: "add" for lo in peers}
-    expected_ops[tor_vtep("tor4")] = "none"
+    expected_ops[rt4_only] = original_rt4_op
     _expect_zebra_ops(expected_ops, "initial Zebra operations")
 
     all_mac_ip = json.loads(tor1.vtysh_cmd("show bgp l2vpn evpn route mac-ip json"))
@@ -3096,6 +3128,7 @@ def test_bpp_eligibility():
         _expect_bpp_peer(tgen, tor1, ES1_ID, lo, "add", "one ADD", after=snap)
     text = _log_text(tgen, tor1, "zebra")
     new = text[len(snap) :] if text.startswith(snap) else text
+    assert not [line for line in _bpp_peer_lines(new, ES1_ID) if rt4_only in line], new
     for lo in peers:
         adds = [ln for ln in _bpp_peer_lines(new, ES1_ID, "add") if lo in ln]
         assert len(adds) == 1, "want 1 ADD for %s, got %s" % (lo, adds)
@@ -3162,7 +3195,7 @@ def test_bpp_new_local_vrf():
     _del_vrf_c_vlan(tor1)
     _del_vrf_c_vlan(tor2)
     _expect_ip_ead(
-        tor1, "new local VRF cleanup withdraws local IP A-D", evi_absent=True, es_absent=True
+        tor1, "new local VRF cleanup restores original IP A-D", evi_vrfs=tuple(VRFS)
     )
     _clear_ip_ead(tor2)
     _set_prot_debug(tor1, False)
@@ -3625,66 +3658,31 @@ def test_bpp_single_tor_enabled():
 
     tor1 = tgen.gears["tor1"]
     tor2 = tgen.gears["tor2"]
+    lo1 = tor_lo("tor1")
     lo2 = tor_lo("tor2")
-    rts = tuple(_vrf_rt(tor2, vrf) for vrf in VRFS)
 
-    for tor in (tor1, tor2):
-        _expect_bpp(tor, False)
-        _expect_ip_ead(
-            tor, "%s initial local IP A-D" % tor.name, evi_absent=True, es_absent=True,
-        )
-        _expect_no_ip_ead_rx(tor, ES1_ID, "%s initial received IP A-D" % tor.name)
-        _expect_no_exports(tor, "%s initial exports" % tor.name)
-    _expect_no_ip_ead_bgp_rx(tor1, tor2, ES1_ID, "tor1 initial received BGP IP A-D")
-    _expect_no_ip_ead_bgp_rx(tor2, tor1, ES1_ID, "tor2 initial received BGP IP A-D")
+    _set_ip_ead_vlans(tor2, ES_IF, True)
+    try:
+        for tor, peer in ((tor1, lo2), (tor2, lo1)):
+            _expect_bpp(tor, False)
+            _expect_ip_ead(tor, "unprotected IP A-D", evi_vrfs=tuple(VRFS))
+            _expect_ip_ead_rx_all(tor, ES1_ID, (peer,), "unprotected peer classified")
+            _expect_no_exports(tor, "unprotected ES exports no backup objects")
 
-    markers = {tor.name: _export_marker(tor) for tor in (tor1, tor2)}
+        _set_bpp(tor2, True)
+        _expect_export_clean(
+            tor2, "protected ES uses the unprotected peer", members=1, vteps=(lo1,)
+        )
+        _expect_no_exports(tor1, "unprotected ES still exports no backup objects")
 
-    _set_bpp_if(tor2, ES_IF, True)
-    _expect_bpp(tor1, False)
-    _expect_bpp(tor2, True)
-    _expect_ip_ead(
-        tor2, "enabled TOR advertises IP A-D", evi_vrfs=tuple(VRFS), es_rts=rts
-    )
-    _expect_ip_ead_rt_rx(
-        tor1, tor2, ES1_ID, rts, rts, "disabled TOR BGP receives enabled TOR IP A-D",
-    )
-    _expect_ip_ead_rx_all(
-        tor1, ES1_ID, (lo2,), "disabled TOR receives enabled TOR IP A-D"
-    )
-    _expect_ip_ead(
-        tor1, "disabled TOR does not advertise IP A-D", evi_absent=True, es_absent=True,
-    )
-    _expect_no_ip_ead_rx(tor2, ES1_ID, "enabled TOR receives no disabled peer")
-    _expect_no_ip_ead_bgp_rx(
-        tor2, tor1, ES1_ID, "enabled TOR BGP receives no disabled peer"
-    )
-    for tor in (tor1, tor2):
-        _expect_no_exports(tor, "%s has no asymmetric exports" % tor.name)
-        _expect_export_events(
-            tor,
-            markers[tor.name],
-            [],
-            "%s sends no asymmetric dataplane messages" % tor.name,
-        )
-
-    markers = {tor.name: _export_marker(tor) for tor in (tor1, tor2)}
-    _set_bpp_if(tor2, ES_IF, False)
-    for tor in (tor1, tor2):
-        _expect_bpp(tor, False)
-        _expect_ip_ead(
-            tor, "%s cleanup local IP A-D" % tor.name, evi_absent=True, es_absent=True,
-        )
-        _expect_no_ip_ead_rx(tor, ES1_ID, "%s cleanup received IP A-D" % tor.name)
-        _expect_no_exports(tor, "%s cleanup has no exports" % tor.name)
-        _expect_export_events(
-            tor,
-            markers[tor.name],
-            [],
-            "%s sends no cleanup dataplane messages" % tor.name,
-        )
-    _expect_no_ip_ead_bgp_rx(tor1, tor2, ES1_ID, "tor1 cleanup received BGP IP A-D")
-    _expect_no_ip_ead_bgp_rx(tor2, tor1, ES1_ID, "tor2 cleanup received BGP IP A-D")
+        _set_bpp(tor2, False)
+        _expect_no_exports(tor2, "protection disable removes exports", released=True)
+        for tor, peer in ((tor1, lo2), (tor2, lo1)):
+            _expect_ip_ead(tor, "protection disable keeps IP A-D", evi_vrfs=tuple(VRFS))
+            _expect_ip_ead_rx_all(tor, ES1_ID, (peer,), "peer IP A-D still classified")
+    finally:
+        _set_bpp(tor2, False)
+        _set_ip_ead_vlans(tor2, ES_IF, False)
 
 
 def test_bpp_remote_only_es_no_send():
@@ -3928,10 +3926,8 @@ def test_bpp_unprotected_l3mh_es():
     tor2 = tgen.gears["tor2"]
 
     _expect_es_evi_l3vnis(tor1, None, "no L3VNI ES-EVI without protection")
-    _expect_es_vrfs(tor1, ES1_ID, {}, "no ES-VRF without protection")
-    _expect_ip_ead(
-        tor1, "no IP A-D without protection", evi_absent=True, es_absent=True
-    )
+    _expect_es_vrfs(tor1, ES1_ID, ES1_L3MH_VRFS, "unprotected ES-VRFs")
+    _expect_ip_ead(tor1, "unprotected IP A-D", evi_vrfs=tuple(VRFS))
     _expect_no_exports(tor1, "unprotected L3MH ES has no exports")
     _expect_json(
         tor1, "show evpn mh bridge-port-protection member json", {}, "no Group"
@@ -5821,8 +5817,7 @@ def test_bpp_local_link_down():
 
     tor1 = tgen.gears["tor1"]
     tor2 = tgen.gears["tor2"]
-    host = tgen.gears["hostd1"]
-    gw = ACCESS_VLANS[10][1].split("/")[0]
+    ip, mac, svi = "10.10.0.254", "02:00:00:00:00:fe", "vlan10"
     rts = (_vrf_rt(tor1, "vrf-a"), _vrf_rt(tor1, "vrf-b"))
 
     _set_peer_ip_ead(tor2, ES_IF, True)
@@ -5833,39 +5828,64 @@ def test_bpp_local_link_down():
     _expect_export_clean(tor1, "protected", members=1)
     _expect_ip_ead_rx_all(tor1, ES1_ID, (tor_lo("tor2"),), "local-link RT-1 present")
     rt_state = _ip_ead_classification_snapshot(tor1, ES1_ID)
-    host.run("ping -c 3 -W 1 %s" % gw)
-    before = _local_forwarding_state(tor1)
+    retrans = f"net.ipv4.neigh.{svi}.retrans_time_ms"
+    original_retrans = tor1.cmd_raises(f"sysctl -n {retrans}").strip()
+    tor1.cmd_raises(f"sysctl -qw {retrans}=60000")
+    fdb = f"{mac} dev {ES_IF} master vlan 10"
+    access_svis = {f"vlan{vid}" for vid in ES_VLANS}
 
-    marker = _export_marker(tor1)
-    tor1.run("ip link set dev %s down" % ES_IF)
-    _expect_ip_ead(
-        tor1,
-        "link down withdraws local per-ES RT-1",
-        evi_vrfs=("vrf-a", "vrf-b"),
-        es_absent=True,
-    )
-    _expect_members(tor1, ES1_ID, (tor_lo("tor2"),), "objects kept")
-    _expect_export_clean(tor1, "link down export unchanged", members=1)
-    assert _local_forwarding_state(tor1) == before
-    _expect_export_events(tor1, marker, [], "link down has no export")
-    _expect_ip_ead_classification_unchanged(
-        tor1, ES1_ID, rt_state, "local link down keeps RT-1 classification"
-    )
+    def other_forwarding():
+        state = _local_forwarding_state(tor1)
+        state["neighbors"] = [
+            entry for entry in state["neighbors"] if entry["dev"] not in access_svis
+        ]
+        return state
 
-    tor1.run("ip link set dev %s up" % ES_IF)
-    _expect_ip_ead(
-        tor1,
-        "link up restores local per-ES RT-1",
-        evi_vrfs=("vrf-a", "vrf-b"),
-        es_rts=rts,
-    )
-    _expect_export_clean(tor1, "link up export unchanged", members=1)
-    assert _local_forwarding_state(tor1) == before
-    _expect_export_events(tor1, marker, [], "link up has no export")
-    _expect_ip_ead_classification_unchanged(
-        tor1, ES1_ID, rt_state, "local link up keeps RT-1 classification"
-    )
+    def check_arp(expected):
+        entry = tor1.cmd_raises(f"ip neigh show to {ip} dev {svi}")
+        assert {mac, expected} <= set(entry.split()), entry
 
+    try:
+        tor1.cmd_raises(f"bridge fdb replace {fdb} dynamic")
+        tor1.cmd_raises(f"ip neigh replace {ip} lladdr {mac} dev {svi} nud reachable")
+        before = other_forwarding()
+
+        marker = _export_marker(tor1)
+        tor1.run("ip link set dev %s down" % ES_IF)
+        _expect_ip_ead(
+            tor1,
+            "link down withdraws local per-ES RT-1",
+            evi_vrfs=("vrf-a", "vrf-b"),
+            es_absent=True,
+        )
+        _expect_members(tor1, ES1_ID, (tor_lo("tor2"),), "objects kept")
+        _expect_export_clean(tor1, "link down export unchanged", members=1)
+        assert other_forwarding() == before
+        check_arp("PERMANENT")
+        _expect_export_events(tor1, marker, [], "link down has no export")
+        _expect_ip_ead_classification_unchanged(
+            tor1, ES1_ID, rt_state, "local link down keeps RT-1 classification"
+        )
+
+        tor1.run("ip link set dev %s up" % ES_IF)
+        _expect_ip_ead(
+            tor1,
+            "link up restores local per-ES RT-1",
+            evi_vrfs=("vrf-a", "vrf-b"),
+            es_rts=rts,
+        )
+        _expect_export_clean(tor1, "link up export unchanged", members=1)
+        assert other_forwarding() == before
+        check_arp("PROBE")
+        _expect_export_events(tor1, marker, [], "link up has no export")
+        _expect_ip_ead_classification_unchanged(
+            tor1, ES1_ID, rt_state, "local link up keeps RT-1 classification"
+        )
+    finally:
+        tor1.cmd_raises(f"ip link set dev {ES_IF} up")
+        tor1.run(f"ip neigh del {ip} dev {svi}")
+        tor1.run(f"bridge fdb del {fdb}")
+        tor1.cmd_raises(f"sysctl -qw {retrans}={original_retrans}")
     _set_bpp(tor1, False)
     _clear_ip_ead(tor2)
     _expect_no_ip_ead_rx(tor1, ES1_ID, "local-link RT-1 cleanup")
@@ -6082,15 +6102,7 @@ def test_bpp_scale():
         bindings = (before.get("tables") or {}).get("bindings")
 
         marker = _expect_export_quiescent(tor1, "scale setup export settled")
-        config = ["configure terminal"]
-        for index in range(1, SCALE_ES_COUNT + 1):
-            config.extend(
-                (
-                    "interface %s" % _scale_es_name(index),
-                    "no evpn mh bridge-port-protection",
-                )
-            )
-        tgen.gears["tor4"].vtysh_cmd("\n".join(config))
+        _set_l3vni_neigh(tgen.gears["tor4"], False)
 
         remaining = tuple(tor_vtep(name) for name in ("tor2", "tor3"))
         _expect_scale_export(tor1, remaining, "peer churn withdrawal")
@@ -6108,15 +6120,7 @@ def test_bpp_scale():
         )
 
         marker = _expect_export_quiescent(tor1, "scale withdrawal export settled")
-        config = ["configure terminal"]
-        for index in range(1, SCALE_ES_COUNT + 1):
-            config.extend(
-                (
-                    "interface %s" % _scale_es_name(index),
-                    "evpn mh bridge-port-protection",
-                )
-            )
-        tgen.gears["tor4"].vtysh_cmd("\n".join(config))
+        _set_l3vni_neigh(tgen.gears["tor4"], True)
 
         _expect_scale_export(tor1, peers, "peer churn restoration")
         _expect_scale_ip_ead_rx(tor1, peers, "scale RT-1 restoration")
@@ -6132,6 +6136,7 @@ def test_bpp_scale():
             msg="scale restoration has no Binding updates",
         )
     finally:
+        _set_l3vni_neigh(tgen.gears["tor4"], True)
         for name in TORS:
             _scale_dataplane_del(tgen.gears[name])
 
