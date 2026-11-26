@@ -1979,6 +1979,13 @@ def vxlan_dynamic_nh_fdb_skip_reason(release=None):
     flavor = match.group("flavor")
     family = _ubuntu_kernel_family(flavor)
     abi = int(match.group("abi"))
+    # Azure backported the reject in 1072; 1073 also has it. Limit the
+    # skip to confirmed ABIs so later, unverified builds run the checks.
+    if version == "6.8.0" and family == "azure" and abi in (1072, 1073):
+        return (
+            "kernel %s rejects a dynamic VXLAN FDB entry with a nexthop id "
+            "(c8f29af91e08); skip limited to Azure 6.8.0 ABIs 1072 and 1073" % release
+        )
     window = _VXLAN_NH_FDB_FIX.get(version, {}).get(family)
     logger.debug(
         "vxlan nh fdb: version %s abi %s flavor %s family %s window %s",
