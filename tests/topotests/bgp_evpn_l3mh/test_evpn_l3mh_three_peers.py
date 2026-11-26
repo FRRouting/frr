@@ -336,3 +336,49 @@ def test_rt1_last_path_marks_only_its_origin():
             leaf.run(
                 f"bridge fdb del {mac} dev hostbond1 master vlan {vid} 2>/dev/null"
             )
+
+
+def test_nud_transitions_do_not_learn_or_delete_l3mh_binding():
+    tgen = l3mh.get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    owner, receiver = (tgen.gears[name] for name in ("leaf1", "leaf2"))
+    leaves = (owner, receiver)
+    ip, mac = "45.0.0.208", "02:00:00:00:00:d0"
+    vid = l3mh.HOST_VID
+    timer = f"net.ipv4.neigh.vlan{vid}.retrans_time_ms"
+    original = owner.cmd_raises(f"sysctl -n {timer}").strip()
+
+    def update(state, lladdr=""):
+        owner.cmd_raises(f"ip neigh replace {ip} dev vlan{vid} {lladdr} nud {state}")
+
+    def advertised():
+        l3mh._settle(leaves)
+        return l3mh._pure_l3_rt2_path(receiver, 65011, ip=ip, mac=mac) is not None
+
+    l3mh._settle(leaves)
+    try:
+        # Drive failure explicitly so kernel retries cannot race the assertions.
+        owner.cmd_raises(f"sysctl -qw {timer}=60000")
+        owner.cmd_raises(
+            f"bridge fdb replace {mac} dev hostbond1 master vlan {vid} dynamic"
+        )
+        update("probe", f"lladdr {mac}")
+        assert not advertised(), "NUD_PROBE originated an RT-2"
+        l3mh._l3mh_knob(owner, 65011, False)
+        l3mh._l3mh_knob(owner, 65011, True)
+        assert not advertised(), "Replay treated NUD_PROBE as a learn"
+
+        update("reachable", f"lladdr {mac}")
+        assert advertised(), "NUD_REACHABLE did not originate the binding"
+
+        update("incomplete")
+        assert advertised(), "NUD_INCOMPLETE withdrew the existing RT-2"
+
+        update("failed")
+        assert not advertised(), "NUD_FAILED left the local RT-2 advertised"
+    finally:
+        owner.run(f"ip neigh del {ip} dev vlan{vid} 2>/dev/null")
+        owner.run(f"bridge fdb del {mac} dev hostbond1 master vlan {vid} 2>/dev/null")
+        owner.cmd_raises(f"sysctl -qw {timer}={original}")

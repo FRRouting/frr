@@ -43,6 +43,29 @@ enum zebra_l3mh_neigh_removal_reason {
 	ZEBRA_L3MH_NEIGH_REMOVE_ADMIN,
 };
 
+enum zebra_l3mh_nud_event {
+	ZEBRA_L3MH_NUD_IGNORE,
+	ZEBRA_L3MH_NUD_LEARN,
+	ZEBRA_L3MH_NUD_TRANSIENT,
+	ZEBRA_L3MH_NUD_FAILED,
+	ZEBRA_L3MH_NUD_DELETE,
+};
+
+static inline enum zebra_l3mh_nud_event zebra_evpn_l3mh_nud_classify(uint16_t state, bool deleted)
+{
+	if (deleted)
+		return ZEBRA_L3MH_NUD_DELETE;
+	if (state & ZEBRA_NEIGH_STATE_FAILED)
+		return ZEBRA_L3MH_NUD_FAILED;
+	if (state &
+	    (ZEBRA_NEIGH_STATE_INCOMPLETE | ZEBRA_NEIGH_STATE_DELAY | ZEBRA_NEIGH_STATE_PROBE))
+		return ZEBRA_L3MH_NUD_TRANSIENT;
+	if (state & (ZEBRA_NEIGH_STATE_REACHABLE | ZEBRA_NEIGH_STATE_STALE |
+		     ZEBRA_NEIGH_STATE_NOARP | ZEBRA_NEIGH_STATE_PERMANENT))
+		return ZEBRA_L3MH_NUD_LEARN;
+	return ZEBRA_L3MH_NUD_IGNORE;
+}
+
 /* Validate transitions among the currently recorded binding states. */
 static inline bool zebra_evpn_l3mh_neigh_transition_valid(enum zebra_l3mh_neigh_lifecycle current,
 							  enum zebra_l3mh_neigh_lifecycle next)
@@ -107,6 +130,8 @@ struct zebra_neigh {
 	ifindex_t l3mh_expected_ifindex;
 	vlanid_t l3mh_expected_eth_tag;
 	uint32_t l3mh_generation;
+	uint32_t l3mh_probe_seq;
+	uint32_t l3mh_probe_generation;
 	struct ipaddr l3mh_peer_origin; /* Advertising PE, separate from forwarding. */
 	bool l3mh_peer_rt1_lost;
 
@@ -179,6 +204,29 @@ struct zebra_neigh {
 	 */
 	uint64_t gr_refresh_time;
 };
+
+/* Keep the slot occupied through cancellation until its result arrives. */
+static inline bool zebra_evpn_l3mh_probe_begin(struct zebra_neigh *n, uint32_t seq)
+{
+	if (!seq || !n->l3mh_generation || n->l3mh_probe_seq)
+		return false;
+	n->l3mh_probe_seq = seq;
+	n->l3mh_probe_generation = n->l3mh_generation;
+	return true;
+}
+
+static inline void zebra_evpn_l3mh_probe_cancel(struct zebra_neigh *n)
+{
+	n->l3mh_probe_generation = 0;
+}
+
+static inline bool zebra_evpn_l3mh_probe_complete(struct zebra_neigh *n, uint32_t seq, bool success)
+{
+	if (!seq || n->l3mh_probe_seq != seq)
+		return false;
+	n->l3mh_probe_seq = 0;
+	return success && n->l3mh_probe_generation == n->l3mh_generation;
+}
 
 /* Record the ES attachment. A missing ESI clears the binding. */
 static inline void zebra_evpn_l3mh_neigh_record(struct zebra_neigh *n,
@@ -379,7 +427,12 @@ int zebra_evpn_l3vni_local_neigh_update(struct interface *ifp, struct interface 
 					const struct ipaddr *ip, const struct ethaddr *macaddr,
 					uint16_t nud_state, bool is_own, bool is_router);
 int zebra_evpn_l3vni_local_neigh_del(struct interface *ifp, struct interface *br_if,
-				     const struct ipaddr *ip);
+				     const struct ipaddr *ip, enum zebra_l3mh_nud_event event);
+struct zebra_dplane_ctx;
+bool zebra_evpn_l3vni_neigh_start_probe(struct zebra_neigh *n, const struct interface *ifp);
+bool zebra_evpn_l3vni_neigh_probe_result(const struct zebra_dplane_ctx *ctx);
+bool zebra_evpn_l3vni_neigh_probe_delete_event(ns_id_t ns_id, ifindex_t ifindex,
+					       const struct ipaddr *ip, bool deleted);
 void zebra_evpn_l3vni_neigh_flush(struct zebra_evpn *zevpn);
 void zebra_evpn_l3vni_neigh_flush_all(void);
 void zebra_evpn_l3vni_neigh_handoff_bd(vni_t l3vni, vlanid_t vid, struct zebra_evpn *l2zevpn,

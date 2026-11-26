@@ -4608,9 +4608,8 @@ void zebra_vxlan_print_vnis_detail(struct vty *vty, struct zebra_vrf *zvrf,
  * from our database or being re-added to the kernel (if it is a valid
  * remote neighbor).
  */
-int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
-					struct interface *link_if,
-					struct ipaddr *ip)
+int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp, struct interface *link_if,
+					struct ipaddr *ip, uint16_t state, bool deleted)
 {
 	struct zebra_evpn *zevpn = NULL;
 	struct zebra_l3vni *zl3vni = NULL;
@@ -4627,11 +4626,15 @@ int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 	 */
 	zevpn = zebra_evpn_from_svi(ifp, link_if);
 	if (!zevpn) {
+		enum zebra_l3mh_nud_event event = zebra_evpn_l3mh_nud_classify(state, deleted);
+
+		if (event != ZEBRA_L3MH_NUD_FAILED && event != ZEBRA_L3MH_NUD_DELETE)
+			return 0;
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"%s: Del neighbor %pIA EVPN is not present for interface %s",
 				__func__, ip, ifp->name);
-		return zebra_evpn_l3vni_local_neigh_del(ifp, link_if, ip);
+		return zebra_evpn_l3vni_local_neigh_del(ifp, link_if, ip, event);
 	}
 
 	if (!zevpn->vxlan_if) {
@@ -4678,9 +4681,12 @@ int zebra_vxlan_handle_kernel_neigh_update(struct interface *ifp, struct interfa
 	 * of a VxLAN bridge.
 	 */
 	zevpn = zebra_evpn_from_svi(ifp, link_if);
-	if (!zevpn)
+	if (!zevpn) {
+		if (zebra_evpn_l3mh_nud_classify(state, false) != ZEBRA_L3MH_NUD_LEARN)
+			return 0;
 		return zebra_evpn_l3vni_local_neigh_update(ifp, link_if, ip, macaddr, state,
 							   is_own, is_router);
+	}
 
 	if (IS_ZEBRA_DEBUG_VXLAN || IS_ZEBRA_DEBUG_EVPN_MH_NEIGH)
 		zlog_debug("Add/Update neighbor %pIA MAC %pEA intf %s(%u) state 0x%x %s%s%s%s-> L2-VNI %u",
@@ -4708,16 +4714,19 @@ int zebra_vxlan_handle_kernel_neigh_update(struct interface *ifp, struct interfa
  */
 void zebra_vxlan_l3vni_neigh_replay_entry(struct interface *ifp, struct interface *link_if,
 					  struct ipaddr *ip, struct ethaddr *macaddr,
-					  bool is_router)
+					  uint16_t state, bool is_router)
 {
+	if (zebra_evpn_l3mh_nud_classify(state, false) != ZEBRA_L3MH_NUD_LEARN)
+		return;
+
 	if (zl3vni_from_svi(ifp, link_if))
 		return;
 
 	if (zebra_evpn_from_svi(ifp, link_if))
 		return;
 
-	zebra_evpn_l3vni_local_neigh_update(ifp, link_if, ip, macaddr, 0 /* nud_state */,
-					    false /* is_own */, is_router);
+	zebra_evpn_l3vni_local_neigh_update(ifp, link_if, ip, macaddr, state, false /* is_own */,
+					    is_router);
 }
 
 static int32_t zebra_vxlan_remote_macip_helper(bool add, struct stream *s, vni_t *vni,

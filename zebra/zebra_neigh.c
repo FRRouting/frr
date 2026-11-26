@@ -27,6 +27,7 @@
 #include "zebra/rt.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/interface.h"
+#include "zebra/zebra_evpn_neigh.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_pbr.h"
@@ -265,7 +266,7 @@ static void zebra_neigh_l3_replay_one(struct zebra_neigh_ent *n)
 	if (!link_if)
 		return;
 
-	zebra_vxlan_l3vni_neigh_replay_entry(ifp, link_if, &n->ip, &n->mac,
+	zebra_vxlan_l3vni_neigh_replay_entry(ifp, link_if, &n->ip, &n->mac, n->neigh_state,
 					     CHECK_FLAG(n->flags, ZEBRA_NEIGH_ENT_ROUTER));
 }
 
@@ -531,7 +532,8 @@ void zebra_neigh_dplane_update(struct zebra_dplane_ctx *ctx)
 		zebra_neigh_ipaddr_update(ctx);
 	} else if (op == DPLANE_OP_NEIGH_INSTALL || op == DPLANE_OP_NEIGH_DELETE ||
 		   op == DPLANE_OP_NEIGH_UPDATE) {
-		zebra_neigh_macfdb_update(ctx);
+		if (!zebra_evpn_l3vni_neigh_probe_result(ctx))
+			zebra_neigh_macfdb_update(ctx);
 	}
 }
 
@@ -569,6 +571,14 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 
 	ndm_state = dplane_ctx_neigh_get_ndm_state(ctx);
 	ndm_family = dplane_ctx_neigh_get_ndm_family(ctx);
+	if ((op == DPLANE_OP_NEIGH_IP_DELETE ||
+	     (op == DPLANE_OP_NEIGH_IP_INSTALL && (ndm_state & ZEBRA_NUD_FAILED))) &&
+	    zebra_evpn_l3vni_neigh_probe_delete_event(ns_id, ndm_ifindex, &ip,
+						      op == DPLANE_OP_NEIGH_IP_DELETE)) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_L3_NEIGH)
+			zlog_debug("L3MH probe consumed %s for %pIA", dplane_op2str(op), &ip);
+		return;
+	}
 
 	/* if kernel deletes our rfc5549 neighbor entry, re-install it */
 	if (op == DPLANE_OP_NEIGH_IP_DELETE && (ndm_state & ZEBRA_NUD_PERMANENT)) {
@@ -663,7 +673,7 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 
 		zebra_neigh_del(ns_id, ifp, &ip);
 		if (link_if)
-			zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip);
+			zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip, ndm_state, false);
 		return;
 	}
 
@@ -677,7 +687,7 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 	 */
 	zebra_neigh_del(ns_id, ifp, &ip);
 	if (link_if)
-		zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip);
+		zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip, ndm_state, true);
 }
 
 static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx)

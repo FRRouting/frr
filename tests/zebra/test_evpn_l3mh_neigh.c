@@ -117,9 +117,59 @@ static void test_local_binding(void)
 	printf("L3MH local binding generation checks passed.\n");
 }
 
+static void test_nud_events(void)
+{
+	assert(zebra_evpn_l3mh_nud_classify(ZEBRA_NEIGH_STATE_REACHABLE, false) ==
+	       ZEBRA_L3MH_NUD_LEARN);
+	assert(zebra_evpn_l3mh_nud_classify(ZEBRA_NEIGH_STATE_STALE, false) ==
+	       ZEBRA_L3MH_NUD_LEARN);
+	assert(zebra_evpn_l3mh_nud_classify(ZEBRA_NEIGH_STATE_INCOMPLETE, false) ==
+	       ZEBRA_L3MH_NUD_TRANSIENT);
+	assert(zebra_evpn_l3mh_nud_classify(ZEBRA_NEIGH_STATE_DELAY, false) ==
+	       ZEBRA_L3MH_NUD_TRANSIENT);
+	assert(zebra_evpn_l3mh_nud_classify(ZEBRA_NEIGH_STATE_PROBE, false) ==
+	       ZEBRA_L3MH_NUD_TRANSIENT);
+	assert(zebra_evpn_l3mh_nud_classify(ZEBRA_NEIGH_STATE_FAILED, false) ==
+	       ZEBRA_L3MH_NUD_FAILED);
+	assert(zebra_evpn_l3mh_nud_classify(ZEBRA_NEIGH_STATE_FAILED, true) ==
+	       ZEBRA_L3MH_NUD_DELETE);
+	assert(zebra_evpn_l3mh_nud_classify(ZEBRA_NEIGH_STATE_NONE, false) ==
+	       ZEBRA_L3MH_NUD_IGNORE);
+	puts("L3MH NUD event classification passed.");
+}
+
+static void test_probe_results(void)
+{
+	struct zebra_neigh n = { .l3mh_generation = 1 };
+
+	assert(zebra_evpn_l3mh_probe_begin(&n, 1));
+	assert(!zebra_evpn_l3mh_probe_begin(&n, 2));
+	assert(!zebra_evpn_l3mh_probe_complete(&n, 2, true));
+	assert(!zebra_evpn_l3mh_probe_complete(&n, 1, false));
+	assert(!zebra_evpn_l3mh_probe_complete(&n, 1, true));
+
+	assert(zebra_evpn_l3mh_probe_begin(&n, 2));
+	zebra_evpn_l3mh_probe_cancel(&n);
+	assert(!zebra_evpn_l3mh_probe_begin(&n, 3));
+	assert(!zebra_evpn_l3mh_probe_complete(&n, 2, true));
+
+	assert(zebra_evpn_l3mh_probe_begin(&n, 3));
+	n.l3mh_generation++;
+	assert(!zebra_evpn_l3mh_probe_complete(&n, 3, true));
+
+	assert(zebra_evpn_l3mh_probe_begin(&n, 4));
+	assert(zebra_evpn_l3mh_probe_complete(&n, 4, true));
+	assert(zebra_evpn_l3mh_probe_begin(&n, 5));
+	assert(!zebra_evpn_l3mh_probe_complete(&n, 4, true));
+	assert(zebra_evpn_l3mh_probe_complete(&n, 5, true));
+	puts("L3MH probe result ordering passed.");
+}
+
 int main(void)
 {
 	test_transitions();
 	test_local_binding();
+	test_nud_events();
+	test_probe_results();
 	return EXIT_SUCCESS;
 }

@@ -8,3 +8,5 @@ class TestEvpnL3mhNeigh(frrtest.TestMultiOut):
 
 TestEvpnL3mhNeigh.onesimple("L3MH neighbor lifecycle transitions passed.")
 TestEvpnL3mhNeigh.onesimple("L3MH local binding generation checks passed.")
+TestEvpnL3mhNeigh.onesimple("L3MH NUD event classification passed.")
+TestEvpnL3mhNeigh.onesimple("L3MH probe result ordering passed.")
