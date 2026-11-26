@@ -90,9 +90,10 @@ LEAF_LO = {
     "leaf1": "10.0.0.11",
     "leaf2": "10.0.0.12",
     "leaf3": "10.0.0.13",
+    "leaf4": "10.0.0.14",
 }
 
-# ESI bond system-mac shared by the leaf1/leaf2 multihoming pair (es-id 1).
+# ESI bond system-mac shared by the leaves on host1's ES (es-id 1).
 # The resulting type-3 ESI is 03:44:38:39:ff:ff:01:00:00:01.
 ES_SYS_MAC = "44:38:39:ff:ff:01"
 ES1_ID = "03:44:38:39:ff:ff:01:00:00:01"
@@ -141,10 +142,10 @@ WAIT_COUNT = 30
 WAIT_STEP = 2
 
 
-def build_topo(tgen):
+def build_topo(tgen, extra_es_peer=False):
     """
     2 spines, 3 leaves (VTEPs), host1 dual-homed to leaf1+leaf2 via an ESI bond,
-    host2 single-homed to leaf3.
+    host2 single-homed to leaf3. The three-peer fixture adds leaf4 to host1.
     """
     for name in (
         "spine1",
@@ -177,6 +178,12 @@ def build_topo(tgen):
     link("sw7", "leaf1", "host1")
     link("sw8", "leaf2", "host1")
     link("sw9", "leaf3", "host2")
+
+    if extra_es_peer:
+        tgen.add_router("leaf4")
+        link("sw10", "spine1", "leaf4")
+        link("sw11", "spine2", "leaf4")
+        link("sw12", "leaf4", "host1")
 
 
 #####################################################
@@ -279,7 +286,7 @@ def config_leaf_base(
 
 
 def config_esi_bond(node, member, extra_vids=()):
-    """Leaf-side ESI bond (es-id 1) facing the dual-homed host1, added to the
+    """Leaf-side ESI bond (es-id 1) facing host1, added to the
     VLAN-aware bridge as an access port on host1's VLAN 100."""
     node.run("ip link add dev hostbond1 type bond mode 802.3ad")
     node.run("ip link set dev hostbond1 type bond lacp_rate 1")
@@ -331,7 +338,7 @@ def config_del_l2vni(node, vni, unslave_first=False):
 
 
 def config_host_bond(node, members, ip, ip6=None):
-    """Host-side LACP bond across two uplinks (dual-homed host)."""
+    """Host-side LACP bond across the ES leaves."""
     node.run("ip link add dev bond0 type bond mode 802.3ad")
     node.run("ip link set dev bond0 type bond lacp_rate 1")
     node.run("ip link set dev bond0 type bond miimon 100")
@@ -355,38 +362,32 @@ def config_host_single(node, member, ip, gw):
 
 
 def config_dataplane(tgen):
-    leaf1 = tgen.gears["leaf1"]
-    leaf2 = tgen.gears["leaf2"]
+    leaves = (
+        ("leaf1", "leaf2", "leaf4") if "leaf4" in tgen.gears else ("leaf1", "leaf2")
+    )
+    for name in leaves:
+        leaf = tgen.gears[name]
+        config_leaf_base(
+            leaf,
+            LEAF_LO[name],
+            gw_ip6=ANYCAST_GW6,
+            extra_host_bds=[(HOST_VID2, ANYCAST_GW2), (HOST_VID3, ANYCAST_GW3)],
+        )
+        config_esi_bond(leaf, f"{name}-eth2", extra_vids=(HOST_VID2, HOST_VID3))
+
     leaf3 = tgen.gears["leaf3"]
-
-    config_leaf_base(
-        leaf1,
-        LEAF_LO["leaf1"],
-        gw_ip6=ANYCAST_GW6,
-        extra_host_bds=[(HOST_VID2, ANYCAST_GW2), (HOST_VID3, ANYCAST_GW3)],
-    )
-    config_leaf_base(
-        leaf2,
-        LEAF_LO["leaf2"],
-        gw_ip6=ANYCAST_GW6,
-        extra_host_bds=[(HOST_VID2, ANYCAST_GW2), (HOST_VID3, ANYCAST_GW3)],
-    )
     config_leaf_base(leaf3, LEAF_LO["leaf3"], LEAF3_VID, LEAF3_GW)
-
-    # ESI bonds on the multihoming pair; single access port on leaf3.
-    config_esi_bond(leaf1, "leaf1-eth2", extra_vids=(HOST_VID2, HOST_VID3))
-    config_esi_bond(leaf2, "leaf2-eth2", extra_vids=(HOST_VID2, HOST_VID3))
     config_access_port(leaf3, "leaf3-eth2", LEAF3_VID)
 
 
 def config_hosts(tgen):
     # Host addressing is applied after the routers start so it is not lost when
     # the framework finishes bringing the host veths up.
+    members = ["host1-eth0", "host1-eth1"]
+    if "leaf4" in tgen.gears:
+        members.append("host1-eth2")
     config_host_bond(
-        tgen.gears["host1"],
-        ["host1-eth0", "host1-eth1"],
-        HOST_IP["host1"],
-        ip6=HOST_IP6["host1"],
+        tgen.gears["host1"], members, HOST_IP["host1"], ip6=HOST_IP6["host1"],
     )
     # host3: a second BD on host1's bond (VLAN 101, tagged) in the same VRF.
     h1 = tgen.gears["host1"]
@@ -405,8 +406,8 @@ def config_hosts(tgen):
 #####################################################
 
 
-def setup_module(module):
-    tgen = Topogen(build_topo, module.__name__)
+def setup_module(module, extra_es_peer=False):
+    tgen = Topogen(partial(build_topo, extra_es_peer=extra_es_peer), module.__name__)
     tgen.start_topology()
 
     krel = platform.release()
@@ -419,11 +420,32 @@ def setup_module(module):
     # Load a single unified frr.conf per FRR-running router (no split
     # zebra.conf/evpn.conf). Hosts run no FRR daemons.
     frr_routers = ["spine1", "spine2", "leaf1", "leaf2", "leaf3"]
+    if extra_es_peer:
+        frr_routers.append("leaf4")
     for rname in frr_routers:
         router = tgen.gears[rname]
         router.load_frr_config(os.path.join(CWD, "%s/frr.conf" % rname))
 
     tgen.start_router()
+
+    if extra_es_peer:
+        for index, subnet in ((1, 7), (2, 8)):
+            spine = tgen.gears[f"spine{index}"]
+            addr = f"192.168.{subnet}"
+            spine.vtysh_cmd(
+                "configure terminal\n"
+                f"interface spine{index}-eth3\n"
+                f" ip address {addr}.1/24\n"
+                f"exit\n"
+                f"router bgp {65000 + index}\n"
+                f" neighbor {addr}.2 remote-as external\n"
+                f" address-family ipv4 unicast\n"
+                f"  neighbor {addr}.2 activate\n"
+                f" exit-address-family\n"
+                f" address-family l2vpn evpn\n"
+                f"  neighbor {addr}.2 activate",
+                raises=True,
+            )
 
     # Host IPs are applied last so the framework's veth bring-up does not wipe
     # a single-homed host's address.
@@ -664,7 +686,7 @@ def _barrier_round(leaves):
             leaf.run("ip addr del %s/32 dev %s 2>/dev/null" % (pfx[leaf.name], VRF))
 
 
-def _settle():
+def _settle(leaves=None):
     """Event barrier: wait until every leaf has processed everything already
     queued. Each leaf adds a new /32 to its VRF; it is exported as a type-5
     behind any earlier event on that leaf, so once every other leaf has it via
@@ -672,8 +694,9 @@ def _settle():
     second round, started only after that, proves each receiver's zebra has
     also applied what its own bgpd sent before.
     """
-    tgen = get_topogen()
-    leaves = [tgen.gears[n] for n in ("leaf1", "leaf2", "leaf3")]
+    if leaves is None:
+        tgen = get_topogen()
+        leaves = [tgen.gears[n] for n in ("leaf1", "leaf2", "leaf3")]
     _barrier_round(leaves)
     _barrier_round(leaves)
 

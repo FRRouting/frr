@@ -141,6 +141,49 @@ static void test_peer_encode_rejections(void)
 	stream_free(stream);
 }
 
+static void test_neigh_backing_codec(const char *vtep, size_t addrlen)
+{
+	struct zapi_evpn_bpp_peer peer, decoded;
+	struct stream *encoded = stream_new(64);
+	struct stream *roundtrip = stream_new(64);
+	struct stream *message;
+	size_t vni_offset = BPP_PEER_ADDR_OFFSET + addrlen;
+
+	init_peer(&peer, vtep);
+	assert(zapi_evpn_bpp_peer_encode(encoded, &peer, false) == 0);
+	STREAM_DATA(encoded)[BPP_PEER_TYPE_OFFSET] = ZAPI_EVPN_BPP_PEER_L3_NEIGH_BACKING;
+	stream_putl(encoded, 4000);
+
+	message = clone_stream_bytes(encoded, stream_get_endp(encoded));
+	assert(zapi_evpn_bpp_peer_decode(message, &decoded, false) == 0);
+	assert(decoded.type == ZAPI_EVPN_BPP_PEER_L3_NEIGH_BACKING);
+	assert(!memcmp(&decoded.esi, &peer.esi, sizeof(peer.esi)));
+	assert(!ipaddr_cmp(&decoded.vtep, &peer.vtep));
+	assert(decoded.l3vni == 4000);
+	stream_free(message);
+
+	message = clone_stream_bytes(encoded, stream_get_endp(encoded));
+	assert(zapi_evpn_bpp_peer_decode(message, &decoded, true) < 0);
+	stream_free(message);
+
+	peer.type = ZAPI_EVPN_BPP_PEER_L3_NEIGH_BACKING;
+	peer.l3vni = 4000;
+	assert(zapi_evpn_bpp_peer_encode(roundtrip, &peer, true) < 0);
+	assert(zapi_evpn_bpp_peer_encode(roundtrip, &peer, false) == 0);
+	assert(stream_get_endp(roundtrip) == stream_get_endp(encoded));
+	assert(!memcmp(STREAM_DATA(roundtrip), STREAM_DATA(encoded), stream_get_endp(encoded)));
+	stream_free(roundtrip);
+
+	check_peer_truncation(encoded, false);
+	check_peer_malformed(encoded, false, vni_offset, sizeof(uint32_t));
+	message = clone_stream_bytes(encoded, stream_get_endp(encoded));
+	stream_putl_at(message, vni_offset, VNI_MAX + 1);
+	assert(zapi_evpn_bpp_peer_decode(message, &decoded, false) < 0);
+	stream_free(message);
+
+	stream_free(encoded);
+}
+
 static struct stream *encode_es_evi(const struct zapi_evpn_local_es_evi *evi)
 {
 	struct stream *encoded = stream_new(32);
@@ -222,6 +265,8 @@ int main(void)
 	test_peer_codec("2001:db8::1", IPV6_MAX_BYTELEN, true);
 	test_peer_codec("2001:db8::1", IPV6_MAX_BYTELEN, false);
 	test_peer_encode_rejections();
+	test_neigh_backing_codec("192.0.2.1", IPV4_MAX_BYTELEN);
+	test_neigh_backing_codec("2001:db8::1", IPV6_MAX_BYTELEN);
 
 	test_es_evi_codec();
 	test_es_evi_encode_rejections();

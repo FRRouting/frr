@@ -107,6 +107,8 @@ struct zebra_neigh {
 	ifindex_t l3mh_expected_ifindex;
 	vlanid_t l3mh_expected_eth_tag;
 	uint32_t l3mh_generation;
+	struct ipaddr l3mh_peer_origin; /* Advertising PE, separate from forwarding. */
+	bool l3mh_peer_rt1_lost;
 
 	/* Refcnt - Only used by SVD neighs currently */
 	uint32_t refcnt;
@@ -390,7 +392,10 @@ void zebra_evpn_l3vni_neigh_debug_mac_event(vni_t l3vni, const struct ethaddr *m
 void zebra_evpn_l3vni_neigh_readvertise_bd(vni_t l3vni, vlanid_t vid);
 void zebra_evpn_l3vni_remote_neigh_add(vni_t vni, const struct ipaddr *ip,
 				       const struct ethaddr *macaddr, vlanid_t eth_tag,
-				       uint32_t seq, const esi_t *esi, bool is_router);
+				       uint32_t seq, const esi_t *esi, const struct ipaddr *origin,
+				       uint8_t flags, bool rt1_lost);
+void zebra_evpn_l3vni_peer_backing_invalidate(vni_t vni, const esi_t *esi,
+					      const struct ipaddr *origin);
 void zebra_evpn_l3vni_remote_neigh_del(struct zebra_evpn *zevpn, const struct ipaddr *ip,
 				       const struct ethaddr *macaddr, vlanid_t eth_tag);
 void zebra_evpn_l3vni_remote_neigh_reinstall_bd(vni_t l3vni, vlanid_t vid);

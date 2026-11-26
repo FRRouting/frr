@@ -5542,7 +5542,10 @@ int zapi_evpn_bpp_peer_encode(struct stream *s, const struct zapi_evpn_bpp_peer 
 
 	if (!s || !peer)
 		return -1;
-	if (peer->type != ZAPI_EVPN_BPP_PEER_L3)
+	if (peer->type == ZAPI_EVPN_BPP_PEER_L3_NEIGH_BACKING) {
+		if (add || !peer->l3vni || peer->l3vni > VNI_MAX)
+			return -1;
+	} else if (peer->type != ZAPI_EVPN_BPP_PEER_L3)
 		return -1;
 	if (IS_IPADDR_V4(&peer->vtep)) {
 		family = AF_INET;
@@ -5563,6 +5566,8 @@ int zapi_evpn_bpp_peer_encode(struct stream *s, const struct zapi_evpn_bpp_peer 
 	stream_put(s, &peer->vtep.ip, addrlen);
 	if (add)
 		stream_put(s, &peer->rmac, ETH_ALEN);
+	else if (peer->type == ZAPI_EVPN_BPP_PEER_L3_NEIGH_BACKING)
+		stream_putl(s, peer->l3vni);
 
 	return 0;
 }
@@ -5571,6 +5576,7 @@ int zapi_evpn_bpp_peer_decode(struct stream *s, struct zapi_evpn_bpp_peer *peer,
 {
 	uint8_t family;
 	uint8_t addrlen;
+	size_t trailer_len;
 
 	if (!s || !peer)
 		return -1;
@@ -5583,7 +5589,11 @@ int zapi_evpn_bpp_peer_decode(struct stream *s, struct zapi_evpn_bpp_peer *peer,
 	STREAM_GETC(s, peer->type);
 	STREAM_GETC(s, family);
 
-	if (peer->type != ZAPI_EVPN_BPP_PEER_L3)
+	if (peer->type == ZAPI_EVPN_BPP_PEER_L3)
+		trailer_len = add ? ETH_ALEN : 0;
+	else if (peer->type == ZAPI_EVPN_BPP_PEER_L3_NEIGH_BACKING && !add)
+		trailer_len = sizeof(uint32_t);
+	else
 		return -1;
 
 	if (family == AF_INET) {
@@ -5595,7 +5605,7 @@ int zapi_evpn_bpp_peer_decode(struct stream *s, struct zapi_evpn_bpp_peer *peer,
 	} else
 		return -1;
 
-	if (STREAM_READABLE(s) != (size_t)addrlen + (add ? ETH_ALEN : 0))
+	if (STREAM_READABLE(s) != (size_t)addrlen + trailer_len)
 		return -1;
 
 	STREAM_GET(&peer->vtep.ip, s, addrlen);
@@ -5604,6 +5614,10 @@ int zapi_evpn_bpp_peer_decode(struct stream *s, struct zapi_evpn_bpp_peer *peer,
 	if (add) {
 		STREAM_GET(&peer->rmac, s, ETH_ALEN);
 		if (is_zero_mac(&peer->rmac))
+			return -1;
+	} else if (peer->type == ZAPI_EVPN_BPP_PEER_L3_NEIGH_BACKING) {
+		STREAM_GETL(s, peer->l3vni);
+		if (!peer->l3vni || peer->l3vni > VNI_MAX)
 			return -1;
 	}
 

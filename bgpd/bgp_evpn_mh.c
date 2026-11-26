@@ -84,9 +84,7 @@ static void bgp_evpn_mh_get_vtep_ip(const struct attr *attr, struct ipaddr *vtep
 	}
 }
 
-static inline void
-bgp_evpn_mh_fill_vtep_ip_from_pi(const struct bgp_path_info *pi,
-				 struct ipaddr *vtep_ip)
+void bgp_evpn_mh_fill_vtep_ip_from_pi(const struct bgp_path_info *pi, struct ipaddr *vtep_ip)
 {
 	if (!pi || !pi->attr || !vtep_ip)
 		return;
@@ -4230,6 +4228,33 @@ static void bgp_evpn_ip_ead_evi_deref(struct bgp_evpn_es_vrf_vtep *vtep)
 	}
 }
 
+static void bgp_evpn_l3mh_peer_backing_invalidate(const struct bgp_evpn_es_vrf_vtep *vtep)
+{
+	const struct bgp_evpn_es_vrf *es_vrf = vtep->es_vrf;
+	struct bgp *bgp_vrf = es_vrf->bgp_vrf;
+	struct bgp *bgp = bgp_get_evpn();
+	const struct zapi_evpn_bpp_peer peer = {
+		.esi = es_vrf->es->esi,
+		.type = ZAPI_EVPN_BPP_PEER_L3_NEIGH_BACKING,
+		.vtep = vtep->vtep_ip,
+		.l3vni = bgp_vrf->l3vni,
+	};
+	struct stream *s;
+
+	if (!bgp_zclient || bgp_zclient->sock < 0 || !bgp || !bgp->advertise_l3vni_neigh ||
+	    !IS_BGP_INST_KNOWN_TO_ZEBRA(bgp_vrf) || !bgp_vrf->l3vni ||
+	    !CHECK_FLAG(es_vrf->es->flags, BGP_EVPNES_LOCAL))
+		return;
+
+	s = bgp_zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s, ZEBRA_EVPN_BPP_PEER_DEL, bgp_vrf->vrf_id);
+	if (zapi_evpn_bpp_peer_encode(s, &peer, false))
+		return;
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(bgp_zclient);
+}
+
 static void bgp_evpn_ip_ead_es_ref(struct bgp_evpn_es_vrf_vtep *vtep)
 {
 	if (vtep->es_ref++ == 0)
@@ -4240,8 +4265,10 @@ static void bgp_evpn_ip_ead_es_deref(struct bgp_evpn_es_vrf_vtep *vtep)
 {
 	if (!vtep->es_ref)
 		return;
-	if (--vtep->es_ref == 0)
+	if (--vtep->es_ref == 0) {
 		UNSET_FLAG(vtep->flags, BGP_EVPN_ES_VRF_VTEP_IP_EAD_ES);
+		bgp_evpn_l3mh_peer_backing_invalidate(vtep);
+	}
 }
 
 static bool bgp_evpn_ip_ead_evi_is_all_active(const struct attr *attr)

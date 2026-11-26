@@ -1335,13 +1335,14 @@ bgp_zebra_send_remote_macip(struct bgp *bgp, struct bgpevpn *vpn, const struct p
  */
 static enum zclient_send_status bgp_evpn_l3vni_neigh_zsend(struct bgp *bgp_evpn, vni_t l3vni,
 							   const struct prefix_evpn *p,
-							   const esi_t *esi,
-							   uint32_t seq, bool router, bool add)
+							   const struct bgp_path_info *pi,
+							   bool add, bool refresh)
 {
+	const esi_t *esi = bgp_evpn_attr_get_esi(pi->attr);
+	struct ipaddr origin = { .ipa_type = IPADDR_V4 };
 	struct stream *s;
 	uint16_t ipa_len;
 	uint8_t flags = ZEBRA_MACIP_TYPE_L3_NEIGH_SYNC;
-	static struct ipaddr zero_nh = { .ipa_type = IPADDR_V4, .ipaddr_v4 = { INADDR_ANY } };
 
 	if (!bgp_zclient || bgp_zclient->sock < 0)
 		return ZCLIENT_SEND_SUCCESS;
@@ -1366,14 +1367,19 @@ static enum zclient_send_status bgp_evpn_l3vni_neigh_zsend(struct bgp *bgp_evpn,
 		stream_put(s, &p->prefix.macip_addr.ip.ip.addr, ipa_len);
 	}
 
-	/* The local ES is the nexthop, so the VTEP-IP is taped out. */
-	stream_put_ipaddr(s, &zero_nh);
+	/* The VTEP field of a pure-L3 ADD carries the advertising PE. */
+	if (add)
+		bgp_evpn_mh_fill_vtep_ip_from_pi(pi, &origin);
+	stream_put_ipaddr(s, &origin);
 
 	if (add) {
-		if (router)
+		if (is_evpn_prefix_ipaddr_v6(p) &&
+		    CHECK_FLAG(bgp_attr_get_evpn_flags(pi->attr), ATTR_EVPN_FLAG_ROUTER))
 			SET_FLAG(flags, ZEBRA_MACIP_TYPE_ROUTER_FLAG);
+		if (refresh)
+			SET_FLAG(flags, ZEBRA_MACIP_TYPE_L3_NEIGH_REFRESH);
 		stream_putc(s, flags);
-		stream_putl(s, seq);
+		stream_putl(s, 0);
 		stream_put(s, esi, sizeof(esi_t));
 	}
 
@@ -1385,9 +1391,9 @@ static enum zclient_send_status bgp_evpn_l3vni_neigh_zsend(struct bgp *bgp_evpn,
 		char esi_buf[ESI_STR_LEN];
 
 		esi_to_str(esi, esi_buf, sizeof(esi_buf));
-		zlog_debug("Tx %s L3-neigh-sync L3VNI %u MAC %pEA IP %pIA seq %u esi %s",
+		zlog_debug("Tx %s L3-neigh-sync L3VNI %u MAC %pEA IP %pIA origin %pIA esi %s",
 			   add ? "ADD" : "DEL", l3vni, &p->prefix.macip_addr.mac,
-			   &p->prefix.macip_addr.ip, seq, esi_buf);
+			   &p->prefix.macip_addr.ip, &origin, esi_buf);
 	}
 
 	return zclient_send_message(bgp_zclient);
@@ -5087,11 +5093,22 @@ static bool bgp_evpn_l3vni_neigh_path_backs(struct bgp *bgp_vrf, const struct pr
 	return true;
 }
 
-/* The zebra sync neighbor is keyed by (VRF/L3VNI, MAC, IP, ETAG) -- NOT by RD.
- * Before withdrawing it for one path, confirm no OTHER importable pure-L3 path,
- * under ANY RD, still backs the same key for this VRF. Scanning only the
- * current RD-scoped destination (pi->net) would miss a valid route learned
- * under a different RD and drop a neighbor that is still owned.
+static bool bgp_evpn_l3vni_neigh_same_peer(const struct bgp_path_info *a,
+					   const struct bgp_path_info *b)
+{
+	struct ipaddr a_origin = {}, b_origin = {};
+
+	bgp_evpn_mh_fill_vtep_ip_from_pi(a, &a_origin);
+	bgp_evpn_mh_fill_vtep_ip_from_pi(b, &b_origin);
+	return ipaddr_is_same(&a_origin, &b_origin) &&
+	       !memcmp(bgp_evpn_attr_get_esi(a->attr), bgp_evpn_attr_get_esi(b->attr),
+		       sizeof(esi_t)) &&
+	       CHECK_FLAG(bgp_attr_get_evpn_flags(a->attr), ATTR_EVPN_FLAG_ROUTER) ==
+		       CHECK_FLAG(bgp_attr_get_evpn_flags(b->attr), ATTR_EVPN_FLAG_ROUTER);
+}
+
+/* Look for a path backing the same zebra sync key across all RDs. Prefer an
+ * equivalent path from the same origin, such as one through another spine.
  */
 static struct bgp_path_info *
 bgp_evpn_l3vni_neigh_other_installing_path(struct bgp *bgp_vrf, const struct prefix_evpn *evp,
@@ -5101,6 +5118,7 @@ bgp_evpn_l3vni_neigh_other_installing_path(struct bgp *bgp_vrf, const struct pre
 	struct bgp_dest *rd_dest, *dest;
 	struct bgp_table *table;
 	struct bgp_path_info *tmp_pi;
+	struct bgp_path_info *other = NULL;
 
 	if (!bgp_evpn)
 		return NULL;
@@ -5117,9 +5135,11 @@ bgp_evpn_l3vni_neigh_other_installing_path(struct bgp *bgp_vrf, const struct pre
 			continue;
 
 		for (tmp_pi = bgp_dest_get_bgp_path_info(dest); tmp_pi; tmp_pi = tmp_pi->next) {
-			if (tmp_pi == pi)
+			if (tmp_pi == pi || !bgp_evpn_l3vni_neigh_path_backs(bgp_vrf, evp, tmp_pi))
 				continue;
-			if (bgp_evpn_l3vni_neigh_path_backs(bgp_vrf, evp, tmp_pi)) {
+			if (!other)
+				other = tmp_pi;
+			if (bgp_evpn_l3vni_neigh_same_peer(pi, tmp_pi)) {
 				bgp_dest_unlock_node(dest);
 				bgp_dest_unlock_node(rd_dest);
 				return tmp_pi;
@@ -5128,7 +5148,7 @@ bgp_evpn_l3vni_neigh_other_installing_path(struct bgp *bgp_vrf, const struct pre
 		bgp_dest_unlock_node(dest);
 	}
 
-	return NULL;
+	return other;
 }
 
 static void bgp_evpn_l3vni_neigh_install_uninstall(struct prefix_evpn *evp,
@@ -5173,39 +5193,22 @@ static void bgp_evpn_l3vni_neigh_install_uninstall(struct prefix_evpn *evp,
 		 */
 		vrf_add = add && route_l3vni == bgp_vrf->l3vni;
 
-		/* One path's unimport must not withdraw the aggregate zebra
-		 * sync while another equivalent path (e.g. via another spine)
-		 * still backs the same (MAC, IP, ETAG) route. Zebra holds the
-		 * last ADD's ESI and R-bit, so re-send the surviving path's.
+		/* Keep the sync entry while a path still backs this key. Refresh
+		 * zebra only when the survivor has different peer metadata.
 		 */
 		if (!vrf_add) {
 			struct bgp_path_info *other;
 
 			other = bgp_evpn_l3vni_neigh_other_installing_path(bgp_vrf, evp, pi);
 			if (other) {
-				if (!gates_on)
-					continue;
-				/* Same ESI and R-bit: nothing to refresh, and a
-				 * re-ADD would override a newer key for this IP.
-				 */
-				if (!memcmp(bgp_evpn_attr_get_esi(other->attr),
-					    bgp_evpn_attr_get_esi(pi->attr), sizeof(esi_t)) &&
-				    CHECK_FLAG(bgp_attr_get_evpn_flags(other->attr),
-					       ATTR_EVPN_FLAG_ROUTER) ==
-					    CHECK_FLAG(bgp_attr_get_evpn_flags(pi->attr),
-						       ATTR_EVPN_FLAG_ROUTER))
+				if (!gates_on || bgp_evpn_l3vni_neigh_same_peer(pi, other))
 					continue;
 				src = other;
 				vrf_add = true;
 			}
 		}
 
-		bgp_evpn_l3vni_neigh_zsend(bgp_evpn, bgp_vrf->l3vni, evp,
-					   bgp_evpn_attr_get_esi(src->attr), 0,
-					   is_evpn_prefix_ipaddr_v6(evp) &&
-						   CHECK_FLAG(bgp_attr_get_evpn_flags(src->attr),
-							      ATTR_EVPN_FLAG_ROUTER),
-					   vrf_add);
+		bgp_evpn_l3vni_neigh_zsend(bgp_evpn, bgp_vrf->l3vni, evp, src, vrf_add, src != pi);
 	}
 }
 
@@ -5481,8 +5484,7 @@ static void bgp_evpn_l3vni_neigh_unimport_vrf(struct bgp *bgp_vrf)
 			bgp_evpn_l3vni_neigh_zsend(bgp_evpn, bgp_vrf->l3vni,
 						   (const struct prefix_evpn *)bgp_dest_get_prefix(
 							   pi->net),
-						   bgp_evpn_attr_get_esi(pi->attr), 0, false,
-						   false);
+						   pi, false, false);
 		}
 	}
 }

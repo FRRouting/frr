@@ -3095,6 +3095,13 @@ void zebra_evpn_proc_bpp_peer(ZAPI_HANDLER_ARGS)
 		return;
 	}
 
+	if (peer.type == ZAPI_EVPN_BPP_PEER_L3_NEIGH_BACKING) {
+		if (client->proto == ZEBRA_ROUTE_BGP && peer.l3vni == zvrf->l3vni)
+			zebra_rib_queue_evpn_l3mh_peer_backing_invalidate(hdr->vrf_id, peer.l3vni,
+									  &peer.esi, &peer.vtep);
+		return;
+	}
+
 	if (IS_ZEBRA_DEBUG_EVPN_MH_PROT) {
 		if (add)
 			zlog_debug("bpp peer add esi %s type L3 vtep %pIA rmac %pEA",

@@ -461,6 +461,8 @@ int zebra_rib_queue_evpn_route_del(vrf_id_t vrf_id,
 int zebra_rib_queue_evpn_rem_es_add(const esi_t *esi, const struct ipaddr *vtep_ip, bool esr_rxed,
 				    uint8_t df_alg, uint16_t df_pref);
 int zebra_rib_queue_evpn_rem_es_del(const esi_t *esi, const struct ipaddr *vtep_ip);
+int zebra_rib_queue_evpn_l3mh_peer_backing_invalidate(vrf_id_t vrf_id, vni_t vni, const esi_t *esi,
+						      const struct ipaddr *origin);
 /* Enqueue EVPN remote macip update for processing */
 int zebra_rib_queue_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
 				       const struct ipaddr *ip, struct ipaddr *vtep_ip,

@@ -875,6 +875,8 @@ static inline const char *zapi_srv6_sid_notify2str(enum zapi_srv6_sid_notify not
 #define ZEBRA_MACIP_TYPE_PROXY_ADVERT          0x20 /* Not locally active */
 #define ZEBRA_MACIP_TYPE_SYNC_PATH             0x40 /* sync path */
 #define ZEBRA_MACIP_TYPE_L3_NEIGH_SYNC	       0x80 /* pure-L3 neigh sync (no L2VNI) */
+/* With L3_NEIGH_SYNC, reuse SYNC_PATH to refresh only an existing key. */
+#define ZEBRA_MACIP_TYPE_L3_NEIGH_REFRESH ZEBRA_MACIP_TYPE_SYNC_PATH
 /* XXX - flags is an u8 and 0x80 is now the last free bit; that needs to be
  * changed to u32 if you need to allocate past 0x80.  Additionally touch
  * zclient_evpn_dump_macip_flags
@@ -892,12 +894,14 @@ extern char *zclient_evpn_dump_macip_flags(uint8_t flags, char *buf,
 /* ZEBRA_EVPN_BPP_PEER_ADD/DEL: L3 only in this release */
 #define ZAPI_EVPN_BPP_PEER_L2 0
 #define ZAPI_EVPN_BPP_PEER_L3 1
+#define ZAPI_EVPN_BPP_PEER_L3_NEIGH_BACKING 2 /* DEL only */
 
 struct zapi_evpn_bpp_peer {
 	esi_t esi;
 	uint8_t type;
 	struct ipaddr vtep;
 	struct ethaddr rmac; /* ADD only */
+	vni_t l3vni;	     /* L3_NEIGH_BACKING only */
 };
 
 struct zapi_evpn_local_es_evi {

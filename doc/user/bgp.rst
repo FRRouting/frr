@@ -4284,6 +4284,11 @@ Specifying ``advertise-all-vni``, which lives under
    ``no advertise-all-vni l3vni-neigh``, disables L3MH neighbor sync while
    keeping EVPN enabled; ``no advertise-all-vni`` disables both.
 
+   ``show evpn arp-cache vni VNI ip IP json`` reports the advertising PE for
+   a synchronized neighbor in ``peerOrigin``. Forwarding uses the local ES.
+   ``peerRt1Lost`` marks a retained peer binding after the last per-ES RT-1
+   path from that PE withdraws.
+
    .. code-block:: frr
 
       router bgp 65001

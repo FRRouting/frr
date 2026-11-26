@@ -51,6 +51,7 @@
 #include "zebra/zebra_trace.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_evpn_bpp.h"
+#include "zebra/zebra_evpn_neigh.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_script.h"
 #include "zebra/zebra_tc.h"
@@ -225,6 +226,7 @@ struct wq_evpn_wrapper {
 #define WQ_EVPN_WRAPPER_TYPE_REM_ES       0x02
 #define WQ_EVPN_WRAPPER_TYPE_REM_MACIP    0x03
 #define WQ_EVPN_WRAPPER_TYPE_REM_VTEP     0x04
+#define WQ_EVPN_WRAPPER_TYPE_L3MH_BACKING_INVALIDATE 0x05
 
 enum wq_label_types {
 	WQ_LABEL_FTN_UNINSTALL,
@@ -2500,6 +2502,11 @@ static void process_subq_evpn(struct listnode *lnode)
 		else
 			zebra_evpn_rem_macip_del(w->vni, &w->macaddr, ipa_len, &w->ip, &w->vtep_ip,
 						 w->eth_tag);
+	} else if (w->type == WQ_EVPN_WRAPPER_TYPE_L3MH_BACKING_INVALIDATE) {
+		struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(w->vrf_id);
+
+		if (zvrf && zvrf->l3vni == w->vni)
+			zebra_evpn_l3vni_peer_backing_invalidate(w->vni, &w->esi, &w->vtep_ip);
 	} else if (w->type == WQ_EVPN_WRAPPER_TYPE_REM_VTEP) {
 		if (w->add_p)
 			zebra_vxlan_remote_vtep_add(w->vrf_id, w->vni, &w->vtep_ip, w->flags);
@@ -3749,6 +3756,20 @@ int zebra_rib_queue_evpn_rem_es_del(const esi_t *esi, const struct ipaddr *vtep_
 		zlog_debug("%s: vtep %pIA, esi %s enqueued", __func__, vtep_ip, buf);
 	}
 
+	return mq_add_handler(w, rib_meta_queue_evpn_add);
+}
+
+/* Process peer invalidation in order with remote MAC/IP updates. */
+int zebra_rib_queue_evpn_l3mh_peer_backing_invalidate(vrf_id_t vrf_id, vni_t vni, const esi_t *esi,
+						      const struct ipaddr *origin)
+{
+	struct wq_evpn_wrapper *w = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(*w));
+
+	w->type = WQ_EVPN_WRAPPER_TYPE_L3MH_BACKING_INVALIDATE;
+	w->vrf_id = vrf_id;
+	w->vni = vni;
+	w->esi = *esi;
+	w->vtep_ip = *origin;
 	return mq_add_handler(w, rib_meta_queue_evpn_add);
 }
 
