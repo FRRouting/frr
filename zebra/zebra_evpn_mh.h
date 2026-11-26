@@ -340,6 +340,9 @@ struct zebra_evpn_mh_info {
 #define ZEBRA_EVPN_MH_MAC_HOLD_TIME_DEF (18 * 60)
 	int neigh_hold_time;
 #define ZEBRA_EVPN_MH_NEIGH_HOLD_TIME_DEF (18 * 60)
+	/* Allow peer host rediscovery and replacement RT-2 propagation. */
+	uint32_t l3_neigh_down_peering_time;
+#define ZEBRA_EVPN_MH_L3_NEIGH_DOWN_PEERING_TIME_DEF 60
 
 	/* During this period access ports will be held in a protodown
 	 * state
@@ -502,6 +505,8 @@ extern int zebra_evpn_mh_mac_holdtime_update(struct vty *vty,
 void zebra_evpn_mh_config_write(struct vty *vty);
 int zebra_evpn_mh_neigh_holdtime_update(struct vty *vty,
 		uint32_t duration, bool set_default);
+int zebra_evpn_mh_l3_neigh_down_peering_time_update(struct vty *vty, uint32_t duration,
+						    bool set_default);
 void zebra_evpn_es_local_br_port_update(struct zebra_if *zif);
 extern int zebra_evpn_mh_startup_delay_update(struct vty *vty,
 					      uint32_t duration,

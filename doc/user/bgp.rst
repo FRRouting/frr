@@ -4873,6 +4873,19 @@ the host. This holdtime is configurable via the following zebra commands -
 
 .. clicmd:: evpn mh mac-holdtime (0-86400)
 
+L3 multihoming neighbor handoff
+"""""""""""""""""""""""""""""""
+When an L3 multihoming access interface fails, Zebra uses a usable peer
+MAC-IP route immediately. If none is available, Zebra starts the
+down-peering timer for each retained neighbor.
+
+.. clicmd:: evpn mh l3-neigh-down-peering-time (1-86400)
+
+The default is 60 seconds. This gives a peer time to learn and process the
+ARP or ND binding and advertise its MAC-IP route through BGP. Zebra stops
+the timer when it receives a usable peer route. The ``no`` form restores
+the default.
+
 Startup delay
 """""""""""""
 When a switch is rebooted we wait for a brief period to allow the underlay

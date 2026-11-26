@@ -1086,6 +1086,37 @@ def test_advertise_l3vni_neigh_cli():
     _expect(_zebra_flag_is, leaf1, "Yes")
 
 
+def test_l3_neigh_down_peering_time_cli():
+    """The L3MH down-peering timer defaults to 60 seconds and is configurable."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    leaf1 = tgen.gears["leaf1"]
+    command = "evpn mh l3-neigh-down-peering-time"
+
+    def _wait_time():
+        return json.loads(leaf1.vtysh_cmd("show evpn json"))["l3NeighWaitTime"]
+
+    running = leaf1.vtysh_cmd("show running-config")
+    assert command not in running
+    assert _wait_time() == 60
+
+    leaf1.vtysh_cmd("configure terminal\n%s 45\n" % command)
+    running = leaf1.vtysh_cmd("show running-config")
+    assert "%s 45" % command in running
+    assert _wait_time() == 45
+
+    # Values outside the CLI range must not change the configured value.
+    leaf1.vtysh_cmd("configure terminal\n%s 0\n%s 86401\n" % (command, command))
+    assert _wait_time() == 45
+
+    leaf1.vtysh_cmd("configure terminal\nno %s\n" % command)
+    running = leaf1.vtysh_cmd("show running-config")
+    assert command not in running
+    assert _wait_time() == 60
+
+
 def test_l3vni_neigh_debug_cli():
     """The l3vni-neigh debug selectors are accepted in bgpd and zebra.
 
@@ -1174,23 +1205,15 @@ def test_pure_l3_rt2_origination():
     # Trigger local ARP learning for host1 on the leaf SVIs.
     _ping(tgen.gears["host1"], ANYCAST_GW)
 
-    def _has_pure_l3_rt2(dut, asn):
-        path = _pure_l3_rt2_path(dut, asn)
-        if path is None:
-            return "no pure-L3 RT-2 for %s (ethTag %d, vni 0/%d, RT:%d:%d)" % (
-                HOST_IP["host1"],
-                HOST_VID,
-                L3VNI,
-                asn,
-                L3VNI,
-            )
-        if path.get("esi") != ES1_ID:
-            return "pure-L3 RT-2 has esi %s, want %s" % (path.get("esi"), ES1_ID,)
-        return None
-
-    dut = tgen.gears["leaf1"]
-    test_fn = partial(_has_pure_l3_rt2, dut, leaf_asn["leaf1"])
-    _, result = topotest.run_and_expect(test_fn, None, count=WAIT_COUNT, wait=WAIT_STEP)
+    leaf1 = tgen.gears["leaf1"]
+    leaf2 = tgen.gears["leaf2"]
+    host1_mac = _host_bond_mac(tgen.gears["host1"])
+    _, result = topotest.run_and_expect(
+        lambda: _pure_l3_mh_pair_ok(leaf1, leaf2, host1_mac),
+        None,
+        count=WAIT_COUNT,
+        wait=WAIT_STEP,
+    )
     assert result is None, result
 
 
@@ -3508,26 +3531,8 @@ def test_pure_l3_bd_gains_l2vni_transfers_ownership():
         _, result = topotest.run_and_expect(fn, None, count=WAIT_COUNT, wait=WAIT_STEP)
         assert result is None, result
 
-    # Baseline: the pure-L3 singleton owns host1 (RT-2 + synced neighbor + pin).
-    _expect(
-        lambda: (
-            None
-            if _pure_l3_rt2_path(leaf1, 65011) is not None
-            else "pure-L3 RT-2 missing at baseline"
-        )
-    )
-    _expect(
-        lambda: (
-            None if _host1_synced(leaf2) else "host1 not synced on leaf2 at baseline"
-        )
-    )
-    _expect(
-        lambda: (
-            None
-            if _mac_static_pinned(leaf2, host1_mac, HOST_VID)
-            else "host1 sync-MAC pin missing on leaf2 at baseline"
-        )
-    )
+    # Baseline: the local learner owns the pure-L3 RT-2 and its peer syncs.
+    _expect(lambda: _pure_l3_mh_pair_ok(leaf1, leaf2, host1_mac))
 
     # Refresh host1's ARP so it is REACHABLE (not stale) when the VXLAN device
     # is added: a stale SVI neighbor can be flushed by the bridge reconfig
@@ -3540,34 +3545,44 @@ def test_pure_l3_bd_gains_l2vni_transfers_ownership():
         for leaf, lo in ((leaf1, LEAF_LO["leaf1"]), (leaf2, LEAF_LO["leaf2"])):
             config_add_l2vni(leaf, lo, HOST_VID, L2VNI_100)
         try:
-            # Old owner (pure-L3) relinquishes: RT-2 withdrawn on leaf1 and the
-            # pure-L3 synced neighbor cleaned up on leaf2.
-            _expect(
-                lambda: (
-                    None
-                    if _pure_l3_rt2_path(leaf1, 65011) is None
-                    else "pure-L3 RT-2 still present after L2VNI added"
+            # The pure-L3 owner relinquishes on both leaves, independent of
+            # which side learned the host locally.
+            for leaf, asn in ((leaf1, 65011), (leaf2, 65012)):
+                _expect(
+                    lambda leaf=leaf, asn=asn: (
+                        None
+                        if _pure_l3_rt2_path(leaf, asn) is None
+                        else "%s pure-L3 RT-2 still present after L2VNI added"
+                        % leaf.name
+                    )
                 )
-            )
-            _expect(
-                lambda: (
-                    None
-                    if not _host1_synced(leaf2)
-                    else "leaf2 pure-L3 synced neighbor not cleaned after L2VNI added"
+                _expect(
+                    lambda leaf=leaf: (
+                        None
+                        if not _host1_synced(leaf)
+                        else "%s pure-L3 synced neighbor not cleaned after L2VNI added"
+                        % leaf.name
+                    )
                 )
-            )
             # New owner (L2VNI) live/mapped to VLAN100 and originates host1's
             # MAC-IP (no host left with zebra ownership but no BGP route).
-            _expect(
-                lambda: None if _l2vni_present(leaf1) else "L2VNI not live on VLAN100"
-            )
-            _expect(
-                lambda: (
-                    None
-                    if _l2vni_rt2_path(leaf1, L2VNI_100, 65011) is not None
-                    else "L2VNI MAC-IP RT-2 missing after L2VNI added"
+            for leaf in (leaf1, leaf2):
+                _expect(
+                    lambda leaf=leaf: (
+                        None
+                        if _l2vni_present(leaf)
+                        else "L2VNI not live on %s VLAN100" % leaf.name
+                    )
                 )
-            )
+
+            def _l2_rt2_present():
+                if _l2vni_rt2_path(leaf1, L2VNI_100, 65011) is not None:
+                    return None
+                if _l2vni_rt2_path(leaf2, L2VNI_100, 65012) is not None:
+                    return None
+                return "L2VNI MAC-IP RT-2 missing on both leaves"
+
+            _expect(_l2_rt2_present)
         finally:
             for leaf in (leaf1, leaf2):
                 config_del_l2vni(leaf, L2VNI_100, unslave_first=True)
@@ -3576,13 +3591,7 @@ def test_pure_l3_bd_gains_l2vni_transfers_ownership():
     # rebuild is asserted by test_l2vni_bd_loses_l2vni_returns_to_pure_l3.
     # The bridge reconfig can flush host1's ARP, so keep it active to re-learn.
     with _active_host(tgen.gears["host1"], ANYCAST_GW):
-        _expect(
-            lambda: (
-                None
-                if _pure_l3_rt2_path(leaf1, 65011) is not None
-                else "pure-L3 RT-2 did not return after L2VNI removed"
-            )
-        )
+        _expect(lambda: _pure_l3_mh_pair_ok(leaf1, leaf2, host1_mac))
 
 
 def test_l2vni_bd_loses_l2vni_returns_to_pure_l3():
@@ -3670,22 +3679,31 @@ def test_l2vni_loss_handoffs_local_neigh_without_relearn():
         for leaf, lo in ((leaf1, LEAF_LO["leaf1"]), (leaf2, LEAF_LO["leaf2"])):
             config_add_l2vni(leaf, lo, HOST_VID, L2VNI_100)
         l2vni_on = True
-        _expect(
-            lambda: (
-                None
-                if _l2vni_rt2_path(leaf1, L2VNI_100, 65011) is not None
-                else "L2VNI MAC-IP RT-2 missing after the L2VNI was added"
+        for leaf, asn in ((leaf1, 65011), (leaf2, 65012)):
+            # Make both leaves deterministic local learners. This covers the
+            # ARM failure where leaf2 retained the final local kernel neighbor
+            # while only leaf1's handoff had been tested.
+            leaf.run(
+                "ip neigh replace %s lladdr %s dev vlan%d nud reachable"
+                % (HOST_IP["host1"], _host_bond_mac(host1), HOST_VID)
             )
-        )
+            _expect(
+                lambda leaf=leaf, asn=asn: (
+                    None
+                    if _l2vni_rt2_path(leaf, L2VNI_100, asn) is not None
+                    else "%s L2VNI MAC-IP RT-2 missing" % leaf.name
+                )
+            )
         # The leftover pure-L3 RT-2 from before the L2VNI was added must be
         # gone; otherwise the post-delete check would pass without a handoff.
-        _expect(
-            lambda: (
-                None
-                if _pure_l3_rt2_path(leaf1, 65011) is None
-                else "pure-L3 RT-2 still present after L2VNI added"
+        for leaf, asn in ((leaf1, 65011), (leaf2, 65012)):
+            _expect(
+                lambda leaf=leaf, asn=asn: (
+                    None
+                    if _pure_l3_rt2_path(leaf, asn) is None
+                    else "%s pure-L3 RT-2 still present after L2VNI added" % leaf.name
+                )
             )
-        )
 
     # Host stays on the ES but will not answer ARP, so a kernel probe cannot
     # re-learn it. The handoff must originate from zebra's L2 neighbor table.
@@ -3699,18 +3717,11 @@ def test_l2vni_loss_handoffs_local_neigh_without_relearn():
         l2vni_on = False
 
         # Drain zebra/bgpd queues from the VXLAN delete, then one observation:
-        # the RT-2 must already be there from the in-memory handoff.
+        # both locally retained neighbors must already have RT-2s from the
+        # in-memory handoff/reconciliation.
         _settle()
-        path = _pure_l3_rt2_path(leaf1, 65011)
-        neigh = leaf1.run("ip neigh show %s dev vlan%d" % (HOST_IP["host1"], HOST_VID))
-        assert path is not None, (
-            "pure-L3 RT-2 did not return from L2VNI handoff without host ARP "
-            "(leaf1 neigh %s)" % neigh.strip()
-        )
-        assert path.get("esi") == ES1_ID, "pure-L3 RT-2 esi is %s, want %s" % (
-            path.get("esi"),
-            ES1_ID,
-        )
+        result = _pure_l3_mh_pair_ok(leaf1, leaf2, _host_bond_mac(host1))
+        assert result is None, result
     finally:
         if arp_off:
             host1.run("sysctl -w net.ipv4.conf.bond0.arp_ignore=0")

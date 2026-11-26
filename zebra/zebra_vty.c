@@ -2827,6 +2827,26 @@ DEFPY (evpn_mh_neigh_holdtime,
 						   no ? true : false);
 }
 
+DEFPY(evpn_mh_l3_neigh_down_peering_time, evpn_mh_l3_neigh_down_peering_time_cmd,
+      "evpn mh l3-neigh-down-peering-time (1-86400)$duration",
+      "EVPN\n"
+      "Multihoming\n"
+      "L3 neighbor down-peering time\n"
+      "Duration in seconds\n")
+{
+	return zebra_evpn_mh_l3_neigh_down_peering_time_update(vty, duration, false);
+}
+
+DEFPY(no_evpn_mh_l3_neigh_down_peering_time, no_evpn_mh_l3_neigh_down_peering_time_cmd,
+      "no evpn mh l3-neigh-down-peering-time",
+      NO_STR
+      "EVPN\n"
+      "Multihoming\n"
+      "L3 neighbor down-peering time\n")
+{
+	return zebra_evpn_mh_l3_neigh_down_peering_time_update(vty, 0, true);
+}
+
 DEFPY (evpn_mh_startup_delay,
        evpn_mh_startup_delay_cmd,
        "[no] evpn mh startup-delay(0-3600)$duration",
@@ -4540,6 +4560,8 @@ void zebra_vty_init(void)
 
 	install_element(CONFIG_NODE, &evpn_mh_mac_holdtime_cmd);
 	install_element(CONFIG_NODE, &evpn_mh_neigh_holdtime_cmd);
+	install_element(CONFIG_NODE, &evpn_mh_l3_neigh_down_peering_time_cmd);
+	install_element(CONFIG_NODE, &no_evpn_mh_l3_neigh_down_peering_time_cmd);
 	install_element(CONFIG_NODE, &evpn_mh_startup_delay_cmd);
 	install_element(CONFIG_NODE, &evpn_mh_redirect_off_cmd);
 
