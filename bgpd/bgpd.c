@@ -4247,6 +4247,10 @@ peer_init:
 	bgp_peer_conn_errlist_init(&bgp->peer_conn_errlist);
 	bgp_clearing_info_init(&bgp->clearing_list);
 
+	/* A hidden instance may still have deleted peers in this list */
+	if (!hidden)
+		bgp_clear_node_peers_init(&bgp->clear_node_peers);
+
 	/*
 	 * The non-hidden path above records the first default instance as the
 	 * EVPN instance (bm->bgp_evpn). That block is skipped on the hidden
@@ -4891,6 +4895,15 @@ int bgp_delete(struct bgp *bgp)
 		peer_delete(bgp->peer_self);
 		bgp->peer_self = NULL;
 	}
+
+	/*
+	 * A peer deleted before the shutdown, a dynamic neighbor whose
+	 * session went down for example, is no longer in bgp->peer. If its
+	 * routes were still being cleared, the work queue holds a reference
+	 * on it and nothing will run that queue anymore.
+	 */
+	if (bm->terminating)
+		bgp_clear_node_queue_drain_all(bgp);
 
 	update_bgp_group_free(bgp);
 

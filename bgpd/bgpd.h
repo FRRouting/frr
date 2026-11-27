@@ -525,6 +525,9 @@ PREDECL_DLIST(bgp_clearing_info);
 /* Hash of peers in clearing info object */
 PREDECL_HASH(bgp_clearing_hash);
 
+/* List of peers that have work pending in their clear_node_queue */
+PREDECL_DLIST(bgp_clear_node_peers);
+
 /* Info about a batch of peers that need to be cleared from the RIB.
  * If many peers need to be cleared, we process them in batches, taking
  * one walk through the RIB for each batch. This is only used for "all"
@@ -1177,6 +1180,11 @@ struct bgp {
 
 	/* List of batches of peers being cleared from BGP RIBs */
 	struct bgp_clearing_info_head clearing_list;
+
+	/* Peers that have work pending in their clear_node_queue; a peer
+	 * stays here after peer_delete() took it out of the 'peer' list.
+	 */
+	struct bgp_clear_node_peers_head clear_node_peers;
 
 	struct timeval ebgprequirespolicywarning;
 #define FIFTEENMINUTE2USEC (int64_t)15 * 60 * 1000000
@@ -2381,9 +2389,14 @@ struct peer {
 	/* Linkage for hash of clearing peers being cleared in a batch */
 	struct bgp_clearing_hash_item clear_hash_link;
 
+	/* Linkage for the list of peers with a pending clear_node_queue */
+	struct bgp_clear_node_peers_item clear_node_link;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(peer);
+
+DECLARE_DLIST(bgp_clear_node_peers, struct peer, clear_node_link);
 
 /* Inherit peer attribute from peer-group. */
 #define PEER_ATTR_INHERIT(peer, group, attr)                                   \

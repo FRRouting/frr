@@ -7897,6 +7897,9 @@ static void bgp_clear_node_complete(struct work_queue *wq)
 	if (!peer_established(peer->connection))
 		BGP_EVENT_ADD(peer->connection, Clearing_Completed);
 
+	if (bgp_clear_node_peers_anywhere(peer))
+		bgp_clear_node_peers_del(&peer->bgp->clear_node_peers, peer);
+
 	peer_unlock(peer); /* bgp_clear_route */
 }
 
@@ -7931,6 +7934,9 @@ bool bgp_clear_node_queue_drain(struct peer *peer)
 	wq = peer->clear_node_queue;
 	need_peer_unlock = work_queue_is_scheduled(wq) || !work_queue_empty(wq);
 
+	if (bgp_clear_node_peers_anywhere(peer))
+		bgp_clear_node_peers_del(&peer->bgp->clear_node_peers, peer);
+
 	/*
 	 * During daemon termination we need the clear-route work to run
 	 * synchronously before queue teardown, otherwise we only drop refs.
@@ -7945,6 +7951,22 @@ bool bgp_clear_node_queue_drain(struct peer *peer)
 
 	work_queue_free_and_null(&peer->clear_node_queue);
 	return need_peer_unlock;
+}
+
+/*
+ * Drain the clear-node queue of every peer of this instance that has work
+ * pending, including the peers that are already deleted and that only wait
+ * for this work to be freed.
+ */
+void bgp_clear_node_queue_drain_all(struct bgp *bgp)
+{
+	struct peer *peer;
+
+	/* bgp_clear_node_queue_drain() takes the peer out of the list */
+	while ((peer = bgp_clear_node_peers_first(&bgp->clear_node_peers)) != NULL) {
+		if (bgp_clear_node_queue_drain(peer))
+			peer_unlock(peer); /* bgp_clear_route */
+	}
 }
 
 static void bgp_clear_route_table(struct peer *peer, afi_t afi, safi_t safi,
@@ -8081,6 +8103,8 @@ void bgp_clear_route(struct peer *peer, afi_t afi, safi_t safi)
 	/* unlock if no nodes got added to the clear-node-queue. */
 	if (!event_is_scheduled(peer->clear_node_queue->event))
 		peer_unlock(peer);
+	else if (!bgp_clear_node_peers_anywhere(peer))
+		bgp_clear_node_peers_add_tail(&peer->bgp->clear_node_peers, peer);
 }
 
 /*
