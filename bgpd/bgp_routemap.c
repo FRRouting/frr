@@ -7776,16 +7776,10 @@ DEFPY_YANG(set_ecommunity_color, set_ecommunity_color_cmd,
 	char *str;
 	int ret;
 	const char *xpath =
-		"./set-action[action='frr-bgp-route-map:set-extcommunity-color']";
-	char xpath_value[XPATH_MAXLEN];
+		"./set-action[action='frr-bgp-route-map:set-extcommunity-color']/rmap-set-action/frr-bgp-route-map:extcommunity-color";
 
-	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
-
-	snprintf(xpath_value, sizeof(xpath_value),
-		 "%s/rmap-set-action/frr-bgp-route-map:extcommunity-color",
-		 xpath);
 	str = argv_concat(argv, argc, idx_color);
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, str);
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, str);
 	ret = nb_cli_apply_changes(vty, NULL);
 	XFREE(MTYPE_TMP, str);
 	return ret;
