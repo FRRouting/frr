@@ -61,9 +61,9 @@ static int bgp_adj_out_compare(const struct bgp_adj_out *o1,
 }
 RB_GENERATE(bgp_adj_out_rb, bgp_adj_out, adj_entry, bgp_adj_out_compare);
 
-static inline struct bgp_adj_out *adj_lookup(struct bgp_dest *dest,
-					     struct update_subgroup *subgrp,
-					     uint32_t addpath_tx_id)
+inline struct bgp_adj_out *adj_lookup(struct bgp_dest *dest,
+				      struct update_subgroup *subgrp,
+				      uint32_t addpath_tx_id)
 {
 	struct bgp_adj_out lookup;
 

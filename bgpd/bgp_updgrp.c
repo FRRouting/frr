@@ -1995,6 +1995,8 @@ void update_subgroup_split_peer(struct peer_af *paf,
 		if (updgrp == old_subgrp->update_group)
 			return;
 
+		bgp_resync_stop(paf);
+
 		subgrp = old_subgrp;
 		old_id = old_subgrp->update_group->id;
 
@@ -2028,6 +2030,12 @@ void update_subgroup_split_peer(struct peer_af *paf,
 		SUBGRP_INCR_STAT(subgrp, updgrp_switch_events);
 		return;
 	}
+
+	/*
+	 * A resync cursor is only valid against the subgroup it was
+	 * started for; it does not carry over to the new one below.
+	 */
+	bgp_resync_stop(paf);
 
 	/*
 	 * Create a new subgroup under the specified update group, and copy

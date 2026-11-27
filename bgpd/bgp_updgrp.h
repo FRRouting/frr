@@ -131,6 +131,7 @@ struct update_group {
 	uint32_t merge_events;
 	uint32_t updgrp_switch_events;
 	uint32_t peer_refreshes_combined;
+	uint32_t peer_refreshes_resync;
 	uint32_t adj_count;
 	uint32_t split_events;
 	uint32_t merge_checks_triggered;
@@ -235,6 +236,7 @@ struct update_subgroup {
 	uint32_t merge_events;
 	uint32_t updgrp_switch_events;
 	uint32_t peer_refreshes_combined;
+	uint32_t peer_refreshes_resync;
 	uint32_t adj_count;
 	uint32_t split_events;
 	uint32_t merge_checks_triggered;
@@ -452,6 +454,9 @@ extern void peer_af_announce_route(struct peer_af *paf, int combine);
 extern struct bgp_adj_out *bgp_adj_out_alloc(struct update_subgroup *subgrp,
 					     struct bgp_dest *dest,
 					     uint32_t addpath_tx_id);
+extern struct bgp_adj_out *adj_lookup(struct bgp_dest *dest,
+				      struct update_subgroup *subgrp,
+				      uint32_t addpath_tx_id);
 extern void bgp_adj_out_remove_subgroup(struct bgp_dest *dest,
 					struct bgp_adj_out *adj,
 					struct update_subgroup *subgrp);
@@ -524,6 +529,28 @@ static inline void update_group_adjust_peer_afs(struct peer *peer)
 }
 
 /*
+ * Route-refresh resync of one peer (VPN only): a cursor over the two-level
+ * VPN table. The current RD and prefix nodes are locked by the iteration
+ * (bgp_table_top/bgp_route_next), the current RD table by bgp_table_lock.
+ */
+struct bgp_resync {
+	struct bgp_dest *rd_dest;
+	struct bgp_table *table;
+	struct bgp_dest *dest;
+
+	/* a shared packet was sent since the last resync packet */
+	bool turn;
+
+	uint32_t sent;
+	uint32_t packets;
+};
+
+extern bool bgp_resync_eligible(struct peer_af *paf);
+extern void bgp_resync_start(struct peer_af *paf);
+extern void bgp_resync_stop(struct peer_af *paf);
+extern struct stream *bgp_resync_packet(struct peer_af *paf);
+
+/*
  * update_group_remove_peer_afs
  *
  * Remove all peer_af structures for the given peer from their subgroups.
@@ -537,6 +564,7 @@ static inline void update_group_remove_peer_afs(struct peer *peer)
 		paf = peer->peer_af_array[afidx];
 		if (paf != NULL) {
 			bgp_stop_announce_route_timer(paf);
+			bgp_resync_stop(paf);
 			update_subgroup_remove_peer(PAF_SUBGRP(paf), paf);
 		}
 	}

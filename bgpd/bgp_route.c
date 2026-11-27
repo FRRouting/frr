@@ -7492,6 +7492,22 @@ void bgp_announce_route(struct peer *peer, afi_t afi, safi_t safi, bool force)
 	subgrp = PAF_SUBGRP(paf);
 
 	/*
+	 * A resync in progress answers a ROUTE-REFRESH: the walk below
+	 * replaces it, and must resend everything to the peer.
+	 *
+	 * Known limitation: SUBGRP_STATUS_FORCE_UPDATES is subgroup-wide,
+	 * not per peer. An unrelated force=false caller (e.g. nexthop
+	 * tracking) landing on a peer that happens to be resyncing will
+	 * force a full re-announce to every other peer sharing that
+	 * subgroup too, not just this one - there is no per-peer force
+	 * mechanism to scope this more tightly.
+	 */
+	if (paf->resync) {
+		bgp_resync_stop(paf);
+		force = true;
+	}
+
+	/*
 	 * Ignore if subgroup doesn't exist (implies AF is not negotiated)
 	 * or a refresh has already been triggered.
 	 */
