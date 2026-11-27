@@ -46,7 +46,7 @@ Installing Topotest Requirements
    python3 -m pip install 'scapy>=2.4.5'
    python3 -m pip install 'libyang<4'
    python3 -m pip install pyyaml xmltodict
-   python3 -m pip install git+https://github.com/Exa-Networks/exabgp@0659057837cd6c6351579e9f0fa47e9fb7de7311
+   python3 -m pip install git+https://github.com/Exa-Networks/exabgp@5d36bc40253235a913664599ac5cf85bc7adb996 # ExaBGP 5.0.9
    useradd -d /var/run/exabgp/ -s /bin/false exabgp
 
 The version of protobuf package that is installed on your system will determine
