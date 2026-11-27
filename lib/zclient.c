@@ -39,8 +39,8 @@ enum zclient_event { ZCLIENT_SCHEDULE, ZCLIENT_READ, ZCLIENT_CONNECT };
 /* Prototype for event manager. */
 static void zclient_event(enum zclient_event, struct zclient *);
 
-static void zebra_interface_if_set_value(struct stream *s,
-					 struct interface *ifp);
+static int zebra_interface_if_set_value(struct stream *s,
+					struct interface *ifp);
 
 const struct zclient_options zclient_options_default = {
 	.synchronous = false,
@@ -2889,7 +2889,8 @@ static int zclient_interface_add(ZAPI_CALLBACK_ARGS)
 
 	ifp = if_get_by_name(ifname_tmp, vrf_id, vrf->name);
 
-	zebra_interface_if_set_value(s, ifp);
+	if (zebra_interface_if_set_value(s, ifp) != 0)
+		return -1;
 
 	if_new_via_zapi(ifp);
 
@@ -2921,7 +2922,8 @@ struct interface *zebra_interface_state_read(struct stream *s, vrf_id_t vrf_id)
 		return NULL;
 	}
 
-	zebra_interface_if_set_value(s, ifp);
+	if (zebra_interface_if_set_value(s, ifp) != 0)
+		return NULL;
 
 	return ifp;
 stream_failure:
@@ -3025,7 +3027,7 @@ static int link_params_set_value(struct stream *s, struct interface *ifp)
 	}
 
 	STREAM_GETL(s, iflp->rmt_as);
-	iflp->rmt_ip.s_addr = stream_get_ipv4(s);
+	STREAM_GET_IPV4(s, iflp->rmt_ip.s_addr);
 
 	STREAM_GETL(s, iflp->av_delay);
 	STREAM_GETL(s, iflp->min_delay);
@@ -3108,48 +3110,84 @@ stream_failure:
 	return NULL;
 }
 
-static void zebra_interface_if_set_value(struct stream *s,
-					 struct interface *ifp)
+static int zebra_interface_if_set_value(struct stream *s,
+					struct interface *ifp)
 {
 	uint8_t link_params_status = 0;
-	ifindex_t old_ifindex, new_ifindex;
+	ifindex_t old_ifindex, new_ifindex, link_ifindex;
+	uint8_t status;
+	uint64_t flags;
+	char ptm_enable, ptm_status;
+	uint32_t metric, speed, txqlen;
+	unsigned int mtu, mtu6, bandwidth;
+	enum zebra_iftype zif_type;
+	enum zebra_link_type ll_type;
+	int hw_addr_len;
+	uint8_t hw_addr[INTERFACE_HWADDR_MAX] = {0};
 
 	old_ifindex = ifp->oldifindex;
 	/* Read interface's index. */
 	STREAM_GETL(s, new_ifindex);
-	if_set_index(ifp, new_ifindex);
-	STREAM_GETC(s, ifp->status);
+	STREAM_GETC(s, status);
 
 	/* Read interface's value. */
-	STREAM_GETQ(s, ifp->flags);
-	STREAM_GETC(s, ifp->ptm_enable);
-	STREAM_GETC(s, ifp->ptm_status);
-	STREAM_GETL(s, ifp->metric);
-	STREAM_GETL(s, ifp->speed);
-	STREAM_GETL(s, ifp->txqlen);
-	STREAM_GETL(s, ifp->mtu);
-	STREAM_GETL(s, ifp->mtu6);
-	STREAM_GETL(s, ifp->bandwidth);
-	STREAM_GETL(s, ifp->link_ifindex);
-	STREAM_GETL(s, ifp->zif_type);
-	STREAM_GETL(s, ifp->ll_type);
-	STREAM_GETL(s, ifp->hw_addr_len);
-	if (ifp->hw_addr_len)
-		STREAM_GET(ifp->hw_addr, s,
-			   MIN(ifp->hw_addr_len, INTERFACE_HWADDR_MAX));
+	STREAM_GETQ(s, flags);
+	STREAM_GETC(s, ptm_enable);
+	STREAM_GETC(s, ptm_status);
+	STREAM_GETL(s, metric);
+	STREAM_GETL(s, speed);
+	STREAM_GETL(s, txqlen);
+	STREAM_GETL(s, mtu);
+	STREAM_GETL(s, mtu6);
+	STREAM_GETL(s, bandwidth);
+	STREAM_GETL(s, link_ifindex);
+	STREAM_GETL(s, zif_type);
+	STREAM_GETL(s, ll_type);
+	STREAM_GETL(s, hw_addr_len);
+	if (hw_addr_len)
+		STREAM_GET(hw_addr, s, MIN(hw_addr_len, INTERFACE_HWADDR_MAX));
 
 	/* Read Traffic Engineering status */
-	link_params_status = stream_getc(s);
-	/* Then, Traffic Engineering parameters if any */
-	if (link_params_status)
-		link_params_set_value(s, ifp);
+	STREAM_GETC(s, link_params_status);
+
+	/*
+	 * Nothing above has touched ifp yet. A short/malformed ZAPI message
+	 * (e.g. from a peer that isn't zebra, or a version mismatch) must
+	 * not leave the live interface half-updated -- e.g. IFF_UP cleared
+	 * in ifp->flags with no if_down_via_zapi() ever called, because the
+	 * caller saw this function fail further down the message. The whole
+	 * message, including the optional link-params section below, has to
+	 * parse successfully before any of it is applied.
+	 */
+	if (link_params_status && link_params_set_value(s, ifp) != 0)
+		goto stream_failure;
+
+	if_set_index(ifp, new_ifindex);
+	ifp->status = status;
+	ifp->flags = flags;
+	ifp->ptm_enable = ptm_enable;
+	ifp->ptm_status = ptm_status;
+	ifp->metric = metric;
+	ifp->speed = speed;
+	ifp->txqlen = txqlen;
+	ifp->mtu = mtu;
+	ifp->mtu6 = mtu6;
+	ifp->bandwidth = bandwidth;
+	ifp->link_ifindex = link_ifindex;
+	ifp->zif_type = zif_type;
+	ifp->ll_type = ll_type;
+	ifp->hw_addr_len = hw_addr_len;
+	if (hw_addr_len)
+		memcpy(ifp->hw_addr, hw_addr,
+		       MIN(hw_addr_len, INTERFACE_HWADDR_MAX));
 
 	nexthop_group_interface_state_change(ifp, old_ifindex);
 
-	return;
+	return 0;
 stream_failure:
-	zlog_err("Could not parse interface values; aborting");
-	assert(!"Failed to parse interface values");
+	zlog_err("Could not parse interface values for interface %s vrf %s(%u)",
+		 ifp->name, ifp->vrf->name, ifp->vrf->vrf_id);
+	return -1;
 }
 
 size_t zebra_interface_link_params_write(struct stream *s,
