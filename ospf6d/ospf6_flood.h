@@ -42,7 +42,8 @@ extern void ospf6_flood_area(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 
 /* receive & install */
 extern void ospf6_receive_lsa(struct ospf6_neighbor *from,
-			      struct ospf6_lsa_header *header);
+			      struct ospf6_lsa_header *header,
+			      int *nbr_exchanging);
 extern void ospf6_install_lsa(struct ospf6_lsa *lsa);
 
 extern int config_write_ospf6_debug_flood(struct vty *vty);
