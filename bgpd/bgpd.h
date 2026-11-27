@@ -371,14 +371,9 @@ enum bgp_instance_type {
 	BGP_INSTANCE_TYPE_VIEW
 };
 
-/*
- * If BGP has started gracefully and if this VRF has
- * multihop peer and tier1 processing is done already,
- * then check if tier2 timer
- * was started but tier2 GR processing is still pending.
- */
+/* A multihop tier-2 deferral is active after tier 1 has completed. */
 #define BGP_MULTIHOP_GR_PENDING(bgp, afi, safi)                                                   \
-	((CHECK_FLAG(bm->flags, BM_FLAG_GRACEFUL_RESTART) && bgp->gr_multihop_peer_exists &&      \
+	((bgp->gr_multihop_peer_exists &&                                                         \
 	  bgp->gr_info[afi][safi].select_defer_over &&                                            \
 	  bgp->gr_info[afi][safi].select_defer_tier2_required &&                                  \
 	  !bgp->gr_info[afi][safi].select_defer_over_tier2))
