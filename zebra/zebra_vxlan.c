@@ -43,6 +43,7 @@
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_trace.h"
+#include "zebra/zebra_neigh.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, HOST_PREFIX, "host prefix");
 DEFINE_MTYPE_STATIC(ZEBRA, ZL3VNI, "L3 VNI hash");
@@ -5052,6 +5053,28 @@ int zebra_vxlan_dp_network_mac_del(struct interface *ifp,
 	return 0;
 }
 
+static void zebra_vxlan_port_mac_flush_evpn(struct hash_bucket *bucket, void *arg)
+{
+	struct zebra_evpn *zevpn = bucket->data;
+
+	if (zevpn->vxlan_if)
+		zebra_evpn_local_macs_port_flush(zevpn, arg);
+}
+
+/* Delete the local MACs of a bridge port as the kernel's flush of its FDB
+ * entries would have, through zebra_vxlan_local_mac_del(): the port is leaving
+ * its bridge or going away.
+ */
+void zebra_vxlan_local_macs_port_flush(struct interface *ifp)
+{
+	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
+
+	if (!zvrf || !zvrf->evpn_table)
+		return;
+
+	hash_iterate(zvrf->evpn_table, zebra_vxlan_port_mac_flush_evpn, ifp);
+}
+
 /*
  * Handle local MAC delete (on a port or VLAN corresponding to this VNI).
  */
@@ -6358,6 +6381,7 @@ void zebra_vxlan_advertise_all_vni(ZAPI_HANDLER_ARGS)
 
 		/* Read the MAC FDB */
 		ns_walk_func(macfdb_read_ns, NULL, NULL);
+		zebra_neigh_dplane_mac_read(NULL);
 
 		/* Read neighbors */
 		ns_walk_func(neigh_read_ns, NULL, NULL);

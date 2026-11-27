@@ -1189,6 +1189,14 @@ int netlink_request(struct nlsock *nl, void *req)
 	return 0;
 }
 
+/* The entry is already gone, so later providers (e.g. FPM) must still see it. */
+static bool nl_local_mac_del_already_gone(const struct zebra_dplane_ctx *ctx, int nl_errno)
+{
+	return zebra_mac_ext_learn_mode() && nl_errno == ENOENT &&
+	       dplane_ctx_get_op(ctx) == DPLANE_OP_MAC_DELETE &&
+	       !CHECK_FLAG(dplane_ctx_mac_get_update_flags(ctx), DPLANE_MAC_REMOTE);
+}
+
 static int nl_batch_read_resp(struct nl_batch *bth, struct nlsock *nl)
 {
 	struct nlmsghdr *h;
@@ -1322,7 +1330,7 @@ static int nl_batch_read_resp(struct nl_batch *bth, struct nlsock *nl)
 			if (nl_errno)
 				dplane_ctx_set_errno(ctx, nl_errno);
 
-			if (err == -1)
+			if (err == -1 && !nl_local_mac_del_already_gone(ctx, nl_errno))
 				dplane_ctx_set_status(
 					ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 

@@ -122,6 +122,19 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    8 bit values are scaled to a range of 1-254 and 16 bit values are
    scaled to a range of 1-65534.
 
+.. option:: --kernel-mac-ext-learn
+
+   Use an external dataplane for MAC learning and aging. On SONiC, load the
+   ``dplane_fpm_sonic`` module to exchange MAC updates with ``fpmsyncd`` over
+   FPM. This startup option applies to all EVPN VNIs.
+
+   Zebra programs MAC entries in the kernel FDB with ``extern_learn`` so
+   the kernel does not age them. Zebra takes MAC learns and deletes from
+   the dataplane module and continues to process kernel VXLAN flood-list
+   and multicast group entries.
+
+   ARP/ND suppression and asymmetric IRB are unavailable in this mode.
+
 .. _interface-commands:
 
 Configuration Addresses behaviour

@@ -4506,6 +4506,11 @@ static int zclient_capability_decode(ZAPI_CALLBACK_ARGS)
 	STREAM_GETL(s, cap.ecmp);
 	STREAM_GETC(s, cap.role);
 	STREAM_GETC(s, cap.v6_with_v4_nexthop);
+	/* The optional external-learn capability follows the graceful-restart byte. */
+	if (STREAM_READABLE(s) >= 2) {
+		STREAM_FORWARD_GETP(s, 1);
+		STREAM_GETC(s, cap.kernel_mac_ext_learn);
+	}
 
 	if (zclient->zebra_capabilities)
 		(*zclient->zebra_capabilities)(&cap);
