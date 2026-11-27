@@ -1035,6 +1035,14 @@ void rtm_read(struct rt_msghdr *rtm)
 	if (flags & RTF_WASCLONED)
 		return;
 #endif
+#ifdef RTF_LLDATA /*freebsd*/
+	/*
+	 * Neighbor cache entries (e.g. IPv6 ND), not routes: as kernel
+	 * routes they would override static or BGP host routes.
+	 */
+	if (flags & RTF_LLDATA)
+		return;
+#endif
 
 	if ((rtm->rtm_type == RTM_ADD || rtm->rtm_type == RTM_CHANGE)
 	    && !(flags & RTF_UP))
