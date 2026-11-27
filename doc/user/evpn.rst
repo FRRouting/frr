@@ -348,6 +348,153 @@ A Traditional VXLAN Device will only receive traffic for a single VNI. This mean
 that in a multi-VNI environment, you need to create one Traditional
 VXLAN Device per VNI.
 
+.. _evpn-downstream-vni-rp-filter:
+
+Downstream VNI and rp_filter
+----------------------------
+
+.. important::
+
+   When you use the Linux Kernel VXLAN dataplane,
+   **Downstream VNI needs** ``rp_filter=0`` **on the L3SVI (SVI used to map the L3VNI to a VRF).**
+
+   The kernel uses the higher of ``net.ipv4.conf.all.rp_filter`` and the value of the interface.
+
+
+Example setup:
+
+- Our local VTEP 10.1.1.1 has ``vrf-A`` with L3VNI 1234.
+- On ``vxlan0`` VLAN 1234 is mapped to VNI 1234 (the local VLAN ID is arbitrary)
+- The L3SVI of ``vrf-A`` is ``l3-a`` (it has VLAN 1234 and is in ``vrf-A``, no IPv4 address)
+- The remote VTEP 10.254.254.254 uses VNI 9999 for the same VRF.
+- The remote VTEP advertises a default route as EVPN type-5 with VNI 9999.
+- zebra installs that route in ``vrf-A`` as a downstream VNI route on
+  ``vxlan0``:
+
+  .. code-block:: shell
+
+     # ip route show vrf vrf-A default
+     default nhid 55 encap ip id 9999 src 0.0.0.0 dst 10.254.254.254 ttl 0 tos 0 via 10.254.254.254 dev vxlan0 proto bgp metric 20 onlink
+
+- Our local VTEP announces a Type 5 Route for 203.0.113.0/24 with VNI 1234 in ``vrf-A``
+
+Now a remote host with 10.98.11.2 pings our local host with 203.0.113.62 (which is in ``vrf-A``).
+
+The remote VTEP encapsulates it with our local VNI 1234.
+When our local VTEP receives the packet, ``vxlan0`` decapsulates
+it into VLAN 1234, so it arrives on ``l3-a``. The reverse route for
+10.98.11.2 in ``vrf-A`` is the default route above, which points to
+``vxlan0``, not to ``l3-a``.
+
+``__fib_validate_source()`` therefore finds no route via the receiving
+device. Because ``l3-a`` has no IPv4 address, it then rejects the packet for
+any non-zero ``rp_filter``, loose mode (2) included.
+
+Using ``pwru`` and the command
+``pwru --filter-track-skb --output-meta --output-tuple 'icmp and host 203.0.113.62'``
+we can trace exactly what happens (only the IFACE, TUPLE and FUNC columns kept):
+
+.. code-block:: none
+
+   IFACE    TUPLE                                     FUNC
+   eth1     10.254.254.254:60361->10.1.1.1:4789(udp)  eth_type_trans
+   vxlan0   10.98.11.2->203.0.113.62(icmp)            gro_cells_receive
+   vxlan0   10.98.11.2->203.0.113.62(icmp)            br_pass_frame_up
+   l3-a     10.98.11.2->203.0.113.62(icmp)            ip_rcv
+   vrf-A    10.98.11.2->203.0.113.62(icmp)            ip_route_input_slow
+   vrf-A    10.98.11.2->203.0.113.62(icmp)            fib_validate_source
+   vrf-A    10.98.11.2->203.0.113.62(icmp)            __fib_validate_source
+   vrf-A    10.98.11.2->203.0.113.62(icmp)            ip_handle_martian_source
+   vrf-A    10.98.11.2->203.0.113.62(icmp)            sk_skb_reason_drop(SKB_DROP_REASON_IP_RPFILTER)
+
+Routes whose VNI equals the local L3VNI are not affected. zebra removes their
+VNI label and installs them via the SVI, e.g.
+``default via 10.254.254.254 dev l3-a onlink``, so the reverse route uses the
+receiving device and the check passes even in strict mode.
+
+This does not hold for a multipath route that mixes paths with the local
+L3VNI and paths with a downstream VNI. zebra then keeps the VNI labels of all
+paths, so the paths with the local L3VNI are installed on ``vxlan0`` as well:
+
+.. code-block:: shell
+
+   # ip route show vrf vrf-A default
+   default nhid 56 proto bgp metric 20
+           nexthop encap ip id 9999 src 0.0.0.0 dst 10.254.254.254 ttl 0 tos 0 via 10.254.254.254 dev vxlan0 weight 1 onlink
+           nexthop encap ip id 1234 src 0.0.0.0 dst 10.254.254.253 ttl 0 tos 0 via 10.254.254.253 dev vxlan0 weight 1 onlink
+
+.. _evpn-downstream-vni-source:
+
+Downstream VNI and the VXLAN Source Address
+-------------------------------------------
+
+.. important::
+
+   When FRR installs a received route whose L3VNI differs from the local L3VNI
+   ("Downstream VNI"), VXLAN traffic may be sent out with an outer source IP
+   that is not the ``local`` IP configured on the VXLAN device or the router's
+   loopback address.
+
+For a route whose L3VNI differs from the local L3VNI ("Downstream VNI"), zebra installs a
+lightweight tunnel (lwtunnel) route on the SVD device:
+
+.. code-block:: shell
+
+   # ip route show vrf vrf-A default
+   default nhid 55 encap ip id 9999 src 0.0.0.0 dst 10.254.254.254 ttl 0 tos 0 via 10.254.254.254 dev vxlan0 proto bgp metric 20 onlink
+
+zebra sets no tunnel source (``src 0.0.0.0``). For an lwtunnel route the
+kernel takes the outer source address from the route, not from the ``local``
+address of the VXLAN device. With ``src 0.0.0.0`` it uses the source address
+of the underlay route to the remote VTEP. On numbered underlay links that is
+the link address, not the VTEP address:
+
+.. code-block:: shell
+
+   # ip route get 10.254.254.254
+   10.254.254.254 via 10.99.0.1 dev eth1 src 10.99.0.11
+
+Routes whose VNI equals the local L3VNI are not affected, because their
+traffic goes through the bridge and the VXLAN FDB, which use the ``local``
+address of the device. The exception is a multipath route that mixes them
+with downstream VNI paths: all its paths are lwtunnel routes on the SVD device
+(see :ref:`evpn-downstream-vni-rp-filter`).
+
+Example: the host 10.98.11.2 behind the remote VTEP 10.254.254.254 pings
+203.0.113.62, an address in ``vrf-A`` on the local VTEP 10.1.1.1. The ICMP
+reply sent with downstream VNI on the local VTEP, traced with
+``pwru --filter-track-skb --output-meta --output-tuple 'icmp and host 203.0.113.62'``
+(only the IFACE, TUPLE and FUNC columns kept):
+
+.. code-block:: none
+
+   IFACE    TUPLE                                       FUNC
+   vrf-A    10.98.11.2->203.0.113.62(icmp)              icmp_reply
+   vxlan0   203.0.113.62->10.98.11.2(icmp)              neigh_resolve_output
+   vxlan0   203.0.113.62->10.98.11.2(icmp)              iptunnel_xmit
+   vxlan0   10.99.0.11:39801->10.254.254.254:4789(udp)  ip_local_out
+   eth1     10.99.0.11:39801->10.254.254.254:4789(udp)  dev_hard_start_xmit
+
+The reply is routed directly to ``vxlan0``, without the bridge, and leaves
+with the outer source 10.99.0.11, which is the address of the numbered underlay
+interface, and not the VXLAN device's ``local`` address or the router's
+loopback address.
+
+The problem only occurs when the source address selected for the remote VTEP
+differs from the VTEP address. To use the VTEP address, set it as the source
+of the underlay routes with a zebra route-map, e.g. for an OSPF underlay:
+
+.. code-block:: frr
+
+   route-map UNDERLAY-SRC permit 10
+    set src 10.1.1.1
+   !
+   ip protocol ospf route-map UNDERLAY-SRC
+
+Adjusting the source address is required for remote VTEPs that accept VXLAN
+traffic only from known VTEP addresses, e.g. certain Juniper devices drop
+traffic in the PFE with the exception ``Incorrect vxlan fw path executed``.
+
 .. _evpn-frr-configuration:
 
 FRR Configuration
@@ -892,6 +1039,8 @@ bindings.
    # Choose any arbitrary VLAN for L3VNIs, since it never leaves the device
    # as long as it doesn't collide with another VLAN. It's used solely to
    # bind into a routing table (VRF)
+   # vrf1br is often called "L3SVI" (as opposed to "L2SVI", which are
+   # mapped to an L2VNI and e.g. used as gateway interfaces for IRB)
    bridge vlan add dev br0 vid 1100 self
    bridge vlan add dev vxlan0 vid 1100
    bridge vni add dev vxlan0 vni 100 # add vni if using vnifilter
@@ -922,6 +1071,8 @@ bindings.
    ###############
    ## l2vni 110 ##
    ###############
+   # vlan10 is often called an "L2SVI" because it's mapped to an L2VNI
+   # and e.g. used as gateway interface for IRB
    bridge vlan add dev br0 vid 10 self
    bridge vlan add dev vxlan0 vid 10
    bridge vni add dev vxlan0 vni 110
