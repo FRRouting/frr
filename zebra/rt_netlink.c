@@ -3916,8 +3916,20 @@ static ssize_t netlink_neigh_update_msg_encode(
 			return 0;
 	}
 
+	/*
+	 * For EVPN type-3 (IMET) flood entries the access VLAN is otherwise
+	 * only implied by the vxlan interface ifindex. Advertise it like
+	 * type-2 entries carry it (NDA_VLAN, next to NDA_SRC_VNI) so that
+	 * data plane implementations which do not own a kernel vxlan
+	 * netdevice can associate the entry with its bridge domain. The
+	 * kernel ignores NDA_VLAN on a vxlan FDB entry.
+	 */
 	if (op == DPLANE_OP_VTEP_ADD || op == DPLANE_OP_VTEP_DELETE) {
 		vni_t vni = dplane_ctx_neigh_get_vni(ctx);
+		vlanid_t vid = dplane_ctx_neigh_get_vid(ctx);
+
+		if (vid > 0 && !nl_attr_put16(&req->n, datalen, NDA_VLAN, vid))
+			return 0;
 
 		if (vni > 0) {
 			if (!nl_attr_put32(&req->n, datalen, NDA_SRC_VNI, vni))
@@ -3932,9 +3944,8 @@ static ssize_t netlink_neigh_update_msg_encode(
  * Add remote VTEP to the flood list for this VxLAN interface (VNI). This
  * is done by adding an FDB entry with a MAC of 00:00:00:00:00:00.
  */
-static ssize_t
-netlink_vxlan_flood_update_ctx(const struct zebra_dplane_ctx *ctx, int cmd,
-			       void *buf, size_t buflen)
+ssize_t netlink_vxlan_flood_update_ctx(const struct zebra_dplane_ctx *ctx, int cmd, void *buf,
+				       size_t buflen)
 {
 	struct ethaddr dst_mac = {.octet = {0}};
 	int proto = RTPROT_ZEBRA;
@@ -3947,7 +3958,7 @@ netlink_vxlan_flood_update_ctx(const struct zebra_dplane_ctx *ctx, int cmd,
 			   nl_msg_type_to_str(cmd), nl_family_to_str(PF_BRIDGE),
 			   dplane_ctx_get_ifname(ctx), dplane_ctx_get_ifindex(ctx),
 			   dplane_ctx_neigh_get_vni(ctx), &dst_mac,
-			   dplane_ctx_neigh_get_ipaddr(ctx), dplane_ctx_mac_get_vlan(ctx));
+			   dplane_ctx_neigh_get_ipaddr(ctx), dplane_ctx_neigh_get_vid(ctx));
 
 	return netlink_neigh_update_msg_encode(
 		ctx, cmd, (const void *)&dst_mac, ETH_ALEN,
@@ -4320,9 +4331,14 @@ void kernel_read_macfdb(struct zebra_dplane_ctx *ctx)
 
 /*
  * Netlink-specific handler for MAC updates using dataplane context object.
+ *
+ * `fpm`: encode for the FPM. A remote MAC is sent to the FPM as one entry
+ * (NTF_SELF | NTF_MASTER), so the removal of the VXLAN device's own entry
+ * (`DPLANE_MAC_SELF_ONLY`, the bridge's entry being already a local one in
+ * the kernel) is the removal of the whole remote MAC for it.
  */
-ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
-				  size_t datalen)
+ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data, size_t datalen,
+				  bool fpm)
 {
 	struct ipaddr vtep_ip;
 	vlanid_t vid;
@@ -4361,7 +4377,7 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 		 */
 		if (update_flags & DPLANE_MAC_WAS_STATIC)
 			nfy = true;
-		if (update_flags & DPLANE_MAC_SELF_ONLY)
+		if ((update_flags & DPLANE_MAC_SELF_ONLY) && !fpm)
 			flags &= ~NTF_MASTER;
 	} else {
 		/* local mac */
@@ -4738,8 +4754,8 @@ int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id)
 /*
  * Utility neighbor-update function, using info from dplane context.
  */
-static ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx,
-					int cmd, void *buf, size_t buflen)
+ssize_t netlink_neigh_update_ctx(const struct zebra_dplane_ctx *ctx, int cmd, void *buf,
+				 size_t buflen)
 {
 	const struct ipaddr *ip;
 	const struct ethaddr *mac = NULL;
@@ -4890,11 +4906,15 @@ static ssize_t netlink_neigh_msg_encoder(struct zebra_dplane_ctx *ctx,
  * Update MAC, using dataplane context object.
  */
 
+static ssize_t netlink_macfdb_msg_encoder(struct zebra_dplane_ctx *ctx, void *data, size_t datalen)
+{
+	return netlink_macfdb_update_ctx(ctx, data, datalen, false);
+}
+
 enum netlink_msg_status netlink_put_mac_update_msg(struct nl_batch *bth,
 						   struct zebra_dplane_ctx *ctx)
 {
-	return netlink_batch_add_msg(bth, ctx, netlink_macfdb_update_ctx,
-				     false);
+	return netlink_batch_add_msg(bth, ctx, netlink_macfdb_msg_encoder, false);
 }
 
 enum netlink_msg_status
@@ -5073,7 +5093,7 @@ ssize_t netlink_mpls_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
  *   - INSTALL, cnt == 0 -> RTM_NEWNEXTHOP with NHA_FDB + NHA_GATEWAY
  *   - INSTALL, cnt  > 0 -> RTM_NEWNEXTHOP with NHA_FDB + NHA_GROUP
  */
-static ssize_t netlink_fdb_nh_msg_encode(struct zebra_dplane_ctx *ctx, void *buf, size_t buflen)
+ssize_t netlink_fdb_nh_msg_encode(struct zebra_dplane_ctx *ctx, void *buf, size_t buflen)
 {
 	struct {
 		struct nlmsghdr n;

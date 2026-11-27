@@ -891,7 +891,7 @@ void if_nbr_mac_to_ipv4ll_neigh_update(struct interface *ifp,
 	 * Remove and re-add any existing neighbor entry for this address,
 	 * since Netlink doesn't currently offer update message types.
 	 */
-	dplane_rem_neigh_delete(ifp, &ip);
+	dplane_local_neigh_delete(ifp, &ip);
 
 	/* Add new neighbor entry.
 	 *

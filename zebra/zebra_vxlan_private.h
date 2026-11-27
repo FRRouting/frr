@@ -61,6 +61,9 @@ struct zebra_l3vni {
 	struct zebra_neigh_db_head nh_table[1];
 };
 
+/* Single VXlan Device global remote vtep-ip neigh table */
+extern struct zebra_neigh_db_head svd_nh_table[1];
+
 #define IS_ZL3VNI_SVD_BACKED(zl3vni)                                           \
 	(zl3vni->vxlan_if && zl3vni->vxlan_if->info &&                         \
 	 IS_ZEBRA_VXLAN_IF_SVD((struct zebra_if *)zl3vni->vxlan_if->info))
@@ -257,6 +260,7 @@ extern void zebra_vxlan_sg_ref(struct ipaddr *local_vtep_ip, struct in_addr mcas
 extern void zebra_vxlan_sg_deref(struct ipaddr *local_vtep_ip, struct in_addr mcast_grp);
 extern void zebra_vxlan_process_l3vni_oper_up(struct zebra_l3vni *zl3vni);
 extern void zebra_vxlan_process_l3vni_oper_down(struct zebra_l3vni *zl3vni);
+extern void zebra_vxlan_l3vni_svi_change(struct zebra_l3vni *zl3vni);
 extern int zebra_evpn_vxlan_del(struct zebra_evpn *zevpn);
 extern void zebra_vxlan_stale_remote_mac_add_l3vni(struct zebra_l3vni *zl3vni,
 						   struct ethaddr *macaddr, struct ipaddr vtep_ip);

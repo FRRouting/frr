@@ -58,6 +58,12 @@ struct zebra_neigh {
 	/* Underlying interface. */
 	ifindex_t ifindex;
 
+	/*
+	 * Namespace of `ifindex`, for the L3VNI next hops (their SVI or vxlan
+	 * interface may be in the namespace of a VRF).
+	 */
+	ns_id_t ns_id;
+
 	struct zebra_evpn *zevpn;
 
 	/* Refcnt - Only used by SVD neighs currently */
@@ -82,6 +88,8 @@ struct zebra_neigh {
  * is local connected
  */
 #define ZEBRA_NEIGH_LOCAL_INACTIVE 0x200
+/* Remote neighbor sent to the FPM. */
+#define ZEBRA_NEIGH_FPM_SENT 0x400
 #define ZEBRA_NEIGH_ALL_LOCAL_FLAGS                                            \
 	(ZEBRA_NEIGH_LOCAL | ZEBRA_NEIGH_LOCAL_INACTIVE)
 #define ZEBRA_NEIGH_ALL_PEER_FLAGS                                             \
@@ -238,6 +246,8 @@ int zebra_evpn_rem_neigh_install(struct zebra_evpn *zevpn,
 				 struct zebra_neigh *n, bool was_static);
 void zebra_evpn_install_neigh_hash(struct zebra_evpn *zevpn, struct zebra_neigh *n);
 int zebra_evpn_neigh_uninstall(struct zebra_evpn *zevpn, struct zebra_neigh *n);
+void zebra_evpn_rem_neigh_uninstall_all(struct zebra_evpn *zevpn);
+void zebra_evpn_rem_neigh_install_all(struct zebra_evpn *zevpn);
 int zebra_evpn_neigh_send_add_to_client(vni_t vni, const struct ipaddr *ip,
 					const struct ethaddr *macaddr,
 					struct zebra_mac *zmac,
@@ -262,6 +272,7 @@ struct zebra_neigh *zebra_evpn_neigh_lookup(struct zebra_evpn *zevpn,
 
 int zebra_evpn_rem_neigh_install(struct zebra_evpn *zevpn,
 				 struct zebra_neigh *n, bool was_static);
+void zebra_evpn_rem_neigh_svi_down(struct zebra_evpn *zevpn, const struct interface *svi);
 void zebra_evpn_process_neigh_on_remote_mac_add(struct zebra_evpn *zevpn,
 						struct zebra_mac *zmac);
 void zebra_evpn_process_neigh_on_local_mac_del(struct zebra_evpn *zevpn,

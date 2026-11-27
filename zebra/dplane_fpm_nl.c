@@ -41,6 +41,8 @@
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_evpn.h"
 #include "zebra/zebra_evpn_mac.h"
+#include "zebra/zebra_evpn_neigh.h"
+#include "zebra/zebra_evpn_mh.h"
 #include "zebra/kernel_netlink.h"
 #include "zebra/rt_netlink.h"
 #include "fpm/fpm.h"
@@ -112,8 +114,8 @@ struct fpm_nl_ctx {
 	struct event *t_nhgwalk;
 	struct event *t_ribreset;
 	struct event *t_ribwalk;
-	struct event *t_rmacreset;
-	struct event *t_rmacwalk;
+	struct event *t_evpnreset;
+	struct event *t_evpnwalk;
 
 	/* Statistic counters. */
 	struct {
@@ -164,8 +166,8 @@ enum fpm_nl_events {
 	FNE_NHG_FINISHED,
 	/* RIB walk finished. */
 	FNE_RIB_FINISHED,
-	/* RMAC walk finished. */
-	FNE_RMAC_FINISHED,
+	/* EVPN walk finished. */
+	FNE_EVPN_FINISHED,
 };
 
 #define FPM_RECONNECT(fnc)                                                     \
@@ -187,8 +189,8 @@ static void fpm_nhg_send(struct event *t);
 static void fpm_nhg_reset(struct event *t);
 static void fpm_rib_send(struct event *t);
 static void fpm_rib_reset(struct event *t);
-static void fpm_rmac_send(struct event *t);
-static void fpm_rmac_reset(struct event *t);
+static void fpm_evpn_send(struct event *t);
+static void fpm_evpn_reset(struct event *t);
 
 /*
  * CLI.
@@ -545,8 +547,8 @@ static void fpm_reconnect(struct fpm_nl_ctx *fnc)
 	event_cancel_async(zrouter.master, &fnc->t_nhgwalk, NULL);
 	event_cancel_async(zrouter.master, &fnc->t_ribreset, NULL);
 	event_cancel_async(zrouter.master, &fnc->t_ribwalk, NULL);
-	event_cancel_async(zrouter.master, &fnc->t_rmacreset, NULL);
-	event_cancel_async(zrouter.master, &fnc->t_rmacwalk, NULL);
+	event_cancel_async(zrouter.master, &fnc->t_evpnreset, NULL);
+	event_cancel_async(zrouter.master, &fnc->t_evpnwalk, NULL);
 
 	/*
 	 * Grab the lock to empty the streams (data plane might try to
@@ -959,11 +961,12 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 
 	/*
 	 * If we were configured to not use next hop groups, then quit as soon
-	 * as possible.
+	 * as possible. The same goes for the EVPN-MH FDB next hops and
+	 * groups.
 	 */
-	if ((!fnc->use_nhg)
-	    && (op == DPLANE_OP_NH_DELETE || op == DPLANE_OP_NH_INSTALL
-		|| op == DPLANE_OP_NH_UPDATE))
+	if ((!fnc->use_nhg) && (op == DPLANE_OP_NH_DELETE || op == DPLANE_OP_NH_INSTALL ||
+				op == DPLANE_OP_NH_UPDATE || op == DPLANE_OP_NH_FDB_INSTALL ||
+				op == DPLANE_OP_NH_FDB_DELETE))
 		return 0;
 
 	nl_buf_len = 0;
@@ -1015,9 +1018,67 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 
 	case DPLANE_OP_MAC_INSTALL:
 	case DPLANE_OP_MAC_DELETE:
-		rv = netlink_macfdb_update_ctx(ctx, nl_buf, sizeof(nl_buf));
+		/*
+		 * Only the EVPN remote MACs (L2VNI remote MACs and router
+		 * MACs): not the local MACs zebra installs or flushes
+		 * (EVPN-MH sync MACs, local MACs of an ES, including the ones
+		 * programmed like remote ones while their ES is down,
+		 * flagged `DPLANE_MAC_SKIP_FPM`), which a new FPM connection
+		 * does not get again.
+		 */
+		if (!CHECK_FLAG(dplane_ctx_mac_get_update_flags(ctx), DPLANE_MAC_REMOTE) ||
+		    CHECK_FLAG(dplane_ctx_mac_get_update_flags(ctx), DPLANE_MAC_SKIP_FPM))
+			return 0;
+
+		rv = netlink_macfdb_update_ctx(ctx, nl_buf, sizeof(nl_buf), true);
 		if (rv <= 0) {
 			flog_err(EC_ZEBRA_FPM_ENCODE_FAIL, "%s: netlink_macfdb_update_ctx failed",
+				 __func__);
+			dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
+			return 0;
+		}
+
+		nl_buf_len = (size_t)rv;
+		break;
+
+	/*
+	 * EVPN type-3 (IMET) remote VTEP flood entries. Encoded as an FDB
+	 * entry with an all-zero MAC, matching the kernel data plane.
+	 */
+	case DPLANE_OP_VTEP_ADD:
+	case DPLANE_OP_VTEP_DELETE:
+		rv = netlink_vxlan_flood_update_ctx(ctx,
+						    op == DPLANE_OP_VTEP_ADD ? RTM_NEWNEIGH
+									     : RTM_DELNEIGH,
+						    nl_buf, sizeof(nl_buf));
+		if (rv <= 0) {
+			flog_err(EC_ZEBRA_FPM_ENCODE_FAIL,
+				 "%s: netlink_vxlan_flood_update_ctx failed", __func__);
+			dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
+			return 0;
+		}
+
+		nl_buf_len = (size_t)rv;
+		break;
+
+	case DPLANE_OP_NEIGH_INSTALL:
+	case DPLANE_OP_NEIGH_UPDATE:
+	case DPLANE_OP_NEIGH_DELETE:
+		/*
+		 * Only the EVPN remote neighbors (MAC/IP routes and L3VNI next
+		 * hops): not the other neighbors zebra installs (EVPN-MH local
+		 * sync neighbors, IPv4 link local next hops of IPv6 peers),
+		 * which a new FPM connection does not get again.
+		 */
+		if (!CHECK_FLAG(dplane_ctx_neigh_get_update_flags(ctx), DPLANE_NEIGH_REMOTE))
+			return 0;
+
+		rv = netlink_neigh_update_ctx(ctx,
+					      op == DPLANE_OP_NEIGH_DELETE ? RTM_DELNEIGH
+									   : RTM_NEWNEIGH,
+					      nl_buf, sizeof(nl_buf));
+		if (rv <= 0) {
+			flog_err(EC_ZEBRA_FPM_ENCODE_FAIL, "%s: netlink_neigh_update_ctx failed",
 				 __func__);
 			dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 			return 0;
@@ -1067,18 +1128,29 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		nl_buf_len += (size_t)rv;
 		break;
 
-	/* Un-handled by FPM at this time. */
+	/*
+	 * EVPN-MH FDB next hops and groups: the remote MACs behind an ES
+	 * point to them (NDA_NH_ID). Only sent when the FPM uses next hop
+	 * groups (see above).
+	 */
 	case DPLANE_OP_NH_FDB_INSTALL:
 	case DPLANE_OP_NH_FDB_DELETE:
+		rv = netlink_fdb_nh_msg_encode(ctx, nl_buf, sizeof(nl_buf));
+		if (rv <= 0) {
+			flog_err(EC_ZEBRA_FPM_ENCODE_FAIL, "%s: netlink_fdb_nh_msg_encode failed",
+				 __func__);
+			dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
+			return 0;
+		}
+
+		nl_buf_len = (size_t)rv;
+		break;
+
+	/* Un-handled by FPM at this time. */
 	case DPLANE_OP_PW_INSTALL:
 	case DPLANE_OP_PW_UNINSTALL:
 	case DPLANE_OP_ADDR_INSTALL:
 	case DPLANE_OP_ADDR_UNINSTALL:
-	case DPLANE_OP_NEIGH_INSTALL:
-	case DPLANE_OP_NEIGH_UPDATE:
-	case DPLANE_OP_NEIGH_DELETE:
-	case DPLANE_OP_VTEP_ADD:
-	case DPLANE_OP_VTEP_DELETE:
 	case DPLANE_OP_SYS_ROUTE_ADD:
 	case DPLANE_OP_SYS_ROUTE_DELETE:
 	case DPLANE_OP_ROUTE_NOTIFY:
@@ -1348,75 +1420,407 @@ static void fpm_rib_send(struct event *t)
 	/* All RIB routes sent! */
 	WALK_FINISH(fnc, FNE_RIB_FINISHED);
 
-	/* Schedule next event: RMAC reset. */
-	event_add_event(zrouter.master, fpm_rmac_reset, fnc, 0,
-			&fnc->t_rmacreset);
+	/* Schedule next event: EVPN reset. */
+	event_add_event(zrouter.master, fpm_evpn_reset, fnc, 0, &fnc->t_evpnreset);
 }
 
 /*
- * The next three functions will handle RMAC enqueue.
+ * The next functions will handle RMAC, L3VNI next hop, EVPN-MH next hop,
+ * L2VNI remote MAC, remote neighbor and flood list enqueue.
  */
-struct fpm_rmac_arg {
+struct fpm_evpn_arg {
 	struct zebra_dplane_ctx *ctx;
 	struct fpm_nl_ctx *fnc;
 	struct zebra_l3vni *zl3vni;
+	struct zebra_evpn *zevpn;
+	struct interface *svi;
 	bool complete;
 };
 
 static void fpm_enqueue_rmac_table(struct hash_bucket *bucket, void *arg)
 {
-	struct fpm_rmac_arg *fra = arg;
+	struct fpm_evpn_arg *fra = arg;
 	struct zebra_mac *zrmac = bucket->data;
-	struct zebra_if *zif = fra->zl3vni->vxlan_if->info;
+	struct zebra_if *zif;
 	struct zebra_vxlan_vni *vni;
-	struct zebra_if *br_zif;
-	vlanid_t vid;
-	bool sticky;
 
 	/* Entry already sent. */
 	if (CHECK_FLAG(zrmac->flags, ZEBRA_MAC_FPM_SENT) || !fra->complete)
 		return;
 
-	sticky = !!CHECK_FLAG(zrmac->flags,
-			      (ZEBRA_MAC_STICKY | ZEBRA_MAC_REMOTE_DEF_GW));
-	br_zif = (struct zebra_if *)(zif->brslave_info.br_if->info);
+	/*
+	 * The entries `zl3vni_rmac_install()` installed, with the VLAN it
+	 * installed them with.
+	 */
+	if (!CHECK_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE) ||
+	    !CHECK_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE_RMAC) ||
+	    !CHECK_FLAG(zrmac->flags, ZEBRA_MAC_RMAC_INSTALLED))
+		return;
+
+	/* The caller only walks the L3VNIs with a vxlan interface. */
+	zif = fra->zl3vni->vxlan_if->info;
+	if (!zif || !zif->brslave_info.br_if)
+		return;
+
 	vni = zebra_vxlan_if_vni_find(zif, fra->zl3vni->vni);
-	vid = IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif) ? vni->access_vlan : 0;
+	if (!vni)
+		return;
 
 	dplane_ctx_reset(fra->ctx);
 	dplane_ctx_set_op(fra->ctx, DPLANE_OP_MAC_INSTALL);
-	dplane_mac_init(fra->ctx, fra->zl3vni->vxlan_if, zif->brslave_info.br_if, vid,
-			&zrmac->macaddr, vni->vni, &zrmac->fwd_info.r_vtep_ip, sticky, 0 /*nhg*/,
-			0 /*update_flags*/);
+	dplane_mac_init(fra->ctx, fra->zl3vni->vxlan_if, zif->brslave_info.br_if, zrmac->rmac_vid,
+			&zrmac->macaddr, vni->vni, &zrmac->fwd_info.r_vtep_ip, false /*sticky*/,
+			0 /*nhg*/, DPLANE_MAC_REMOTE);
 	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
-		event_add_timer(zrouter.master, fpm_rmac_send, fra->fnc, 1,
-				&fra->fnc->t_rmacwalk);
+		event_add_timer(zrouter.master, fpm_evpn_send, fra->fnc, 1, &fra->fnc->t_evpnwalk);
 		fra->complete = false;
+		return;
 	}
+
+	SET_FLAG(zrmac->flags, ZEBRA_MAC_FPM_SENT);
+}
+
+/*
+ * L3VNI next hops: the remote VTEP neighbors `zl3vni_nh_install()` programs
+ * on the L3VNI SVI and `svd_nh_install()` programs on the SVD vxlan
+ * interface. The installed ones (active), on the interface they are
+ * installed on (`ifindex`), while it is up: the kernel removes them while
+ * it is down.
+ */
+static void fpm_enqueue_l3vni_nh(struct fpm_evpn_arg *fra, struct zebra_neigh *n)
+{
+	struct zebra_ns *zns;
+	struct interface *ifp;
+	uint32_t flags;
+
+	if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) ||
+	    !CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE_NH) ||
+	    CHECK_FLAG(n->flags, ZEBRA_NEIGH_FPM_SENT) || !fra->complete)
+		return;
+
+	if (!IS_ZEBRA_NEIGH_ACTIVE(n) || n->ifindex == IFINDEX_INTERNAL)
+		return;
+
+	/* Not another namespace's interface if its namespace is gone. */
+	zns = zebra_ns_lookup(n->ns_id);
+	if (!zns || zns->ns_id != n->ns_id)
+		return;
+
+	ifp = if_lookup_by_index_per_ns(zns, n->ifindex);
+	if (!ifp || !if_is_operative(ifp))
+		return;
+
+	flags = DPLANE_NTF_EXT_LEARNED;
+	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG))
+		flags |= DPLANE_NTF_ROUTER;
+
+	dplane_ctx_reset(fra->ctx);
+	dplane_ctx_set_op(fra->ctx, DPLANE_OP_NEIGH_INSTALL);
+	dplane_rem_neigh_init(fra->ctx, ifp, &n->ip, &n->emac, flags);
+	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
+		event_add_timer(zrouter.master, fpm_evpn_send, fra->fnc, 1, &fra->fnc->t_evpnwalk);
+		fra->complete = false;
+		return;
+	}
+
+	SET_FLAG(n->flags, ZEBRA_NEIGH_FPM_SENT);
 }
 
 static void fpm_enqueue_l3vni_table(struct hash_bucket *bucket, void *arg)
 {
-	struct fpm_rmac_arg *fra = arg;
+	struct fpm_evpn_arg *fra = arg;
 	struct zebra_l3vni *zl3vni = bucket->data;
+	struct zebra_neigh *n;
 
+	/*
+	 * The router MACs installed stay installed while the L3VNI is down,
+	 * until the kernel flushes them from the vxlan interface going down
+	 * (`zl3vni_rmac_flushed()`), and the table outlives the vxlan
+	 * interface until BGP withdraws the entries.
+	 */
 	fra->zl3vni = zl3vni;
-	hash_iterate(zl3vni->rmac_table, fpm_enqueue_rmac_table, fra);
+	if (zl3vni->vxlan_if)
+		hash_iterate(zl3vni->rmac_table, fpm_enqueue_rmac_table, fra);
+
+	/*
+	 * The next hops stay installed on an SVI that is up while the L3VNI
+	 * is down (e.g. its vxlan interface is down).
+	 */
+	frr_each (zebra_neigh_db, zl3vni->nh_table, n)
+		fpm_enqueue_l3vni_nh(fra, n);
 }
 
-static void fpm_rmac_send(struct event *t)
+/*
+ * SVD backed L3VNIs also install the next hops of the global SVD table,
+ * each on the vxlan interface of the L3VNI that installed it. Walk the
+ * table once, not once per L3VNI sharing it.
+ */
+static void fpm_enqueue_svd_nh_table(struct fpm_evpn_arg *fra)
 {
-	struct fpm_rmac_arg fra;
+	struct zebra_neigh *n;
+
+	frr_each (zebra_neigh_db, svd_nh_table, n)
+		fpm_enqueue_l3vni_nh(fra, n);
+}
+
+/*
+ * EVPN-MH L2 next hops: the ES VTEPs the next hop groups below point to
+ * (sent before the groups, like they are installed). All of them, as
+ * installed when allocated (`zebra_evpn_l2_nh_alloc()`), not only the
+ * ones the kernel confirmed: the groups use them all, and a confirmation
+ * still in flight would leave a group with a next hop the FPM never gets.
+ */
+static void fpm_enqueue_l2_nh(struct hash_bucket *bucket, void *arg)
+{
+	struct fpm_evpn_arg *fra = arg;
+	struct zebra_evpn_l2_nh *nh = bucket->data;
+
+	if (CHECK_FLAG(nh->flags, ZEBRA_EVPN_L2_NH_FPM_SENT) || !fra->complete)
+		return;
+
+	dplane_ctx_reset(fra->ctx);
+	dplane_ctx_set_op(fra->ctx, DPLANE_OP_NH_FDB_INSTALL);
+	dplane_fdb_nh_init(fra->ctx, nh->nh_id, &nh->vtep_ip, 0, NULL);
+	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
+		event_add_timer(zrouter.master, fpm_evpn_send, fra->fnc, 1, &fra->fnc->t_evpnwalk);
+		fra->complete = false;
+		return;
+	}
+
+	SET_FLAG(nh->flags, ZEBRA_EVPN_L2_NH_FPM_SENT);
+}
+
+/*
+ * EVPN-MH ES next hop groups: the ones the remote MACs behind an ES are
+ * installed with (sent before the MACs), as `zebra_evpn_nhg_update()`
+ * programs them.
+ */
+static void fpm_enqueue_es_nhg(struct fpm_evpn_arg *fra, struct zebra_evpn_es *es)
+{
+	struct nh_grp nh_ids[ES_VTEP_MAX_CNT];
+	uint32_t nh_cnt;
+
+	if (CHECK_FLAG(es->flags, ZEBRA_EVPNES_NHG_FPM_SENT) || !fra->complete)
+		return;
+
+	if (!es->nhg_id || !CHECK_FLAG(es->flags, ZEBRA_EVPNES_NHG_ACTIVE))
+		return;
+
+	nh_cnt = zebra_evpn_es_nhg_members(es, nh_ids);
+	if (!nh_cnt)
+		return;
+
+	dplane_ctx_reset(fra->ctx);
+	dplane_ctx_set_op(fra->ctx, DPLANE_OP_NH_FDB_INSTALL);
+	dplane_fdb_nh_init(fra->ctx, es->nhg_id, NULL, nh_cnt, nh_ids);
+	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
+		event_add_timer(zrouter.master, fpm_evpn_send, fra->fnc, 1, &fra->fnc->t_evpnwalk);
+		fra->complete = false;
+		return;
+	}
+
+	SET_FLAG(es->flags, ZEBRA_EVPNES_NHG_FPM_SENT);
+}
+
+/*
+ * L2VNI remote MACs: the same entries `zebra_evpn_rem_mac_install()`
+ * programs.
+ */
+static void fpm_enqueue_l2vni_mac_table(struct hash_bucket *bucket, void *arg)
+{
+	struct fpm_evpn_arg *fra = arg;
+	struct zebra_mac *mac = bucket->data;
+	struct zebra_evpn *zevpn = fra->zevpn;
+	struct zebra_if *zif = zevpn->vxlan_if->info;
+	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
+	struct zebra_vxlan_vni *vni;
+	struct ipaddr vtep_ip;
+	uint32_t nhg_id = 0;
+	vlanid_t vid;
+	bool sticky;
+
+	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE) ||
+	    CHECK_FLAG(mac->flags, ZEBRA_MAC_FPM_SENT) || !fra->complete)
+		return;
+
+	/* Duplicate MAC updates are not installed while frozen. */
+	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_DUPLICATE) && zvrf && zvrf->dad_freeze)
+		return;
+
+	vni = zebra_vxlan_if_vni_find(zif, zevpn->vni);
+	if (!vni)
+		return;
+
+	memset(&vtep_ip, 0, sizeof(vtep_ip));
+	if (mac->es) {
+		/* Not installed until the ES next hop group is active. */
+		if (!CHECK_FLAG(mac->es->flags, ZEBRA_EVPNES_NHG_ACTIVE))
+			return;
+
+		nhg_id = mac->es->nhg_id;
+		SET_IPADDR_NONE(&vtep_ip);
+	} else {
+		/*
+		 * No VTEP: a stale remote MAC a graceful restart read back
+		 * from a kernel FDB entry without a destination, until BGP
+		 * refreshes it.
+		 */
+		if (ipaddr_is_zero(&mac->fwd_info.r_vtep_ip))
+			return;
+
+		vtep_ip = mac->fwd_info.r_vtep_ip;
+	}
+
+	sticky = !!CHECK_FLAG(mac->flags, (ZEBRA_MAC_STICKY | ZEBRA_MAC_REMOTE_DEF_GW));
+	vid = zebra_evpn_access_vid(zevpn);
+
+	dplane_ctx_reset(fra->ctx);
+	dplane_ctx_set_op(fra->ctx, DPLANE_OP_MAC_INSTALL);
+	dplane_mac_init(fra->ctx, zevpn->vxlan_if, zif->brslave_info.br_if, vid, &mac->macaddr,
+			vni->vni, &vtep_ip, sticky, nhg_id, DPLANE_MAC_REMOTE);
+	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
+		event_add_timer(zrouter.master, fpm_evpn_send, fra->fnc, 1, &fra->fnc->t_evpnwalk);
+		fra->complete = false;
+		return;
+	}
+
+	SET_FLAG(mac->flags, ZEBRA_MAC_FPM_SENT);
+}
+
+/*
+ * L2VNI flood list: the remote VTEPs zebra_evpn_vtep_install() programs.
+ */
+static void fpm_enqueue_l2vni_vtep(struct fpm_evpn_arg *fra, struct zebra_vtep *zvtep)
+{
+	struct zebra_evpn *zevpn = fra->zevpn;
+
+	if (CHECK_FLAG(zvtep->flags, ZEBRA_VTEP_FPM_SENT) || !fra->complete)
+		return;
+
+	if (!CHECK_FLAG(zvtep->flags, ZEBRA_VTEP_INSTALLED))
+		return;
+
+	dplane_ctx_reset(fra->ctx);
+	dplane_ctx_set_op(fra->ctx, DPLANE_OP_VTEP_ADD);
+	dplane_vtep_init(fra->ctx, zevpn->vxlan_if, &zvtep->vtep_ip, zevpn->vni, zvtep->vid);
+	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
+		event_add_timer(zrouter.master, fpm_evpn_send, fra->fnc, 1, &fra->fnc->t_evpnwalk);
+		fra->complete = false;
+		return;
+	}
+
+	SET_FLAG(zvtep->flags, ZEBRA_VTEP_FPM_SENT);
+}
+
+/*
+ * L2VNI remote neighbors: the same entries `zebra_evpn_rem_neigh_install()`
+ * programs on the SVI.
+ */
+static void fpm_enqueue_l2vni_neigh(struct fpm_evpn_arg *fra, struct zebra_neigh *n)
+{
+	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
+	uint32_t flags;
+
+	if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) || !IS_ZEBRA_NEIGH_ACTIVE(n) ||
+	    CHECK_FLAG(n->flags, ZEBRA_NEIGH_FPM_SENT) || !fra->complete)
+		return;
+
+	/* Duplicate neighbor updates are not installed while frozen. */
+	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE) && zvrf && zvrf->dad_freeze)
+		return;
+
+	flags = DPLANE_NTF_EXT_LEARNED;
+	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_ROUTER_FLAG))
+		flags |= DPLANE_NTF_ROUTER;
+
+	dplane_ctx_reset(fra->ctx);
+	dplane_ctx_set_op(fra->ctx, DPLANE_OP_NEIGH_INSTALL);
+	dplane_rem_neigh_init(fra->ctx, fra->svi, &n->ip, &n->emac, flags);
+	if (fpm_nl_enqueue(fra->fnc, fra->ctx) == -1) {
+		event_add_timer(zrouter.master, fpm_evpn_send, fra->fnc, 1, &fra->fnc->t_evpnwalk);
+		fra->complete = false;
+		return;
+	}
+
+	SET_FLAG(n->flags, ZEBRA_NEIGH_FPM_SENT);
+}
+
+static void fpm_enqueue_l2vni_table(struct hash_bucket *bucket, void *arg)
+{
+	struct fpm_evpn_arg *fra = arg;
+	struct zebra_evpn *zevpn = bucket->data;
+	struct zebra_vtep *zvtep;
+	struct zebra_neigh *n;
+	struct zebra_if *zif;
+
+	/* The output buffer is full: the walk restarts later. */
+	if (!zevpn->vxlan_if || !fra->complete)
+		return;
+
+	fra->zevpn = zevpn;
+	for (zvtep = zevpn->vteps; zvtep; zvtep = zvtep->next)
+		fpm_enqueue_l2vni_vtep(fra, zvtep);
+
+	/* Remote MACs are only installed on a bridged VXLAN interface. */
+	zif = zevpn->vxlan_if->info;
+	if (!zif || !zif->brslave_info.br_if)
+		return;
+
+	if (zevpn->mac_table)
+		hash_iterate(zevpn->mac_table, fpm_enqueue_l2vni_mac_table, fra);
+
+	/*
+	 * Remote neighbors are only installed on the VNI's SVI: look it up
+	 * (an interface walk on a VLAN aware bridge) only when one is still to
+	 * be sent, not on every walk restart.
+	 */
+	fra->svi = NULL;
+	frr_each (zebra_neigh_db, zevpn->neigh_table, n) {
+		if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) || !IS_ZEBRA_NEIGH_ACTIVE(n) ||
+		    CHECK_FLAG(n->flags, ZEBRA_NEIGH_FPM_SENT))
+			continue;
+
+		if (!fra->svi) {
+			fra->svi = zevpn_map_to_svi(zevpn, true);
+			if (!fra->svi)
+				break;
+		}
+
+		fpm_enqueue_l2vni_neigh(fra, n);
+	}
+}
+
+static void fpm_evpn_send(struct event *t)
+{
+	struct fpm_evpn_arg fra;
+	struct zebra_evpn_es *es;
+	struct zebra_vrf *zvrf;
 
 	fra.fnc = EVENT_ARG(t);
 	fra.ctx = dplane_ctx_alloc();
 	fra.complete = true;
 	hash_iterate(zrouter.l3vni_table, fpm_enqueue_l3vni_table, &fra);
+	fpm_enqueue_svd_nh_table(&fra);
+
+	/*
+	 * The EVPN-MH next hops, then their groups, then the MACs using them
+	 * (the next hops only when the FPM uses next hop groups).
+	 */
+	if (zmh_info && fra.fnc->use_nhg) {
+		hash_iterate(zmh_info->nh_ip_table, fpm_enqueue_l2_nh, &fra);
+		RB_FOREACH (es, zebra_es_rb_head, &zmh_info->es_rb_tree)
+			fpm_enqueue_es_nhg(&fra, es);
+	}
+
+	zvrf = zebra_vrf_get_evpn();
+	if (zvrf && zvrf->evpn_table)
+		hash_iterate(zvrf->evpn_table, fpm_enqueue_l2vni_table, &fra);
+
 	dplane_ctx_fini(&fra.ctx);
 
-	/* RMAC walk completed. */
+	/* EVPN walk completed. */
 	if (fra.complete)
-		WALK_FINISH(fra.fnc, FNE_RMAC_FINISHED);
+		WALK_FINISH(fra.fnc, FNE_EVPN_FINISHED);
 }
 
 /*
@@ -1489,9 +1893,10 @@ static void fpm_rib_reset(struct event *t)
 }
 
 /*
- * The next three function will handle RMAC table reset.
+ * The next functions will handle RMAC, L3VNI next hop, EVPN-MH next hop,
+ * L2VNI remote MAC, remote neighbor and flood list reset.
  */
-static void fpm_unset_rmac_table(struct hash_bucket *bucket, void *arg)
+static void fpm_unset_mac_table(struct hash_bucket *bucket, void *arg)
 {
 	struct zebra_mac *zrmac = bucket->data;
 
@@ -1501,19 +1906,56 @@ static void fpm_unset_rmac_table(struct hash_bucket *bucket, void *arg)
 static void fpm_unset_l3vni_table(struct hash_bucket *bucket, void *arg)
 {
 	struct zebra_l3vni *zl3vni = bucket->data;
+	struct zebra_neigh *n;
 
-	hash_iterate(zl3vni->rmac_table, fpm_unset_rmac_table, zl3vni);
+	hash_iterate(zl3vni->rmac_table, fpm_unset_mac_table, zl3vni);
+	frr_each (zebra_neigh_db, zl3vni->nh_table, n)
+		UNSET_FLAG(n->flags, ZEBRA_NEIGH_FPM_SENT);
 }
 
-static void fpm_rmac_reset(struct event *t)
+static void fpm_unset_l2vni_table(struct hash_bucket *bucket, void *arg)
+{
+	struct zebra_evpn *zevpn = bucket->data;
+	struct zebra_vtep *zvtep;
+	struct zebra_neigh *n;
+
+	for (zvtep = zevpn->vteps; zvtep; zvtep = zvtep->next)
+		UNSET_FLAG(zvtep->flags, ZEBRA_VTEP_FPM_SENT);
+
+	if (zevpn->mac_table)
+		hash_iterate(zevpn->mac_table, fpm_unset_mac_table, NULL);
+
+	frr_each (zebra_neigh_db, zevpn->neigh_table, n)
+		UNSET_FLAG(n->flags, ZEBRA_NEIGH_FPM_SENT);
+}
+
+static void fpm_unset_l2_nh(struct hash_bucket *bucket, void *arg)
+{
+	struct zebra_evpn_l2_nh *nh = bucket->data;
+
+	UNSET_FLAG(nh->flags, ZEBRA_EVPN_L2_NH_FPM_SENT);
+}
+
+static void fpm_evpn_reset(struct event *t)
 {
 	struct fpm_nl_ctx *fnc = EVENT_ARG(t);
+	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
+	struct zebra_evpn_es *es;
+	struct zebra_neigh *n;
 
 	hash_iterate(zrouter.l3vni_table, fpm_unset_l3vni_table, NULL);
+	frr_each (zebra_neigh_db, svd_nh_table, n)
+		UNSET_FLAG(n->flags, ZEBRA_NEIGH_FPM_SENT);
+	if (zmh_info) {
+		hash_iterate(zmh_info->nh_ip_table, fpm_unset_l2_nh, NULL);
+		RB_FOREACH (es, zebra_es_rb_head, &zmh_info->es_rb_tree)
+			UNSET_FLAG(es->flags, ZEBRA_EVPNES_NHG_FPM_SENT);
+	}
+	if (zvrf && zvrf->evpn_table)
+		hash_iterate(zvrf->evpn_table, fpm_unset_l2vni_table, NULL);
 
-	/* Schedule next event: send RMAC entries. */
-	event_add_event(zrouter.master, fpm_rmac_send, fnc, 0,
-			&fnc->t_rmacwalk);
+	/* Schedule next event: send EVPN entries. */
+	event_add_event(zrouter.master, fpm_evpn_send, fnc, 0, &fnc->t_evpnwalk);
 }
 
 static void fpm_process_wedged(struct event *t)
@@ -1648,9 +2090,9 @@ static void fpm_process_event(struct event *t)
 		if (IS_ZEBRA_DEBUG_FPM)
 			zlog_debug("%s: RIB walk finished", __func__);
 		break;
-	case FNE_RMAC_FINISHED:
+	case FNE_EVPN_FINISHED:
 		if (IS_ZEBRA_DEBUG_FPM)
-			zlog_debug("%s: RMAC walk finished", __func__);
+			zlog_debug("%s: EVPN walk finished", __func__);
 		break;
 	case FNE_LSP_FINISHED:
 		if (IS_ZEBRA_DEBUG_FPM)
@@ -1704,8 +2146,8 @@ static int fpm_nl_finish_early(struct fpm_nl_ctx *fnc)
 	event_cancel(&fnc->t_nhgwalk);
 	event_cancel(&fnc->t_ribreset);
 	event_cancel(&fnc->t_ribwalk);
-	event_cancel(&fnc->t_rmacreset);
-	event_cancel(&fnc->t_rmacwalk);
+	event_cancel(&fnc->t_evpnreset);
+	event_cancel(&fnc->t_evpnwalk);
 	event_cancel(&fnc->t_event);
 	event_cancel(&fnc->t_nhg);
 	event_cancel_async(fnc->fthread->master, &fnc->t_read, NULL);

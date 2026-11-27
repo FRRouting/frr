@@ -67,6 +67,7 @@ is_vxlan_flooding_head_end(void)
 #define VNI_STR_LEN 32
 
 /* ZAPI message handlers */
+extern void zebra_vxlan_bridge_vlan_aware_change(const struct interface *br_if, bool install);
 extern void zebra_vxlan_remote_macip_add(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_remote_macip_del(ZAPI_HANDLER_ARGS);
 extern void zebra_vxlan_remote_vtep_add_zapi(ZAPI_HANDLER_ARGS);

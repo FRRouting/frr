@@ -103,6 +103,76 @@ Data
 The netlink or protobuf message payload.
 
 
+EVPN Entries
+^^^^^^^^^^^^
+
+Besides the routes and next hop groups, ``dplane_fpm_nl`` sends the EVPN
+entries ``zebra`` programs for the remote VTEPs, encoded like the kernel
+neighbor and FDB netlink messages ``zebra`` sends:
+
+- Remote MACs (EVPN type-2 routes) and router MACs (of the routes
+  imported in an L3VNI VRF: type-5 routes, and type-2 routes with an IP
+  address): ``RTM_NEWNEIGH`` / ``RTM_DELNEIGH`` of family ``AF_BRIDGE``
+  on the vxlan interface, with ``NTF_SELF | NTF_MASTER``,
+  ``NTF_EXT_LEARNED`` and the ``NUD_REACHABLE`` state or, for sticky MACs
+  (and remote default gateway MACs), ``NTF_STICKY`` instead of
+  ``NTF_EXT_LEARNED`` and ``NUD_NOARP`` added to the state, the MAC
+  (``NDA_LLADDR``), the remote VTEP
+  (``NDA_DST``), the VNI (``NDA_SRC_VNI``), the bridge (``NDA_MASTER``)
+  and, on a VLAN-aware bridge, the access VLAN (``NDA_VLAN``). A MAC
+  behind an EVPN-MH ethernet segment points to the segment's next hop
+  group (``NDA_NH_ID``) instead of a VTEP. A remote MAC replacing an
+  EVPN-MH sync (static) local one also carries ``NDA_FDB_EXT_ATTRS``. A
+  removal carries the same entry, but always with ``NTF_EXT_LEARNED`` and
+  the ``NUD_REACHABLE`` state. The removal of a MAC behind an ethernet
+  segment carries an all-zero ``NDA_DST`` instead of its ``NDA_NH_ID``,
+  but when only the FPM gets it (see below). Local MACs are not sent.
+- Flood list entries (type-3 routes, remote VTEPs using head-end
+  replication): ``RTM_NEWNEIGH`` / ``RTM_DELNEIGH`` of family
+  ``AF_BRIDGE`` on the vxlan interface, with ``NTF_SELF`` and the
+  ``NUD_NOARP | NUD_PERMANENT`` state, an all-zero MAC, the remote VTEP
+  (``NDA_DST``), the VNI (``NDA_SRC_VNI``) and, on a VLAN-aware bridge,
+  the access VLAN (``NDA_VLAN``).
+- Remote neighbors (type-2 routes with an IP address) on the SVI of their
+  VNI, and L3VNI next hops (the remote VTEPs with their router MAC) on the
+  L3VNI SVI, or on the vxlan interface of a single vxlan device:
+  ``RTM_NEWNEIGH`` / ``RTM_DELNEIGH`` of family ``AF_INET`` or
+  ``AF_INET6`` with ``NTF_EXT_LEARNED``, and ``NTF_ROUTER`` for a
+  neighbor advertised as a router, the ``NUD_NOARP`` state, the IP
+  address (``NDA_DST``) and the MAC (``NDA_LLADDR``). A removal carries
+  no state, no ``NTF_ROUTER`` and an all-zero MAC. A remote neighbor
+  replacing an EVPN-MH sync (static) local one also carries
+  ``NDA_EXT_FLAGS``.
+- EVPN-MH next hops (the ethernet segment VTEPs) and their groups, only
+  when the FPM uses next hop groups: ``RTM_NEWNEXTHOP`` with the next hop
+  ID (``NHA_ID``), ``NHA_FDB``, and ``NHA_GATEWAY`` or ``NHA_GROUP``, and
+  ``RTM_DELNEXTHOP`` with the next hop ID alone. An FPM that does not use
+  them still gets the MACs behind an ethernet segment with their
+  ``NDA_NH_ID``, but never the group it refers to.
+
+The neighbor messages also carry the protocol that installed them
+(``NDA_PROTOCOL``). The MACs and neighbors are added with
+``NLM_F_REPLACE``, the flood list entries with ``NLM_F_APPEND`` (several
+per VNI).
+
+The removal of a remote MAC or router MAC is the removal of the whole
+entry: an FPM server should key them by vxlan interface, MAC and VLAN
+(the same MAC can be on several vxlan interfaces, e.g. the router MAC of
+a VTEP with several L3VNIs, and there is no ``NDA_VLAN`` without VLAN
+filtering), the flood list entries by vxlan interface, VNI, VTEP and
+VLAN, and the neighbors by interface and IP address. Some removals only go
+to the FPM, when the kernel already removed the entry by itself (e.g. an
+SVI or a vxlan interface going down) or keeps it (e.g. a flood list entry
+moving to another access VLAN, the kernel not keying them by VLAN), and
+an entry moving to another access VLAN is removed with its old VLAN and
+added with the new one. The entries of an interface that is deleted are
+not always removed: the FPM server should remove them with it, as the
+kernel does.
+
+When ``zebra`` connects to the FPM it sends all these entries again, after
+the routes.
+
+
 Route Status Notification from ASIC
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 

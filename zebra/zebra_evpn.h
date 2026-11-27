@@ -45,6 +45,16 @@ struct zebra_vtep {
 	 */
 	int flood_control;
 
+	uint32_t flags;
+#define ZEBRA_VTEP_FPM_SENT  (1 << 0) /* Flood entry sent to the FPM. */
+#define ZEBRA_VTEP_INSTALLED (1 << 1) /* Flood entry installed. */
+
+	/*
+	 * Access VLAN the flood entry was installed with (0 when the bridge
+	 * is not VLAN-aware): removed with the same one.
+	 */
+	vlanid_t vid;
+
 	/* Links. */
 	struct zebra_vtep *next;
 	struct zebra_vtep *prev;
@@ -142,6 +152,7 @@ struct interface *zebra_evpn_map_to_macvlan(struct interface *br_if,
 					    struct interface *svi_if);
 void zebra_evpn_rem_mac_install_all(struct zebra_evpn *zevpn);
 void zebra_evpn_rem_mac_uninstall_all(struct zebra_evpn *zevpn);
+void zebra_evpn_bridge_vlan_aware_change(const struct interface *br_if, bool install);
 void zebra_evpn_read_mac_neigh(struct zebra_evpn *zevpn, struct interface *ifp);
 unsigned int zebra_evpn_hash_keymake(const void *p);
 bool zebra_evpn_hash_cmp(const void *p1, const void *p2);
@@ -158,8 +169,10 @@ struct zebra_vtep *zebra_evpn_vtep_add(struct zebra_evpn *zevpn, struct ipaddr *
 int zebra_evpn_vtep_del(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep);
 int zebra_evpn_vtep_del_all(struct zebra_evpn *zevpn, int uninstall,
 			    struct l2vni_walk_ctx *l2_wctx);
+vlanid_t zebra_evpn_access_vid(const struct zebra_evpn *zevpn);
 int zebra_evpn_vtep_install(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep);
-int zebra_evpn_vtep_uninstall(struct zebra_evpn *zevpn, struct ipaddr *vtep_ip);
+int zebra_evpn_vtep_uninstall(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep, bool force);
+void zebra_evpn_vtep_vid_update(struct zebra_evpn *zevpn);
 void zebra_evpn_handle_flooding_remote_vteps(struct hash_bucket *bucket, void *args[]);
 bool zebra_evpn_flooding_head_end(const struct zebra_evpn *zevpn);
 void zebra_evpn_cleanup_all(struct hash_bucket *bucket, void *arg);

@@ -245,16 +245,32 @@ void zebra_l2_bridge_add_update(struct interface *ifp,
 {
 	struct zebra_if *zif;
 	struct zebra_l2_bridge_if *br;
+	bool vlan_aware_change;
 
 	zif = ifp->info;
 	assert(zif);
 
 	br = BRIDGE_FROM_ZEBRA_IF(zif);
+
+	/*
+	 * The access VLAN of the remote MACs, router MACs and flood entries
+	 * of the VNIs on this bridge changes with its VLAN filtering: remove
+	 * the remote MACs with the VLAN they were installed with, and install
+	 * them again (and move the flood entries and router MACs) once the
+	 * bridge is updated.
+	 */
+	vlan_aware_change = !!br->vlan_aware != !!bridge_info->bridge.vlan_aware;
+	if (vlan_aware_change)
+		zebra_vxlan_bridge_vlan_aware_change(ifp, false);
+
 	br->vlan_aware = bridge_info->bridge.vlan_aware;
 	zebra_l2_bridge_if_add(ifp);
 
 	/* Link all slaves to this bridge */
 	map_slaves_to_bridge(ifp, 1, false, ZEBRA_BRIDGE_NO_ACTION);
+
+	if (vlan_aware_change)
+		zebra_vxlan_bridge_vlan_aware_change(ifp, true);
 }
 
 /*

@@ -270,6 +270,16 @@ enum dplane_op_e {
 #define DPLANE_MAC_SET_INACTIVE (1 << 3)
 /* Address the VXLAN device's own FDB only (NTF_SELF), not the bridge's */
 #define DPLANE_MAC_SELF_ONLY (1 << 4)
+/* Not sent to the kernel, only to the other dataplane providers (FPM) */
+#define DPLANE_MAC_SKIP_KERNEL (1 << 5)
+/*
+ * Not sent to the FPM, only to the kernel: a local MAC programmed like a
+ * remote one (EVPN-MH: a MAC of a local ES that is down, redirected to the
+ * ES peers when there is no fast failover), which a new FPM connection does
+ * not get again, or an update the FPM gets on its own (see
+ * `DPLANE_MAC_SKIP_KERNEL`).
+ */
+#define DPLANE_MAC_SKIP_FPM (1 << 6)
 
 /* Neigh update flags - dplane_neigh_info.update_flags */
 #define DPLANE_NEIGH_REMOTE       (1 << 0)
@@ -277,6 +287,8 @@ enum dplane_op_e {
 #define DPLANE_NEIGH_SET_STATIC   (1 << 2)
 #define DPLANE_NEIGH_SET_INACTIVE (1 << 3)
 #define DPLANE_NEIGH_NO_EXTENSION (1 << 4)
+/* Not sent to the kernel, only to the other dataplane providers (FPM) */
+#define DPLANE_NEIGH_SKIP_KERNEL (1 << 5)
 
 #define DPLANE_BR_PORT_NON_DF (1 << 0)
 
@@ -865,6 +877,12 @@ const struct ipaddr *dplane_ctx_neigh_get_ipaddr(
 const struct ethaddr *dplane_ctx_neigh_get_mac(
 	const struct zebra_dplane_ctx *ctx);
 vni_t dplane_ctx_neigh_get_vni(const struct zebra_dplane_ctx *ctx);
+/*
+ * Access VLAN of an EVPN VTEP (type-3) flood entry. Only meaningful for
+ * DPLANE_OP_VTEP_ADD / DPLANE_OP_VTEP_DELETE contexts, and only non-zero
+ * when the associated bridge is VLAN-aware.
+ */
+vlanid_t dplane_ctx_neigh_get_vid(const struct zebra_dplane_ctx *ctx);
 const struct ipaddr *
 dplane_ctx_neigh_get_link_ip(const struct zebra_dplane_ctx *ctx);
 uint32_t dplane_ctx_neigh_get_flags(const struct zebra_dplane_ctx *ctx);
@@ -1154,7 +1172,7 @@ enum zebra_dplane_result dplane_rem_mac_add(const struct interface *ifp,
 					    const struct interface *bridge_ifp, vlanid_t vid,
 					    const struct ethaddr *mac, vni_t vni,
 					    struct ipaddr *vtep_ip, bool sticky, uint32_t nhg_id,
-					    bool was_static);
+					    bool was_static, bool skip_fpm);
 
 enum zebra_dplane_result dplane_local_mac_add(const struct interface *ifp,
 					const struct interface *bridge_ifp,
@@ -1172,12 +1190,13 @@ dplane_local_mac_del(const struct interface *ifp,
 enum zebra_dplane_result dplane_rem_mac_del(const struct interface *ifp,
 					    const struct interface *bridge_ifp, vlanid_t vid,
 					    const struct ethaddr *mac, vni_t vni,
-					    struct ipaddr *vtep_ip);
+					    struct ipaddr *vtep_ip, bool skip_fpm);
 
 enum zebra_dplane_result dplane_rem_mac_net_del(const struct interface *ifp,
-						const struct interface *bridge_ifp,
+						const struct interface *bridge_ifp, vlanid_t vid,
 						const struct ethaddr *mac, vni_t vni,
-						const struct ipaddr *vtep_ip);
+						const struct ipaddr *vtep_ip, uint32_t nhg_id,
+						bool skip_kernel);
 
 /* Helper api to init an empty or new context for a MAC update */
 void dplane_mac_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
@@ -1196,6 +1215,10 @@ enum zebra_dplane_result dplane_nhg_fdb_add(uint32_t nhg_id, uint32_t nh_cnt,
 /* Deletes are id-only and shared by the single-nexthop and group cases. */
 enum zebra_dplane_result dplane_nh_fdb_del(uint32_t id);
 
+/* Helper api to init an empty or new context for an FDB nexthop update */
+void dplane_fdb_nh_init(struct zebra_dplane_ctx *ctx, uint32_t id, const struct ipaddr *vtep_ip,
+			uint32_t nh_cnt, const struct nh_grp *nh_ids);
+
 /*
  * Enqueue evpn neighbor updates for the dataplane.
  */
@@ -1208,16 +1231,41 @@ enum zebra_dplane_result dplane_local_neigh_add(const struct interface *ifp,
 					  const struct ethaddr *mac,
 					  bool set_router, bool set_static,
 					  bool set_inactive);
+/*
+ * `skip_kernel`: the removal is not sent to the kernel, only to the other
+ * dataplane providers (FPM). Used when the kernel already replaced or
+ * removed the entry by itself: a remote neighbor turning local (the kernel
+ * entry is the local one), or the SVI it is installed on going down.
+ */
 enum zebra_dplane_result dplane_rem_neigh_delete(const struct interface *ifp,
-					     const struct ipaddr *ip);
+						 const struct ipaddr *ip, bool skip_kernel);
+
+/*
+ * Enqueue the removal of a neighbor zebra installed itself (not an EVPN
+ * remote neighbor), e.g. with `dplane_local_neigh_add()`.
+ */
+enum zebra_dplane_result dplane_local_neigh_delete(const struct interface *ifp,
+						   const struct ipaddr *ip);
 
 /*
  * Enqueue evpn VTEP updates for the dataplane.
+ *
+ * `skip_kernel`: the update is not sent to the kernel, only to the other
+ * dataplane providers (FPM). Used to move a flood entry to another access
+ * VLAN: the kernel vxlan FDB does not key the flood entries by VLAN.
  */
 enum zebra_dplane_result dplane_vtep_add(const struct interface *ifp, const struct ipaddr *ip,
-					 vni_t vni);
+					 vni_t vni, vlanid_t vid, bool skip_kernel);
 enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp, const struct ipaddr *ip,
-					    vni_t vni);
+					    vni_t vni, vlanid_t vid, bool skip_kernel);
+
+/* Helper api to init an empty or new context for a VTEP flood list update */
+void dplane_vtep_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
+		      const struct ipaddr *ip, vni_t vni, vlanid_t vid);
+
+/* Helper api to init an empty or new context for a remote neighbor add */
+void dplane_rem_neigh_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
+			   const struct ipaddr *ip, const struct ethaddr *mac, uint32_t flags);
 
 /*
  * Enqueue a neighbour discovery request for the dataplane.

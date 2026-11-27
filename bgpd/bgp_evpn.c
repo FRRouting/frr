@@ -5421,7 +5421,8 @@ static void advertise_withdraw_type3(struct hash_bucket *bucket, void *data)
 	zlog_info("L2VPN EVPN BUM handling for VNI %u is %s", vpn->vni,
 		  vxlan_flood_control_str(vpn->vxlan_flood_ctrl));
 
-	bgp_zebra_vxlan_flood_control(bgp, vpn);
+	if (bgp->advertise_all_vni)
+		bgp_zebra_vxlan_flood_control(bgp, vpn);
 
 	flood_control = bgp_evpn_vni_flood_mode_get(bgp, vpn);
 
@@ -8922,6 +8923,25 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 	bgp_evpn_l2vni_remote_route_processing(vpn);
 
 	return 0;
+}
+
+static void flood_control_send(struct hash_bucket *bucket, void *data)
+{
+	struct bgpevpn *vpn = bucket->data;
+	struct bgp *bgp = data;
+
+	if (vpn && is_vni_live(vpn))
+		bgp_zebra_vxlan_flood_control(bgp, vpn);
+}
+
+/*
+ * Send zebra the BUM handling of the live VNIs again: a zebra that
+ * (re)connects only got the global one.
+ */
+void bgp_evpn_flood_control_send_all(struct bgp *bgp)
+{
+	if (bgp->advertise_all_vni)
+		hash_iterate(bgp->vnihash, flood_control_send, bgp);
 }
 
 /*

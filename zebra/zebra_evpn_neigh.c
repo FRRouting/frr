@@ -122,8 +122,106 @@ int zebra_evpn_rem_neigh_install(struct zebra_evpn *zevpn,
  */
 void zebra_evpn_install_neigh_hash(struct zebra_evpn *zevpn, struct zebra_neigh *n)
 {
-	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE))
-		zebra_evpn_rem_neigh_install(zevpn, n, false /*was_static*/);
+	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
+
+	if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE))
+		return;
+
+	/* Duplicate neighbor updates are not installed while frozen. */
+	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE) && zvrf && zvrf->dad_freeze)
+		return;
+
+	zebra_evpn_rem_neigh_install(zevpn, n, false /*was_static*/);
+}
+
+/*
+ * Remove the installed remote neighbors from the SVI they are installed on,
+ * before it changes (access VLAN or VLAN filtering change of the bridge):
+ * `zebra_evpn_rem_neigh_install_all()` installs them on the new one after
+ * the change. Called while `zevpn_map_to_svi()` still gives the old SVI;
+ * nothing to remove if it is down, as the kernel removed them then.
+ */
+void zebra_evpn_rem_neigh_uninstall_all(struct zebra_evpn *zevpn)
+{
+	struct zebra_vrf *zvrf = zebra_vrf_get_evpn();
+	struct interface *vlan_if;
+	struct zebra_neigh *n;
+
+	vlan_if = zevpn_map_to_svi(zevpn, false);
+	if (!vlan_if)
+		return;
+
+	frr_each (zebra_neigh_db, zevpn->neigh_table, n) {
+		if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) || !IS_ZEBRA_NEIGH_ACTIVE(n))
+			continue;
+
+		/*
+		 * Duplicate neighbor updates are not installed while frozen
+		 * (the kernel entry is not this one): leave it alone, like
+		 * `zebra_evpn_install_neigh_hash()` does.
+		 */
+		if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE) && zvrf && zvrf->dad_freeze)
+			continue;
+
+		ZEBRA_NEIGH_SET_INACTIVE(n);
+		dplane_rem_neigh_delete(vlan_if, &n->ip, false /*skip_kernel*/);
+	}
+}
+
+/*
+ * Install the remote neighbors on the current SVI, after an access VLAN or
+ * VLAN filtering change of the bridge.
+ */
+void zebra_evpn_rem_neigh_install_all(struct zebra_evpn *zevpn)
+{
+	struct zebra_neigh *n;
+
+	frr_each (zebra_neigh_db, zevpn->neigh_table, n)
+		zebra_evpn_install_neigh_hash(zevpn, n);
+}
+
+/*
+ * A remote neighbor turns local: the kernel entry is replaced by the local
+ * one, but the FPM only gets the remote neighbors, so it would keep the
+ * remote one. Send it the removal, and leave the kernel alone. Nothing to
+ * remove if the remote neighbor was not installed (inactive).
+ */
+static void zebra_evpn_rem_neigh_to_local(struct zebra_evpn *zevpn, struct zebra_neigh *n)
+{
+	struct interface *vlan_if;
+
+	if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) || !IS_ZEBRA_NEIGH_ACTIVE(n))
+		return;
+
+	/*
+	 * The SVI it is installed on, whatever the state of the vxlan
+	 * interface, like `zebra_evpn_neigh_uninstall()` (the neighbor stays
+	 * on the SVI while the vxlan interface is down).
+	 */
+	vlan_if = zevpn_map_to_svi(zevpn, false);
+	if (!vlan_if)
+		return;
+
+	dplane_rem_neigh_delete(vlan_if, &n->ip, true /*skip_kernel*/);
+}
+
+/*
+ * The SVI the remote neighbors are installed on goes down: the kernel
+ * removes them, but the FPM is not told. Send it their removal, and leave
+ * the kernel alone. They are installed again when the SVI comes back up
+ * (`zebra_vxlan_svi_up()`).
+ */
+void zebra_evpn_rem_neigh_svi_down(struct zebra_evpn *zevpn, const struct interface *svi)
+{
+	struct zebra_neigh *n;
+
+	frr_each (zebra_neigh_db, zevpn->neigh_table, n) {
+		if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE) || !IS_ZEBRA_NEIGH_ACTIVE(n))
+			continue;
+
+		ZEBRA_NEIGH_SET_INACTIVE(n);
+		dplane_rem_neigh_delete(svi, &n->ip, true /*skip_kernel*/);
+	}
 }
 
 /*
@@ -699,6 +797,9 @@ struct zebra_neigh *zebra_evpn_proc_sync_neigh_update(
 		n->rem_seq = 0;
 		memset(&n->r_vtep_ip.ip.addr, 0, sizeof(n->r_vtep_ip.ip));
 
+		/* A remote neighbor turning local: remove it from the FPM. */
+		zebra_evpn_rem_neigh_to_local(zevpn, n);
+
 		/* setup new flags */
 		n->flags = 0;
 		SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
@@ -835,7 +936,7 @@ int zebra_evpn_neigh_uninstall(struct zebra_evpn *zevpn, struct zebra_neigh *n)
 	ZEBRA_NEIGH_SET_INACTIVE(n);
 	n->loc_seq = 0;
 
-	dplane_rem_neigh_delete(vlan_if, &n->ip);
+	dplane_rem_neigh_delete(vlan_if, &n->ip, false /*skip_kernel*/);
 
 	return 0;
 }
@@ -1456,6 +1557,8 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 			 */
 			neigh_was_remote = true;
 			vtep_ip = n->r_vtep_ip;
+			/* Remove the remote neighbor from the FPM. */
+			zebra_evpn_rem_neigh_to_local(zevpn, n);
 			/* Mark appropriately */
 			UNSET_FLAG(n->flags, ZEBRA_NEIGH_REMOTE);
 			memset(&n->r_vtep_ip.ip.addr, 0, sizeof(n->r_vtep_ip.ip));

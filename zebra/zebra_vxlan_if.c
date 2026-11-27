@@ -263,6 +263,14 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 		 */
 		if (CHECK_FLAG(chgflags, ZEBRA_VXLIF_VLAN_CHANGE)) {
 			if (if_is_operative(ifp)) {
+				/*
+				 * The next hops are installed on the SVI: remove
+				 * them from the old one if it changes (SVD devices
+				 * signal a VLAN change for every VNI on any VLAN to
+				 * VNI mapping update).
+				 */
+				if (zl3vni_map_to_svi_if(zl3vni) != zl3vni->svi_if)
+					zebra_vxlan_l3vni_svi_change(zl3vni);
 				zebra_vxlan_process_l3vni_oper_down(zl3vni);
 				zl3vni->svi_if = NULL;
 				zl3vni->svi_if = zl3vni_map_to_svi_if(zl3vni);
@@ -350,6 +358,16 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 				frr_each (zebra_neigh_db, zevpn->neigh_table, n)
 					zebra_evpn_neigh_uninstall(zevpn, n);
 			zebra_evpn_rem_mac_uninstall_all(zevpn);
+			/*
+			 * The remote neighbors are on the old VLAN's SVI, if it
+			 * changes (SVD devices signal a VLAN change for every VNI
+			 * on any VLAN to VNI mapping update). Without VLAN
+			 * filtering, the SVI is the bridge whatever the VLAN.
+			 */
+			br_if = zif->brslave_info.br_if;
+			if (access_vlan != vnip->access_vlan && br_if && br_if->info &&
+			    IS_ZEBRA_IF_BRIDGE_VLAN_AWARE((struct zebra_if *)br_if->info))
+				zebra_evpn_rem_neigh_uninstall_all(zevpn);
 			vnip->access_vlan = access_vlan;
 		}
 
@@ -397,15 +415,20 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 		if (CHECK_FLAG(chgflags, ZEBRA_VXLIF_MASTER_CHANGE))
 			zebra_evpn_read_mac_neigh(zevpn, ifp);
 		else if (CHECK_FLAG(chgflags, ZEBRA_VXLIF_VLAN_CHANGE)) {
-			struct zebra_neigh *n;
-
 			zebra_evpn_read_mac_neigh(zevpn, ifp);
 
 			zebra_evpn_rem_mac_install_all(zevpn);
-
-			frr_each (zebra_neigh_db, zevpn->neigh_table, n)
-				zebra_evpn_install_neigh_hash(zevpn, n);
+			zebra_evpn_rem_neigh_install_all(zevpn);
 		}
+
+		/*
+		 * Access VLAN or bridge change: move the flood list to the
+		 * new access VLAN, whatever other change came with it. A VLAN
+		 * filtering change of the bridge is handled when the bridge
+		 * is updated (zebra_evpn_bridge_vlan_aware_change()).
+		 */
+		if (CHECK_FLAG(chgflags, (ZEBRA_VXLIF_MASTER_CHANGE | ZEBRA_VXLIF_VLAN_CHANGE)))
+			zebra_evpn_vtep_vid_update(zevpn);
 	}
 
 	return 0;
@@ -960,8 +983,13 @@ int zebra_vxlan_if_vni_down(struct interface *ifp, struct zebra_vxlan_vni *vnip)
 		/* Delete this VNI from BGP. */
 		zebra_evpn_send_del_to_client(zevpn);
 
-		/* Free up all neighbors and MACs, if any. */
+		/*
+		 * Free up all neighbors and MACs, if any. The kernel flushed
+		 * most remote MACs from the vxlan interface if it went down:
+		 * their removal would not reach the FPM.
+		 */
 		zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_ALL_NEIGH, NULL);
+		zebra_evpn_rem_mac_flushed(zevpn);
 		zebra_evpn_mac_del_all(zevpn, 1, 0, DEL_ALL_MAC, NULL);
 
 		/* Free up all remote VTEPs, if any. */

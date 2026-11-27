@@ -53,6 +53,8 @@ struct zebra_evpn_es {
  * when the associated host bond goes into LACP bypass
  */
 #define ZEBRA_EVPNES_BYPASS (1 << 7)
+/* The NHG was sent to a new FPM connection */
+#define ZEBRA_EVPNES_NHG_FPM_SENT (1 << 8)
 
 	/* memory used for adding the es to zmh_info->es_rb_tree */
 	RB_ENTRY(zebra_evpn_es) rb_node;
@@ -139,6 +141,8 @@ struct zebra_evpn_l2_nh {
 	uint16_t flags;
 	/* NH has been confirmed installed by the dataplane */
 #define ZEBRA_EVPN_L2_NH_INSTALLED (1 << 0)
+/* NH was sent to a new FPM connection */
+#define ZEBRA_EVPN_L2_NH_FPM_SENT (1 << 1)
 };
 
 PREDECL_SORTLIST_UNIQ(mh_vtep_list);
@@ -344,6 +348,8 @@ extern void zebra_evpn_mh_terminate(void);
 extern void zebra_evpn_mh_reserve_stale_nhid(uint32_t nh_id);
 extern void zebra_evpn_mh_release_stale_nhid(uint32_t nh_id);
 extern void zebra_evpn_l2_nh_dplane_result(struct zebra_dplane_ctx *ctx);
+extern uint32_t zebra_evpn_es_nhg_members(const struct zebra_evpn_es *es,
+					  struct nh_grp nh_ids[ES_VTEP_MAX_CNT]);
 extern bool zebra_evpn_is_if_es_capable(struct zebra_if *zif);
 extern void zebra_evpn_if_init(struct zebra_if *zif);
 extern void zebra_evpn_if_cleanup(struct zebra_if *zif);
