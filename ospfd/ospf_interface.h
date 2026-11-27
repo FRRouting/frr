@@ -312,6 +312,15 @@ struct ospf_interface {
 	struct ospf_if_params *params;
 
 	uint32_t crypt_seqnum; /* Cryptographic Sequence Number */
+	/*
+	 * Per-neighbor anti-replay marks for received authenticated packets,
+	 * keyed like oi->nbrs (Router ID on point-to-point and virtual links,
+	 * source address otherwise).  nbr->crypt_seqnum dies with the neighbor
+	 * structure; these marks outlive neighbor deletion so that tearing an
+	 * adjacency down does not reopen the replay window.  Dropped when the
+	 * OSPF interface is deleted.
+	 */
+	struct route_table *crypt_seqnums;
 	uint32_t output_cost;  /* Actual Interface Output Cost */
 	uint32_t num_q_nbrs;   /* Number of quick neighbors still active */
 
