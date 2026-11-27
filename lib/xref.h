@@ -128,9 +128,30 @@ extern void xref_gcc_workaround(const struct xref *xref);
  * _symbols_ referring to the actual section start/end, i.e. they are very
  * much NOT _pointers_, rather the symbol *value* is the pointer.  Declaring
  * them as size-1 arrays is the "best" / "right" thing.
+ *
+ * ELF linkers synthesize __start_<section> / __stop_<section> for any section
+ * whose name is a valid C identifier.  Mach-O linkers (Apple ld) don't do
+ * that;  they instead provide section$start$<segment>$<section> and
+ * section$end$<segment>$<section> for any referenced "segment,section" pair.
+ * Those names aren't valid C identifiers, so bind them to the same C names
+ * with asm labels.  The resulting symbols are still per-image (executable,
+ * dylib or bundle), which is exactly the scope XREF_SETUP needs.
+ *
+ * Mach-O section specifiers must be "segment,section" and section names are
+ * limited to 16 characters; "xref_array" fits.
  */
+#ifdef __MACH__
+#define XREF_SECTION_NAME "__DATA,xref_array"
+/* note the asm label must precede the attributes in the declarator */
+extern const struct xref * const __start_xref_array[1]
+	__asm("section$start$__DATA$xref_array") DSO_LOCAL;
+extern const struct xref * const __stop_xref_array[1]
+	__asm("section$end$__DATA$xref_array") DSO_LOCAL;
+#else
+#define XREF_SECTION_NAME "xref_array"
 extern const struct xref * const __start_xref_array[1] DSO_LOCAL;
 extern const struct xref * const __stop_xref_array[1] DSO_LOCAL;
+#endif
 
 #if defined(__has_feature)
 #if __has_feature(address_sanitizer)
@@ -140,12 +161,13 @@ extern const struct xref * const __stop_xref_array[1] DSO_LOCAL;
  */
 #ifdef __clang__
 /* GCC doesn't allow no_sanitize on variables, and warns about it :( */
-#define xref_array_attr used, section("xref_array"), no_sanitize("address")
+#define xref_array_attr                                                        \
+	used, section(XREF_SECTION_NAME), no_sanitize("address")
 #endif
 #endif
 #endif
 #ifndef xref_array_attr
-#define xref_array_attr used, section("xref_array")
+#define xref_array_attr used, section(XREF_SECTION_NAME)
 #endif
 
 /* this macro is invoked once for each standalone DSO through
@@ -192,8 +214,14 @@ extern const struct xref * const __stop_xref_array[1] DSO_LOCAL;
  * some build issue with it just add -DFRR_XREF_NO_NOTE to your build flags
  * to disable it.
  */
-#if defined(FRR_XREF_NO_NOTE) || defined(__mips64)
+#if defined(FRR_XREF_NO_NOTE) || defined(__mips64) || defined(__MACH__)
 #define XREF_NOTE ""
+
+/* Mach-O note:  Mach-O has no ELF-style notes, and the directives used below
+ * (.pushsection/.type/.note) don't exist in Apple's assembler.  The note is
+ * therefore permanently disabled there;  xref extraction goes through the
+ * "__DATA,xref_array" section instead, same as the other cases here.
+ */
 
 /* mips64 note:  MIPS64 (regardless of endianness, both mips64 & mips64el)
  * does not have a 64-bit PC-relative relocation type.  Unfortunately, a

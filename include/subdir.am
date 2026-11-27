@@ -1,4 +1,5 @@
 noinst_HEADERS += \
+	include/macos/endian.h \
 	include/linux/compiler_types.h \
 	include/linux/libc-compat.h \
 	include/linux/ethtool_netlink.h \

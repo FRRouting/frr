@@ -214,6 +214,39 @@ int frr_pthread_non_controlled_startup(pthread_t thread, const char *name,
 
 void frr_pthread_non_controlled_shutdown(pthread_t thread);
 
+/*
+ * Initialize a condition variable to use CLOCK_MONOTONIC where supported.
+ * On macOS, pthread_condattr_setclock() is unavailable, so the condvar uses
+ * the default clock and frr_pthread_cond_timedwait() translates deadlines.
+ *
+ * cond
+ *    Condition variable to initialize.
+ *
+ * Returns:
+ *    0 on success, or an error number from pthread_condattr_init(),
+ *    pthread_condattr_setclock(), or pthread_cond_init().
+ */
+int frr_pthread_cond_init(pthread_cond_t *cond);
+
+/*
+ * Wait on a condition variable initialized with frr_pthread_cond_init()
+ * until signaled or until the absolute CLOCK_MONOTONIC deadline expires.
+ *
+ * cond
+ *    Condition variable to wait on.
+ *
+ * mutex
+ *    Locked mutex associated with cond.
+ *
+ * abstime
+ *    Absolute deadline on CLOCK_MONOTONIC.
+ *
+ * Returns:
+ *    0 on success, ETIMEDOUT on timeout, or another pthread error number.
+ */
+int frr_pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
+			       const struct timespec *abstime);
+
 /* mutex auto-lock/unlock */
 
 /* variant 1:

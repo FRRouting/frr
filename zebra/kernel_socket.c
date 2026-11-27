@@ -13,6 +13,13 @@
 #ifdef __OpenBSD__
 #include <netmpls/mpls.h>
 #endif
+#ifdef __APPLE__
+#include <sys/ioctl.h>
+#include <sys/kern_event.h>
+#include <sys/sysctl.h>
+#include <net/if_var.h>
+#include <net/net_kev.h>
+#endif /* __APPLE__ */
 
 #include "if.h"
 #include "prefix.h"
@@ -51,7 +58,11 @@ extern struct zebra_privs_t zserv_privs;
  * 0).  We follow this practice without questioning it, but it is a
  * bug if frr calls ROUNDUP with 0.
  */
+#ifdef __APPLE__
+#define ROUNDUP_TYPE uint32_t
+#else
 #define ROUNDUP_TYPE long
+#endif
 
 /*
  * Because of these varying conventions, the only sane approach is for
@@ -452,6 +463,24 @@ static int ifan_read(struct if_announcemsghdr *ifan)
 }
 #endif /* RTM_IFANNOUNCE */
 
+#ifndef RTM_IFANNOUNCE
+/*
+ * Without RTM_IFANNOUNCE, an interface that goes down may have been deleted.
+ * macOS sets interfaces down without deleting them: it is gone only once its
+ * index is.
+ */
+static bool kernel_if_gone(const struct if_msghdr *ifm)
+{
+#ifdef __APPLE__
+	char name[IFNAMSIZ];
+
+	return if_indextoname(ifm->ifm_index, name) == NULL;
+#else
+	return true;
+#endif /* __APPLE__ */
+}
+#endif /* RTM_IFANNOUNCE */
+
 #ifdef HAVE_BSD_IFI_LINK_STATE
 /* BSD link detect translation */
 static void bsd_linkdetect_translate(struct if_msghdr *ifm)
@@ -496,6 +525,49 @@ static enum zebra_link_type sdl_to_zebra_link_type(unsigned int sdlt)
 		return ZEBRA_LLT_UNKNOWN;
 	}
 }
+
+#ifdef __APPLE__
+/*
+ * Check again at the flags of the interfaces that are up but not running,
+ * for a few seconds: see ifm_read().
+ * XNU workaround on an issue fixed on BSD kernel decades ago.
+ */
+#define KERNEL_FLAGS_RECHECK_MSEC 200
+#define KERNEL_FLAGS_RECHECK_MAX  25
+
+static struct event *t_flags_recheck;
+static int flags_recheck_left;
+
+static void kernel_flags_recheck(struct event *event)
+{
+	struct vrf *vrf;
+	struct interface *ifp;
+	bool pending = false;
+
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			if (ifp->ifindex == IFINDEX_INTERNAL || !CHECK_FLAG(ifp->flags, IFF_UP) ||
+			    if_is_operative(ifp))
+				continue;
+			if_get_flags(ifp);
+			if (CHECK_FLAG(ifp->flags, IFF_UP) && !if_is_operative(ifp))
+				pending = true;
+		}
+	}
+
+	if (pending && --flags_recheck_left > 0)
+		event_add_timer_msec(zrouter.master, kernel_flags_recheck, NULL,
+				     KERNEL_FLAGS_RECHECK_MSEC, &t_flags_recheck);
+}
+
+static void kernel_flags_recheck_start(void)
+{
+	flags_recheck_left = KERNEL_FLAGS_RECHECK_MAX;
+	if (!event_is_scheduled(t_flags_recheck))
+		event_add_timer_msec(zrouter.master, kernel_flags_recheck, NULL,
+				     KERNEL_FLAGS_RECHECK_MSEC, &t_flags_recheck);
+}
+#endif /* __APPLE__ */
 
 /*
  * Handle struct if_msghdr obtained from reading routing socket or
@@ -602,13 +674,13 @@ int ifm_read(struct if_msghdr *ifm)
 			return -1;
 		}
 
-#ifndef RTM_IFANNOUNCE
+#if !defined(RTM_IFANNOUNCE) && !defined(__APPLE__)
 		/* Down->Down interface should be ignored here.
 		 * See further comment below.
 		 */
 		if (!CHECK_FLAG(ifm->ifm_flags, IFF_UP))
 			return 0;
-#endif /* !RTM_IFANNOUNCE */
+#endif /* !RTM_IFANNOUNCE && !__APPLE__ */
 
 		if (ifp == NULL) {
 			/* Interface that zebra was not previously aware of, so
@@ -695,7 +767,16 @@ int ifm_read(struct if_msghdr *ifm)
 
 		/* update flags and handle operative->inoperative transition, if
 		 * any */
+#ifdef __APPLE__
+		if (if_nametoindex(ifp->name) == (unsigned int)ifm->ifm_index) {
+			if_get_flags(ifp);
+			if (CHECK_FLAG(ifp->flags, IFF_UP) && !if_is_operative(ifp))
+				kernel_flags_recheck_start();
+		} else
+			if_flags_update(ifp, ifm->ifm_flags);
+#else
 		if_flags_update(ifp, ifm->ifm_flags);
+#endif /* __APPLE__ */
 
 #ifndef RTM_IFANNOUNCE
 		if (!if_is_up(ifp)) {
@@ -710,7 +791,8 @@ int ifm_read(struct if_msghdr *ifm)
 			 * will still behave correctly if run on a platform
 			 * without
 			 */
-			if_delete_update(&ifp);
+			if (kernel_if_gone(ifm))
+				if_delete_update(&ifp);
 		}
 #endif /* RTM_IFANNOUNCE */
 		if (ifp && if_is_up(ifp)) {
@@ -742,14 +824,11 @@ static void ifam_read_mesg(struct ifa_msghdr *ifm, union sockunion *addr,
 			   union sockunion *mask, union sockunion *brd,
 			   char *ifname, short *ifnlen)
 {
-	caddr_t pnt, end;
+	caddr_t pnt, end, real_end;
 	union sockunion dst;
 	union sockunion gateway;
 	int maskbit;
 	char fbuf[64];
-
-	pnt = (caddr_t)(ifm + 1);
-	end = ((caddr_t)ifm) + ifm->ifam_msglen;
 
 	/* Be sure structure is cleared */
 	memset(mask, 0, sizeof(union sockunion));
@@ -758,10 +837,28 @@ static void ifam_read_mesg(struct ifa_msghdr *ifm, union sockunion *addr,
 	memset(&dst, 0, sizeof(union sockunion));
 	memset(&gateway, 0, sizeof(union sockunion));
 
+	if (ifm->ifam_msglen < sizeof(*ifm)) {
+		zlog_warn("%s: short message length %u", __func__, ifm->ifam_msglen);
+		return;
+	}
+
+	pnt = (caddr_t)(ifm + 1);
+	real_end = ((caddr_t)ifm) + ifm->ifam_msglen;
+#ifdef __APPLE__
+	end = ((caddr_t)ifm) + ROUNDUP(ifm->ifam_msglen);
+#else
+	end = real_end;
+#endif
+
 	/* We fetch each socket variable into sockunion. */
 	for (maskbit = 1; maskbit; maskbit <<= 1) {
 		if ((maskbit & ifm->ifam_addrs) == 0)
 			continue;
+
+		if (pnt >= real_end) {
+			zlog_warn("%s: overflow detected (pnt:%p end:%p)", __func__, pnt, real_end);
+			break;
+		}
 
 		switch (maskbit) {
 		case RTA_DST:
@@ -831,7 +928,7 @@ static void ifam_read_mesg(struct ifa_msghdr *ifm, union sockunion *addr,
 int ifam_read(struct ifa_msghdr *ifam)
 {
 	struct interface *ifp = NULL;
-	union sockunion addr, mask, brd, zero = { 0 };
+	union sockunion addr, mask, brd;
 	bool dest_same = false;
 	char ifname[IFNAMSIZ];
 	short ifnlen = 0;
@@ -859,17 +956,16 @@ int ifam_read(struct ifa_msghdr *ifam)
 	if (isalias)
 		SET_FLAG(flags, ZEBRA_IFA_SECONDARY);
 
-	/* N.B. The info in ifa_msghdr does not tell us whether the RTA_BRD
-	   field contains a broadcast address or a peer address, so we are
-	   forced to
-	   rely upon the interface type. */
+	/*
+	 * N.B. The info in ifa_msghdr does not tell us whether the RTA_BRD
+	 * field contains a broadcast address or a peer address, so we are
+	 * forced to rely upon the interface type: on a broadcast interface it
+	 * is the broadcast address, which is not a destination.
+	 */
 	if (if_is_pointopoint(ifp))
 		SET_FLAG(flags, ZEBRA_IFA_PEER);
-	else {
-		if ((memcmp(&addr, &brd, sizeof(addr)) == 0)
-		    || (memcmp(&brd, &zero, sizeof(addr)) == 0))
-			dest_same = true;
-	}
+	else
+		dest_same = true;
 
 #if 0
   /* it might seem cute to grab the interface metric here, however
@@ -928,12 +1024,27 @@ static int rtm_read_mesg(struct rt_msghdr *rtm, union sockunion *dest,
 			 union sockunion *mask, union sockunion *gate,
 			 char *ifname, short *ifnlen)
 {
-	caddr_t pnt, end;
+	caddr_t pnt, end, real_end;
 	int maskbit;
+
+	/* Be sure structure is cleared */
+	memset(dest, 0, sizeof(union sockunion));
+	memset(gate, 0, sizeof(union sockunion));
+	memset(mask, 0, sizeof(union sockunion));
+
+	if (rtm->rtm_msglen < sizeof(*rtm)) {
+		zlog_warn("%s: short message length %u", __func__, rtm->rtm_msglen);
+		return 0;
+	}
 
 	/* Pnt points out socket data start point. */
 	pnt = (caddr_t)(rtm + 1);
-	end = ((caddr_t)rtm) + rtm->rtm_msglen;
+	real_end = ((caddr_t)rtm) + rtm->rtm_msglen;
+#ifdef __APPLE__
+	end = ((caddr_t)rtm) + ROUNDUP(rtm->rtm_msglen);
+#else
+	end = real_end;
+#endif
 
 	/* rt_msghdr version check. */
 	if (rtm->rtm_version != RTM_VERSION)
@@ -941,16 +1052,15 @@ static int rtm_read_mesg(struct rt_msghdr *rtm, union sockunion *dest,
 			  "Routing message version different %d should be %d.This may cause problem",
 			  rtm->rtm_version, RTM_VERSION);
 
-	/* Be sure structure is cleared */
-	memset(dest, 0, sizeof(union sockunion));
-	memset(gate, 0, sizeof(union sockunion));
-	memset(mask, 0, sizeof(union sockunion));
-
-	/* We fetch each socket variable into sockunion. */
 	/* We fetch each socket variable into sockunion. */
 	for (maskbit = 1; maskbit; maskbit <<= 1) {
 		if ((maskbit & rtm->rtm_addrs) == 0)
 			continue;
+
+		if (pnt >= real_end) {
+			zlog_warn("%s: overflow detected (pnt:%p end:%p)", __func__, pnt, real_end);
+			break;
+		}
 
 		switch (maskbit) {
 		case RTA_DST:
@@ -1493,6 +1603,112 @@ static void kernel_read(struct event *event)
 	}
 }
 
+#ifdef __APPLE__
+/*
+ * XNU sends no RTM_IFANNOUNCE, and its RTM_IFINFO has no interface name:
+ * zebra would not learn an interface created after it started. XNU reports
+ * the interfaces it attaches and detaches with kernel events: read a new
+ * interface and its addresses like interface_list() does at startup.
+ */
+static int kev_sock = -1;
+
+static void kernel_ifindex_read(unsigned int ifindex)
+{
+	int mib[6] = { CTL_NET, PF_ROUTE, 0, 0, NET_RT_IFLIST, (int)ifindex };
+	struct if_msghdr *ifm;
+	char *buf, *end, *p;
+	size_t len;
+
+	if (sysctl(mib, 6, NULL, &len, NULL, 0) < 0 || len == 0)
+		return;
+	buf = XMALLOC(MTYPE_TMP, len);
+	ifm = (struct if_msghdr *)buf;
+	/*
+	 * XNU attaches a vlan or bond interface before it has a parent: it has
+	 * no flags and takes no address then. Read it on one of its next
+	 * events, once configured.
+	 */
+	if (sysctl(mib, 6, buf, &len, NULL, 0) == 0 &&
+	    (len < sizeof(*ifm) || ifm->ifm_type != RTM_IFINFO || ifm->ifm_flags)) {
+		end = buf + len;
+		for (p = buf; p + sizeof(*ifm) <= end; p += ifm->ifm_msglen) {
+			ifm = (struct if_msghdr *)p;
+			if (ifm->ifm_msglen == 0)
+				break;
+			if (ifm->ifm_type == RTM_IFINFO)
+				ifm_read(ifm);
+			else if (ifm->ifm_type == RTM_NEWADDR)
+				ifam_read((struct ifa_msghdr *)ifm);
+		}
+	}
+	XFREE(MTYPE_TMP, buf);
+}
+
+static void kernel_kev_read(struct event *event)
+{
+	union {
+		struct kern_event_msg msg;
+		char buf[512];
+	} kev;
+	struct net_event_data *data;
+	struct interface *ifp;
+	char ifname[IFNAMSIZ];
+	unsigned int ifindex;
+	ssize_t len;
+
+	event_add_read(zrouter.master, kernel_kev_read, NULL, kev_sock, NULL);
+
+	len = recv(kev_sock, &kev, sizeof(kev), 0);
+	if (len < (ssize_t)(offsetof(struct kern_event_msg, event_data) + sizeof(*data)))
+		return;
+	data = (struct net_event_data *)&kev.msg.event_data[0];
+	snprintfrr(ifname, sizeof(ifname), "%s%u", data->if_name, data->if_unit);
+
+	switch (kev.msg.event_code) {
+	case KEV_DL_IF_DETACHING:
+		break;
+	case KEV_DL_IF_DETACHED:
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: %s detached", __func__, ifname);
+		ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
+		if (ifp && ifp->ifindex != IFINDEX_INTERNAL)
+			if_delete_update(&ifp);
+		break;
+	default:
+		/* attached, or configured since it was attached */
+		ifindex = if_nametoindex(ifname);
+		if (!ifindex || if_lookup_by_index(ifindex, VRF_DEFAULT))
+			break;
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: %s event %u, ifindex %u", __func__, ifname,
+				   kev.msg.event_code, ifindex);
+		kernel_ifindex_read(ifindex);
+		break;
+	}
+}
+
+static void kernel_kev_socket(void)
+{
+	struct kev_request req = {
+		.vendor_code = KEV_VENDOR_APPLE,
+		.kev_class = KEV_NETWORK_CLASS,
+		.kev_subclass = KEV_DL_SUBCLASS,
+	};
+
+	frr_with_privs (&zserv_privs) {
+		kev_sock = socket(PF_SYSTEM, SOCK_RAW, SYSPROTO_EVENT);
+	}
+	if (kev_sock < 0 || ioctl(kev_sock, SIOCSKEVFILT, &req) < 0) {
+		flog_err_sys(EC_LIB_SOCKET, "Can't init kernel event socket");
+		if (kev_sock >= 0)
+			close(kev_sock);
+		kev_sock = -1;
+		return;
+	}
+	event_add_read(zrouter.master, kernel_kev_read, NULL, kev_sock, NULL);
+}
+#endif /* __APPLE__ */
+
 /* Make routing socket. */
 static void routing_socket(struct zebra_ns *zns)
 {
@@ -1552,6 +1768,10 @@ static void routing_socket(struct zebra_ns *zns)
 
 	/* kernel_read needs rewrite. */
 	event_add_read(zrouter.master, kernel_read, NULL, routing_sock, NULL);
+
+#ifdef __APPLE__
+	kernel_kev_socket();
+#endif /* __APPLE__ */
 }
 
 void interface_list_second(struct zebra_ns *zns)
@@ -1588,6 +1808,9 @@ void kernel_router_init(void)
  */
 void kernel_router_terminate(void)
 {
+#ifdef __APPLE__
+	event_cancel(&t_flags_recheck);
+#endif
 }
 
 /*

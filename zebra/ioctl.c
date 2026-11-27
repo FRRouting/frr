@@ -472,7 +472,7 @@ void if_get_flags(struct interface *ifp)
 	strlcpy(ifmr.ifm_name, ifp->name, sizeof(ifmr.ifm_name));
 
 	if (if_ioctl(SIOCGIFMEDIA, (caddr_t)&ifmr) == -1) {
-		if (errno != EINVAL)
+		if (errno != EINVAL && errno != EOPNOTSUPP)
 			flog_err_sys(EC_LIB_SYSTEM_CALL,
 				     "if_ioctl(SIOCGIFMEDIA %s) failed: %s",
 				     ifp->name, safe_strerror(errno));

@@ -1475,7 +1475,10 @@ out_closedir_free:
 #ifndef entry_extra_attr
 #define entry_extra_attr /* empty */
 #endif
-#ifdef INTERP
+/* .interp is an ELF-only section;  Mach-O has no equivalent (and its section
+ * attribute syntax would reject this name).
+ */
+#if defined(INTERP) && defined(__ELF__)
 static const char interp[]
 	__attribute__((section(".interp"), used)) = INTERP;
 #endif

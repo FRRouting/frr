@@ -9,8 +9,16 @@
 
 #include "memory.h"
 
+/*
+ * libyang 6's ly_config.h defines a no-argument _DEPRECATED.
+ * compiler.h already defines _DEPRECATED(x). Hide ours across this
+ * include so the two definitions do not clash, then restore it.
+ */
+#pragma push_macro("_DEPRECATED")
+#undef _DEPRECATED
 #include <libyang/libyang.h>
 #include <libyang/version.h>
+#pragma pop_macro("_DEPRECATED")
 #ifdef HAVE_SYSREPO
 #include <sysrepo.h>
 #endif

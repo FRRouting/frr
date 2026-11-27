@@ -13,7 +13,11 @@
 #include "mgmtd/mgmt_ds.h"
 #include "mgmtd/mgmt_history.h"
 #include "mgmtd/mgmt_txn.h"
+/* libyang's _DEPRECATED clashes with compiler.h; see yang.h. */
+#pragma push_macro("_DEPRECATED")
+#undef _DEPRECATED
 #include "libyang/libyang.h"
+#pragma pop_macro("_DEPRECATED")
 
 #define _dbg(fmt, ...)	   DEBUGD(&mgmt_debug_ds, "DS: %s: " fmt, __func__, ##__VA_ARGS__)
 #define _log_warn(fmt, ...) zlog_warn("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)

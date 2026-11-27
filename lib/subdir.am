@@ -3,7 +3,7 @@
 #
 
 lib_LTLIBRARIES += lib/libfrr.la
-lib_libfrr_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0 -Xlinker -e_libfrr_version
+lib_libfrr_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0 $(LIBFRR_ENTRY_LDFLAGS)
 lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(UST_LIBS) $(LIBCRYPT) $(LIBDL) $(LIBM)
 
 lib_libfrr_la_SOURCES = \
@@ -456,7 +456,7 @@ lib_grammar_sandbox_LDADD = \
 
 lib_clippy_CPPFLAGS = $(CPPFLAGS_BASE) -D_GNU_SOURCE -DBUILDING_CLIPPY
 lib_clippy_CFLAGS = $(AC_CFLAGS) $(PYTHON_CFLAGS)
-lib_clippy_LDADD = $(PYTHON_LIBS) $(UST_LIBS) -lelf
+lib_clippy_LDADD = $(PYTHON_LIBS) $(UST_LIBS)
 # no $(SAN_FLAGS) here
 lib_clippy_LDFLAGS = -export-dynamic $(AC_LDFLAGS) $(AC_LDFLAGS_EXEC)
 lib_clippy_SOURCES = \
@@ -467,13 +467,19 @@ lib_clippy_SOURCES = \
 	lib/command_parse.y \
 	lib/command_py.c \
 	lib/defun_lex.l \
-	lib/elf_py.c \
 	lib/graph.c \
 	lib/libfrr_trace.c \
 	lib/memory.c \
 	lib/typesafe.c \
 	lib/vector.c \
 	# end
+
+# ELF binaries are read through libelf;  Mach-O ones (macOS) by pure python in
+# python/clippy/macho.py, so no libelf there.
+if CLIPPY_ELF
+lib_clippy_LDADD += -lelf
+lib_clippy_SOURCES += lib/elf_py.c
+endif
 
 # (global) clippy rules for all directories
 

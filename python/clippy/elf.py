@@ -21,7 +21,38 @@ import struct
 from collections import OrderedDict
 from weakref import WeakValueDictionary
 
-from _clippy import ELFFile, ELFAccessError
+try:
+    from _clippy import ELFFile, ELFAccessError
+except ImportError:
+    # clippy built without libelf (e.g. on macOS), only Mach-O is available.
+    ELFFile = None
+    from clippy.macho import MachOAccessError as ELFAccessError
+
+from clippy.macho import MachOFile, is_macho_header
+
+
+def open_binary(filename):
+    """
+    Open an ELF or Mach-O file, whichever it turns out to be
+
+    Both backends provide the same interface (``elfclass``, ``bigendian``,
+    ``get_section()``, ``get_section_addr()``, ``getreloc()``, ``find_note()``,
+    subscripting by virtual address, etc.)  Use ``supports_notes`` to check
+    for ELF note support;  it's missing on the ELF backend since that always
+    has it.
+    """
+    with open(filename, "rb") as fd:
+        hdr = fd.read(4)
+
+    if is_macho_header(hdr):
+        return MachOFile(filename)
+
+    if ELFFile is None:
+        raise ValueError(
+            "%s: not a Mach-O file and this build has no ELF support" % (filename,)
+        )
+    return ELFFile(filename)
+
 
 #
 # data access
@@ -581,14 +612,14 @@ class ELFDissectFile(ELFSubset):
     but non-PIE executables have an architecture specific default loading
     address like 0x400000 on x86.
 
-    :param filename: ELF file to open
+    :param filename: ELF (or Mach-O) file to open
     """
 
     def __init__(self, filename):
         super().__init__()
 
         self.name = filename
-        self._elffile = self._obj = ELFFile(filename)
+        self._elffile = self._obj = open_binary(filename)
         self._sections = {}
 
         self.ptrtype = "I" if self._elffile.elfclass == 32 else "Q"

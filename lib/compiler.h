@@ -6,6 +6,14 @@
 #ifndef _FRR_COMPILER_H
 #define _FRR_COMPILER_H
 
+#ifdef __APPLE__
+/*
+ * Pre-include <os/base.h> before defining compiler attribute macros below so
+ * Apple SDK's attribute uses inside <os/base.h> are not macro-expanded.
+ */
+#include <os/base.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -36,6 +44,10 @@ extern "C" {
 #  define fallthrough __attribute__((fallthrough));
 #endif
 # define _CONSTRUCTOR(x)  constructor(x)
+/*
+ * libyang 6's ly_config.h defines a no-argument _DEPRECATED.
+ * Callers that include libyang hide this macro first; see yang.h.
+ */
 # define _DEPRECATED(x) deprecated(x)
 # if __has_builtin(assume)
 #  define assume(x) __builtin_assume(x)
@@ -89,7 +101,11 @@ extern "C" {
 #error module code needs GCC visibility extensions
 #else
 # define DSO_PUBLIC __attribute__ ((visibility ("default")))
-# define DSO_SELF   __attribute__ ((visibility ("protected")))
+#ifdef __APPLE__
+#define DSO_SELF DSO_PUBLIC
+#else
+#define DSO_SELF __attribute__((visibility("protected")))
+#endif
 # define DSO_LOCAL  __attribute__ ((visibility ("hidden")))
 #endif
 
@@ -422,7 +438,7 @@ _Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
 #endif /* !__cplusplus */
 #endif /* !_FRR_ATTRIBUTE_PRINTFRR */
 
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 202311L && !defined(__APPLE__)
 /* whohoo, we can start moving towards getting rid of these, since
  * __STDC_VERSION__ >= 202311L also implies printf supports it
  *
@@ -430,6 +446,9 @@ _Static_assert(sizeof(_uint64_t) == 8 && sizeof(_int64_t) == 8,
  * supports w64, we don't know what libc's printf supports.  And we use plain
  * printf quite a bit, since a bulk printf -> printfrr pass is rather intrusive
  * for little benefit.)
+ *
+ * (not on macOS, though: its libc printf doesn't know w64 even when the
+ * compiler is in C23 mode.)
  */
 #undef PRIu64
 #undef PRId64

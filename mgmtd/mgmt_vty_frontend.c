@@ -7,8 +7,12 @@
  */
 
 #include <zebra.h>
+/* libyang's _DEPRECATED clashes with compiler.h; see yang.h. */
+#pragma push_macro("_DEPRECATED")
+#undef _DEPRECATED
 #include <libyang/libyang.h>
 #include <libyang/version.h>
+#pragma pop_macro("_DEPRECATED")
 #include "lib/debug.h"
 #include "lib/command.h"
 #include "lib/lib_vty.h"

@@ -327,17 +327,23 @@ PyObject *clippy_parse(PyObject *self, PyObject *args)
 		PyObject *pyItem = NULL, *pyArgs;
 		switch (token) {
 		case DEFUNNY:
-			if (!(type = "DEFUNNY"))
-				/* fallthru */
 		case INSTALL:
-			if (!(type = "INSTALL"))
-				/* fallthru */
 		case AUXILIARY:
-			if (!(type = "AUXILIARY"))
-				/* fallthru */
 		case HOOK:
-			if (!(type = "HOOK"))
-				(void)0;
+			switch (token) {
+			case DEFUNNY:
+				type = "DEFUNNY";
+				break;
+			case INSTALL:
+				type = "INSTALL";
+				break;
+			case AUXILIARY:
+				type = "AUXILIARY";
+				break;
+			default:
+				type = "HOOK";
+				break;
+			}
 
 			off_start -= strlen(tval);
 
