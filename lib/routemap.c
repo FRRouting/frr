@@ -1559,12 +1559,14 @@ enum rmap_compile_rets route_map_add_match(struct route_map_index *index,
 			 * that is being replaced.
 			 */
 			if (type >= RMAP_EVENT_CALL_ADDED) {
-				delete_rmap_event_type =
-					get_route_map_delete_event(type);
-				route_map_upd8_dependency(
-							delete_rmap_event_type,
-							rule->rule_str,
-							index->map->name);
+				const char *old_key = rule->rule_str;
+
+				if (rule->value && cmd->func_get_rmap_rule_key)
+					old_key = (*cmd->func_get_rmap_rule_key)(rule->value);
+
+				delete_rmap_event_type = get_route_map_delete_event(type);
+				route_map_upd8_dependency(delete_rmap_event_type, old_key,
+							  index->map->name);
 			}
 
 			route_map_rule_delete(&index->match_list, rule);
