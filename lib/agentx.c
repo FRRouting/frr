@@ -301,6 +301,9 @@ static int agentx_cli_off(void)
  * not call send_v2trap() unless the AgentX socket has room for a full
  * notification. The socket stays blocking: a non-blocking short write
  * corrupts the AgentX stream.
+ *
+ * A queued notification can be sent seconds after it was generated, so the
+ * drain supplies sysUpTime.0 itself; see agentx_trap_send().
  */
 /*
  * Count cap only, not a memory bound. Each queued notification is a copied
@@ -336,8 +339,13 @@ static int agentx_cli_off(void)
 
 struct agentx_trap_item {
 	netsnmp_variable_list *vars;
+	/* monotime_ns() when the notification was generated. */
+	uint64_t queued_ns;
 	struct agentx_trap_item *next;
 };
+
+/* SNMPv2-MIB sysUpTime.0 */
+static const oid objid_sysuptime[] = { 1, 3, 6, 1, 2, 1, 1, 3, 0 };
 
 /*
  * Invariant: the trap queue is main-loop only. trap_q_head, trap_q_tail,
@@ -630,6 +638,7 @@ static void agentx_trap_enqueue(netsnmp_variable_list *vars)
 
 	it = XCALLOC(MTYPE_AGENTX_TRAP, sizeof(*it));
 	it->vars = vars;
+	it->queued_ns = monotime_ns();
 	if (trap_q_tail)
 		trap_q_tail->next = it;
 	else
@@ -680,6 +689,54 @@ static void agentx_trap_debug(const char *what, const netsnmp_variable_list *vb)
 	       peerbuf[0] ? " neighbor " : "", peerbuf, trap_q_len);
 }
 
+/*
+ * sysUpTime.0 of a queued notification: when it was generated, in the
+ * timebase of the master agent it is sent to. net-snmp resets the subagent
+ * uptime to the master's on every synchronous AgentX response (Open,
+ * Register, Ping), so the age is taken off the current value instead of
+ * keeping the value read at enqueue. That stays right when the session
+ * reopens, when snmpd restarts while traps are held, and for traps queued
+ * before the first Open. A notification generated before the master agent
+ * started is reported as 0.
+ */
+static uint32_t agentx_trap_uptime(const struct agentx_trap_item *it)
+{
+	uint64_t age_cs = (monotime_ns() - it->queued_ns) / 10000000;
+	uint64_t now_cs = netsnmp_get_agent_uptime();
+
+	if (age_cs >= now_cs)
+		return 0;
+	/* TimeTicks is 32 bits; net-snmp truncates its own value the same way. */
+	return (uint32_t)(now_cs - age_cs);
+}
+
+/*
+ * Send a queued notification and free its varbind list.
+ *
+ * send_v2trap() inserts sysUpTime.0 only when the list does not start with
+ * it, and reads the clock when it is called, i.e. at drain time. The master
+ * agent forwards a sysUpTime.0 supplied by the subagent unchanged.
+ */
+static void agentx_trap_send(struct agentx_trap_item *it)
+{
+	netsnmp_variable_list *vars = NULL;
+	uint32_t uptime = agentx_trap_uptime(it);
+
+	if (!snmp_varlist_add_variable(&vars, objid_sysuptime, array_size(objid_sysuptime),
+				       ASN_TIMETICKS, (uint8_t *)&uptime, sizeof(uptime))) {
+		/* Allocation failed: net-snmp stamps the send time instead. */
+		send_v2trap(it->vars);
+		snmp_free_varbind(it->vars);
+		it->vars = NULL;
+		return;
+	}
+
+	vars->next_variable = it->vars;
+	it->vars = NULL;
+	send_v2trap(vars);
+	snmp_free_varbind(vars);
+}
+
 static void agentx_trap_flush(struct event *t)
 {
 	int n = 0;
@@ -720,8 +777,7 @@ static void agentx_trap_flush(struct event *t)
 		if (agentx_debug())
 			agentx_trap_debug("send trap to snmpd", it->vars);
 
-		send_v2trap(it->vars);
-		snmp_free_varbind(it->vars);
+		agentx_trap_send(it);
 		XFREE(MTYPE_AGENTX_TRAP, it);
 		n++;
 	}
