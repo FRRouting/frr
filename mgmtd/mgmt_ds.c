@@ -71,8 +71,12 @@ static int mgmt_ds_dump_in_memory(struct mgmt_ds_ctx *ds_ctx,
 	if (!root)
 		return -1;
 
-	options = ds_ctx->config_ds ? LYD_PRINT_WD_TRIM :
-		LYD_PRINT_WD_EXPLICIT;
+	/*
+	 * WD_EXPLICIT for config datastores too: a leaf explicitly set to its
+	 * default value is configuration and must survive the dump; only
+	 * implicit defaults are omitted. WD_TRIM would drop both.
+	 */
+	options = LYD_PRINT_WD_EXPLICIT;
 
 	if (base_xpath[0] == '\0')
 		lyd_print_all(out, root, format, options);

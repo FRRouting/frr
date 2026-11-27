@@ -307,12 +307,10 @@ DEFPY_YANG(isis_bfd_profile,
 void cli_show_ip_isis_bfd_monitoring(struct vty *vty, const struct lyd_node *dnode,
 				     bool show_defaults)
 {
-	if (!yang_dnode_get_bool(dnode, "enabled")) {
-		if (show_defaults)
-			vty_out(vty, " no isis bfd\n");
-	} else {
+	if (yang_dnode_get_bool(dnode, "enabled"))
 		vty_out(vty, " isis bfd\n");
-	}
+	else if (!yang_dnode_is_default(dnode, "enabled") || show_defaults)
+		vty_out(vty, " no isis bfd\n");
 
 	if (yang_dnode_exists(dnode, "profile"))
 		vty_out(vty, " isis bfd profile %s\n", yang_dnode_get_string(dnode, "profile"));
@@ -473,10 +471,7 @@ DEFPY_YANG(advertise_high_metrics, advertise_high_metrics_cmd,
 void cli_show_advertise_high_metrics(struct vty *vty, const struct lyd_node *dnode,
 				     bool show_defaults)
 {
-	if (yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " advertise-high-metrics\n");
-	else if (show_defaults)
-		vty_out(vty, " no advertise-high-metrics\n");
+	vty_out(vty, " %sadvertise-high-metrics\n", yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
 }
 
 /*
@@ -908,19 +903,26 @@ void cli_show_isis_lsp_timers(struct vty *vty, const struct lyd_node *dnode, boo
 	const char *l2_lifetime = yang_dnode_get_string(dnode, "level-2/maximum-lifetime");
 	const char *l1_gen = yang_dnode_get_string(dnode, "level-1/generation-interval");
 	const char *l2_gen = yang_dnode_get_string(dnode, "level-2/generation-interval");
+	/* The command sets all three timers of a level, render configured levels only. */
+	bool l1_set = show_defaults ||
+		      !yang_dnode_is_default_recursive(yang_dnode_get(dnode, "level-1"));
+	bool l2_set = show_defaults ||
+		      !yang_dnode_is_default_recursive(yang_dnode_get(dnode, "level-2"));
 
-	if (strmatch(l1_refresh, l2_refresh) && strmatch(l1_lifetime, l2_lifetime) &&
-	    strmatch(l1_gen, l2_gen))
+	if (l1_set && l2_set && strmatch(l1_refresh, l2_refresh) &&
+	    strmatch(l1_lifetime, l2_lifetime) && strmatch(l1_gen, l2_gen)) {
 		vty_out(vty, " lsp-timers gen-interval %s refresh-interval %s max-lifetime %s\n",
 			l1_gen, l1_refresh, l1_lifetime);
-	else {
+		return;
+	}
+	if (l1_set)
 		vty_out(vty,
 			" lsp-timers level-1 gen-interval %s refresh-interval %s max-lifetime %s\n",
 			l1_gen, l1_refresh, l1_lifetime);
+	if (l2_set)
 		vty_out(vty,
 			" lsp-timers level-2 gen-interval %s refresh-interval %s max-lifetime %s\n",
 			l2_gen, l2_refresh, l2_lifetime);
-	}
 }
 
 /*
@@ -1005,18 +1007,43 @@ DEFPY_YANG(no_spf_interval, no_spf_interval_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_spf_min_interval(struct vty *vty, const struct lyd_node *dnode,
-				    bool show_defaults)
+/*
+ * Render a level-1/level-2 leaf pair. Only explicitly configured levels are
+ * rendered, and the levelless form is used only when both levels are
+ * configured to the same value, so an implicit level never becomes explicit
+ * on reload. value_first selects "<cmd> <value> level-N" over
+ * "<cmd> level-N <value>".
+ */
+static void isis_cli_show_level_pair(struct vty *vty, const struct lyd_node *dnode,
+				     bool show_defaults, const char *cmd, bool value_first)
 {
 	const char *l1 = yang_dnode_get_string(dnode, "level-1");
 	const char *l2 = yang_dnode_get_string(dnode, "level-2");
+	bool l1_set = show_defaults || !yang_dnode_is_default(dnode, "level-1");
+	bool l2_set = show_defaults || !yang_dnode_is_default(dnode, "level-2");
 
-	if (strmatch(l1, l2))
-		vty_out(vty, " spf-interval %s\n", l1);
-	else {
-		vty_out(vty, " spf-interval level-1 %s\n", l1);
-		vty_out(vty, " spf-interval level-2 %s\n", l2);
+	if (l1_set && l2_set && strmatch(l1, l2)) {
+		vty_out(vty, " %s %s\n", cmd, l1);
+		return;
 	}
+	if (l1_set) {
+		if (value_first)
+			vty_out(vty, " %s %s level-1\n", cmd, l1);
+		else
+			vty_out(vty, " %s level-1 %s\n", cmd, l1);
+	}
+	if (l2_set) {
+		if (value_first)
+			vty_out(vty, " %s %s level-2\n", cmd, l2);
+		else
+			vty_out(vty, " %s level-2 %s\n", cmd, l2);
+	}
+}
+
+void cli_show_isis_spf_min_interval(struct vty *vty, const struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	isis_cli_show_level_pair(vty, dnode, show_defaults, "spf-interval", false);
 }
 
 /*
@@ -1334,10 +1361,7 @@ DEFPY_YANG(isis_distribute_link_state, isis_distribute_link_state_cmd,
 void cli_show_isis_distribute_link_state(struct vty *vty, const struct lyd_node *dnode,
 					 bool show_defaults)
 {
-	if (!yang_dnode_get_bool(dnode, NULL))
-		return;
-
-	vty_out(vty, " distribute link-state\n");
+	vty_out(vty, " %sdistribute link-state\n", yang_dnode_get_bool(dnode, NULL) ? "" : "no ");
 }
 
 /*
@@ -1519,7 +1543,13 @@ static void vty_print_redistribute(struct vty *vty, const struct lyd_node *dnode
 		vty_out(vty, " redistribute %s %s ", family, protocol);
 	}
 	vty_out(vty, "%s", level);
-	if (show_defaults || !yang_dnode_is_default(dnode, "metric"))
+	/*
+	 * "metric" lives in a case of the "protocol-type" choice. When neither
+	 * metric nor route-map is configured, the case has no members, so the
+	 * schema default is not instantiated and the leaf is absent entirely.
+	 */
+	if (yang_dnode_exists(dnode, "metric") &&
+	    (show_defaults || !yang_dnode_is_default(dnode, "metric")))
 		vty_out(vty, " metric %s", yang_dnode_get_string(dnode, "%s", "metric"));
 
 	if (yang_dnode_exists(dnode, "route-map"))
@@ -2056,15 +2086,18 @@ DEFPY_YANG (no_isis_srv6_enable,
 
 void cli_show_isis_srv6_enabled(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	if (!yang_dnode_get_bool(dnode, NULL))
-		vty_out(vty, " no");
-
-	vty_out(vty, " segment-routing srv6\n");
+	/*
+	 * "no segment-routing srv6" removes the whole container and enters no
+	 * node, so a disabled SRv6 has no form here and must not open a block.
+	 */
+	if (yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " segment-routing srv6\n");
 }
 
 void cli_show_isis_srv6_end(struct vty *vty, const struct lyd_node *dnode)
 {
-	vty_out(vty, " exit\n");
+	if (yang_dnode_get_bool(dnode, "enabled"))
+		vty_out(vty, " exit\n");
 }
 
 /*
@@ -2168,17 +2201,13 @@ DEFPY_YANG (isis_srv6_node_msd_max_end_d,
 void cli_show_isis_srv6_node_msd(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	vty_out(vty, "  node-msd\n");
-	if (yang_dnode_get_uint8(dnode, "max-segs-left") !=
-	    yang_get_default_uint8("%s/msd/node-msd/max-segs-left", ISIS_SRV6))
+	if (!yang_dnode_is_default(dnode, "max-segs-left") || show_defaults)
 		vty_out(vty, "   max-segs-left %u\n", yang_dnode_get_uint8(dnode, "max-segs-left"));
-	if (yang_dnode_get_uint8(dnode, "max-end-pop") !=
-	    yang_get_default_uint8("%s/msd/node-msd/max-end-pop", ISIS_SRV6))
+	if (!yang_dnode_is_default(dnode, "max-end-pop") || show_defaults)
 		vty_out(vty, "   max-end-pop %u\n", yang_dnode_get_uint8(dnode, "max-end-pop"));
-	if (yang_dnode_get_uint8(dnode, "max-h-encaps") !=
-	    yang_get_default_uint8("%s/msd/node-msd/max-h-encaps", ISIS_SRV6))
+	if (!yang_dnode_is_default(dnode, "max-h-encaps") || show_defaults)
 		vty_out(vty, "   max-h-encaps %u\n", yang_dnode_get_uint8(dnode, "max-h-encaps"));
-	if (yang_dnode_get_uint8(dnode, "max-end-d") !=
-	    yang_get_default_uint8("%s/msd/node-msd/max-end-d", ISIS_SRV6))
+	if (!yang_dnode_is_default(dnode, "max-end-d") || show_defaults)
 		vty_out(vty, "   max-end-d %u\n", yang_dnode_get_uint8(dnode, "max-end-d"));
 }
 
@@ -2550,15 +2579,7 @@ DEFPY_YANG(no_isis_metric, no_isis_metric_cmd,
 
 void cli_show_ip_isis_metric(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	const char *l1 = yang_dnode_get_string(dnode, "level-1");
-	const char *l2 = yang_dnode_get_string(dnode, "level-2");
-
-	if (strmatch(l1, l2))
-		vty_out(vty, " isis metric %s\n", l1);
-	else {
-		vty_out(vty, " isis metric level-1 %s\n", l1);
-		vty_out(vty, " isis metric level-2 %s\n", l2);
-	}
+	isis_cli_show_level_pair(vty, dnode, show_defaults, "isis metric", false);
 }
 
 /*
@@ -2604,15 +2625,7 @@ DEFPY_YANG(no_isis_hello_interval, no_isis_hello_interval_cmd,
 void cli_show_ip_isis_hello_interval(struct vty *vty, const struct lyd_node *dnode,
 				     bool show_defaults)
 {
-	const char *l1 = yang_dnode_get_string(dnode, "level-1");
-	const char *l2 = yang_dnode_get_string(dnode, "level-2");
-
-	if (strmatch(l1, l2))
-		vty_out(vty, " isis hello-interval %s\n", l1);
-	else {
-		vty_out(vty, " isis hello-interval level-1 %s\n", l1);
-		vty_out(vty, " isis hello-interval level-2 %s\n", l2);
-	}
+	isis_cli_show_level_pair(vty, dnode, show_defaults, "isis hello-interval", false);
 }
 
 /*
@@ -2657,15 +2670,7 @@ DEFPY_YANG(no_isis_hello_multiplier, no_isis_hello_multiplier_cmd,
 
 void cli_show_ip_isis_hello_multi(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	const char *l1 = yang_dnode_get_string(dnode, "level-1");
-	const char *l2 = yang_dnode_get_string(dnode, "level-2");
-
-	if (strmatch(l1, l2))
-		vty_out(vty, " isis hello-multiplier %s\n", l1);
-	else {
-		vty_out(vty, " isis hello-multiplier level-1 %s\n", l1);
-		vty_out(vty, " isis hello-multiplier level-2 %s\n", l2);
-	}
+	isis_cli_show_level_pair(vty, dnode, show_defaults, "isis hello-multiplier", false);
 }
 
 /*
@@ -2853,15 +2858,7 @@ DEFPY_YANG(no_csnp_interval, no_csnp_interval_cmd,
 void cli_show_ip_isis_csnp_interval(struct vty *vty, const struct lyd_node *dnode,
 				    bool show_defaults)
 {
-	const char *l1 = yang_dnode_get_string(dnode, "level-1");
-	const char *l2 = yang_dnode_get_string(dnode, "level-2");
-
-	if (strmatch(l1, l2))
-		vty_out(vty, " isis csnp-interval %s\n", l1);
-	else {
-		vty_out(vty, " isis csnp-interval %s level-1\n", l1);
-		vty_out(vty, " isis csnp-interval %s level-2\n", l2);
-	}
+	isis_cli_show_level_pair(vty, dnode, show_defaults, "isis csnp-interval", true);
 }
 
 /*
@@ -2907,15 +2904,7 @@ DEFPY_YANG(no_psnp_interval, no_psnp_interval_cmd,
 void cli_show_ip_isis_psnp_interval(struct vty *vty, const struct lyd_node *dnode,
 				    bool show_defaults)
 {
-	const char *l1 = yang_dnode_get_string(dnode, "level-1");
-	const char *l2 = yang_dnode_get_string(dnode, "level-2");
-
-	if (strmatch(l1, l2))
-		vty_out(vty, " isis psnp-interval %s\n", l1);
-	else {
-		vty_out(vty, " isis psnp-interval %s level-1\n", l1);
-		vty_out(vty, " isis psnp-interval %s level-2\n", l2);
-	}
+	isis_cli_show_level_pair(vty, dnode, show_defaults, "isis psnp-interval", true);
 }
 
 /*
@@ -3149,15 +3138,7 @@ DEFPY_YANG(no_isis_priority, no_isis_priority_cmd,
 
 void cli_show_ip_isis_priority(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
-	const char *l1 = yang_dnode_get_string(dnode, "level-1");
-	const char *l2 = yang_dnode_get_string(dnode, "level-2");
-
-	if (strmatch(l1, l2))
-		vty_out(vty, " isis priority %s\n", l1);
-	else {
-		vty_out(vty, " isis priority %s level-1\n", l1);
-		vty_out(vty, " isis priority %s level-2\n", l2);
-	}
+	isis_cli_show_level_pair(vty, dnode, show_defaults, "isis priority", true);
 }
 
 /*
@@ -3818,12 +3799,11 @@ void cli_show_isis_flex_algo(struct vty *vty, const struct lyd_node *dnode, bool
 	if (yang_dnode_exists(dnode, "prefix-metric"))
 		vty_out(vty, "  prefix-metric\n");
 
-	if (yang_dnode_exists(dnode, "metric-type")) {
+	if (yang_dnode_exists(dnode, "metric-type") &&
+	    (!yang_dnode_is_default(dnode, "metric-type") || show_defaults)) {
 		metric_type = yang_dnode_get_enum(dnode, "metric-type");
-		if (metric_type != MT_IGP) {
-			flex_algo_metric_type_print(type_str, sizeof(type_str), metric_type);
-			vty_out(vty, "  metric-type %s\n", type_str);
-		}
+		flex_algo_metric_type_print(type_str, sizeof(type_str), metric_type);
+		vty_out(vty, "  metric-type %s\n", type_str);
 	}
 
 	if (yang_dnode_exists(dnode, "priority")) {

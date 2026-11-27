@@ -391,7 +391,7 @@ static void logging_stdout_cli_write(struct vty *vty, const struct lyd_node *dno
 {
 	int level = log_level_match(yang_dnode_get_string(dnode, "level"));
 
-	if (level != LOG_DEBUG || show_defaults)
+	if (!yang_dnode_is_default(dnode, "level") || show_defaults)
 		vty_out(vty, "log stdout %s\n", zlog_priority_str(level));
 	else
 		vty_out(vty, "log stdout\n");
@@ -401,7 +401,7 @@ static void logging_syslog_cli_write(struct vty *vty, const struct lyd_node *dno
 {
 	int level = log_level_match(yang_dnode_get_string(dnode, "level"));
 
-	if (level != LOG_DEBUG || show_defaults)
+	if (!yang_dnode_is_default(dnode, "level") || show_defaults)
 		vty_out(vty, "log syslog %s\n", zlog_priority_str(level));
 	else
 		vty_out(vty, "log syslog\n");
@@ -412,7 +412,7 @@ static void logging_file_filename_cli_write(struct vty *vty, const struct lyd_no
 	const char *fname = yang_dnode_get_string(dnode, NULL);
 	int level = log_level_match(yang_dnode_get_string(dnode, "../level"));
 
-	if (level != LOG_DEBUG  || show_defaults)
+	if (!yang_dnode_is_default(dnode, "../level") || show_defaults)
 		vty_out(vty, "log file %s %s\n", fname, zlog_priority_str(level));
 	else
 		vty_out(vty, "log file %s\n", fname);
@@ -423,7 +423,7 @@ static void logging_filtered_file_filename_cli_write(struct vty *vty, const stru
 	const char *fname = yang_dnode_get_string(dnode, NULL);
 	int level = log_level_match(yang_dnode_get_string(dnode, "../level"));
 
-	if (level != LOG_DEBUG || show_defaults)
+	if (!yang_dnode_is_default(dnode, "../level") || show_defaults)
 		vty_out(vty, "log filtered-file %s %s\n", fname, zlog_priority_str(level));
 	else
 		vty_out(vty, "log filtered-file %s\n", fname);
@@ -435,7 +435,7 @@ static void logging_daemon_file_filename_cli_write(struct vty *vty, const struct
 	const char *daemon = yang_dnode_get_string(dnode, "../daemon");
 	int level = log_level_match(yang_dnode_get_string(dnode, "../level"));
 
-	if (level != LOG_DEBUG || show_defaults)
+	if (!yang_dnode_is_default(dnode, "../level") || show_defaults)
 		vty_out(vty, "log daemon %s file %s %s\n", daemon, fname, zlog_priority_str(level));
 	else
 		vty_out(vty, "log daemon %s file %s\n", daemon, fname);
@@ -450,46 +450,33 @@ static void logging_record_priority_cli_write(struct vty *vty, const struct lyd_
 {
 	bool enable = yang_dnode_get_bool(dnode, NULL);
 
-	if (enable)
-		vty_out(vty, "log record-priority\n");
-	else if (show_defaults)
-		vty_out(vty, "no log record-priority\n");
+	vty_out(vty, "%slog record-priority\n", enable ? "" : "no ");
 }
 
 static void logging_record_severity_cli_write(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	bool enable = yang_dnode_get_bool(dnode, NULL);
 
-	if (enable)
-		vty_out(vty, "log record-severity\n");
-	else if (show_defaults)
-		vty_out(vty, "no log record-severity\n");
+	vty_out(vty, "%slog record-severity\n", enable ? "" : "no ");
 }
 
 static void logging_timestamp_precision_cli_write(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	const char *prec = yang_dnode_get_string(dnode, NULL);
 
-	if (strcmp(prec, "0") || show_defaults)
-		vty_out(vty, "log timestamp precision %s\n", prec);
+	vty_out(vty, "log timestamp precision %s\n", prec);
 }
 static void logging_error_category_cli_write(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	bool enable = yang_dnode_get_bool(dnode, NULL);
 
-	if (!enable)
-		vty_out(vty, "no log error-category\n");
-	else if (show_defaults)
-		vty_out(vty, "log record-category\n");
+	vty_out(vty, "%slog error-category\n", enable ? "" : "no ");
 }
 static void logging_unique_id_cli_write(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	bool enable = yang_dnode_get_bool(dnode, NULL);
 
-	if (!enable)
-		vty_out(vty, "no log unique-id\n");
-	else if (show_defaults)
-		vty_out(vty, "log unique-id\n");
+	vty_out(vty, "%slog unique-id\n", enable ? "" : "no ");
 }
 static void logging_filter_text_cli_write(struct vty *vty, const struct lyd_node *dnode,
 					  bool show_defaults __attribute__((unused)))
@@ -501,10 +488,7 @@ static void logging_immediate_mode_cli_write(struct vty *vty, const struct lyd_n
 {
 	bool enable = yang_dnode_get_bool(dnode, NULL);
 
-	if (enable)
-		vty_out(vty, "log immediate-mode\n");
-	else if (show_defaults)
-		vty_out(vty, "no log immediate-mode\n");
+	vty_out(vty, "%slog immediate-mode\n", enable ? "" : "no ");
 }
 
 static void logging_uid_backtrace_cli_write(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)

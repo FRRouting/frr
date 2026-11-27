@@ -591,7 +591,6 @@ uint32_t yang_dnode_count(const struct lyd_node *dnode, const char *xpath_fmt,
 bool yang_dnode_is_default(const struct lyd_node *dnode, const char *xpath)
 {
 	const struct lysc_node *snode;
-	struct lysc_node_leaf *sleaf;
 
 	if (xpath)
 		dnode = yang_dnode_get(dnode, xpath);
@@ -600,13 +599,16 @@ bool yang_dnode_is_default(const struct lyd_node *dnode, const char *xpath)
 	snode = dnode->schema;
 	switch (snode->nodetype) {
 	case LYS_LEAF:
-		sleaf = (struct lysc_node_leaf *)snode;
-		if (sleaf->type->basetype == LY_TYPE_EMPTY)
-			return false;
-		return lyd_is_default(dnode);
 	case LYS_LEAFLIST:
-		/* TODO: check leaf-list default values */
-		return false;
+		/*
+		 * Only implicit defaults count as "default" (RFC 7950 7.6.1):
+		 * a leaf explicitly set to its default value exists in the
+		 * data tree in its own right (libyang clears LYD_DEFAULT) and
+		 * must be treated as configured, e.g. emitted on
+		 * "show running-config". Do NOT compare the value against the
+		 * schema default here (that is what lyd_is_default() does).
+		 */
+		return CHECK_FLAG(dnode->flags, LYD_DEFAULT);
 	case LYS_CONTAINER:
 		if (CHECK_FLAG(snode->flags, LYS_PRESENCE))
 			return false;
