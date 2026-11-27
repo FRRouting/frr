@@ -1392,7 +1392,13 @@ static void fpm_enqueue_rmac_table(struct hash_bucket *bucket, void *arg)
 		event_add_timer(zrouter.master, fpm_rmac_send, fra->fnc, 1,
 				&fra->fnc->t_rmacwalk);
 		fra->complete = false;
+		return;
 	}
+
+	if (dplane_ctx_get_status(fra->ctx) == ZEBRA_DPLANE_REQUEST_FAILURE)
+		return;
+
+	SET_FLAG(zrmac->flags, ZEBRA_MAC_FPM_SENT);
 }
 
 static void fpm_enqueue_l3vni_table(struct hash_bucket *bucket, void *arg)
