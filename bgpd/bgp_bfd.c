@@ -184,30 +184,32 @@ static void bfd_session_status_update(struct bfd_session_params *bsp,
 }
 
 /*
- * Egress interface of a single-hop peer.  It must come out the same before
- * and after TCP connects, or the session is re-keyed at connect: so it only
- * depends on configuration and connected routes, and p->nexthop.ifp (which
- * follows the TCP local address) is used only when nothing else resolves.
+ * Interface the BFD session is bound to: the one the BGP session leaves on.
+ * BGP binds its socket only to the neighbor interface (or, for IPv6, the
+ * interface of the connected prefix) and otherwise lets the route choose,
+ * so do the same: the neighbor interface, else the interface of the
+ * connected subnet, else none and the route chooses.  update-source only
+ * gives the source address, except for a link-local peer without a
+ * neighbor interface: there it is the only interface BGP has for the
+ * link (bgp_zebra_nexthop_set() requires it) and bfdd needs one too.
+ * This depends only on configuration and connected routes, so it is the
+ * same before and after TCP connects.
  */
 static struct interface *bgp_peer_bfd_egress_ifp(struct peer *p)
 {
 	union sockunion *su = &p->connection->su;
 	vrf_id_t vrf_id = p->bgp->vrf_id;
-	struct interface *ifp = NULL;
 	const char *ifname = p->conf_if ? p->conf_if : p->ifname;
+	struct interface *ifp = NULL;
 
-	/* Link-local (or not yet learnt) peer: the local address is link-local. */
-	if ((su->sa.sa_family == AF_INET6 && IN6_IS_ADDR_LINKLOCAL(&su->sin6.sin6_addr)) ||
-	    (su->sa.sa_family != AF_INET && su->sa.sa_family != AF_INET6)) {
-		if (ifname)
-			ifp = if_lookup_by_name(ifname, vrf_id);
-		else if (p->update_if)
-			ifp = if_lookup_by_name(p->update_if, vrf_id);
-	} else if (p->update_if)
-		ifp = if_lookup_by_name(p->update_if, vrf_id);
-	else if (ifname)
+	if (PEER_IS_MULTIHOP(p))
+		return NULL;
+
+	if (ifname)
 		ifp = if_lookup_by_name(ifname, vrf_id);
-	else {
+	else if (su->sa.sa_family == AF_INET ||
+		 (su->sa.sa_family == AF_INET6 &&
+		  !IN6_IS_ADDR_LINKLOCAL(&su->sin6.sin6_addr))) {
 		/* Longest match: with overlapping subnets the first one can be the wrong link. */
 		struct connected *c;
 
@@ -217,9 +219,13 @@ static struct interface *bgp_peer_bfd_egress_ifp(struct peer *p)
 			c = if_lookup_address(&su->sin6.sin6_addr, AF_INET6, vrf_id);
 		if (c)
 			ifp = c->ifp;
-	}
+	} else if (su->sa.sa_family == AF_INET6 && p->update_if)
+		ifp = if_lookup_by_name(p->update_if, vrf_id);
 
-	return ifp ? ifp : p->nexthop.ifp;
+	if (ifp && if_is_loopback(ifp))
+		return NULL;
+
+	return ifp;
 }
 
 static bool bgp_peer_bfd_keyed(struct bfd_session_params *session)
@@ -391,7 +397,7 @@ static bool bgp_peer_bfd_sync(struct peer *p)
 		source = p->connection->su_local;
 	}
 
-	egress_ifp = PEER_IS_MULTIHOP(p) ? p->nexthop.ifp : bgp_peer_bfd_egress_ifp(p);
+	egress_ifp = bgp_peer_bfd_egress_ifp(p);
 
 	/*
 	 * Without update-source the kernel picks the TCP source, so a guess can
@@ -453,6 +459,13 @@ static bool bgp_peer_bfd_sync(struct peer *p)
 				   egress_ifp->name);
 
 		bfd_sess_set_interface(session, egress_ifp->name);
+		changed = true;
+	} else if (!egress_ifp && bfd_sess_interface(session)) {
+		if (BGP_DEBUG(bfd, BFD_LIB))
+			zlog_debug("%s: interface %s to none", __func__,
+				   bfd_sess_interface(session));
+
+		bfd_sess_set_interface(session, NULL);
 		changed = true;
 	}
 
@@ -562,10 +575,6 @@ void bgp_peer_configure_bfd(struct peer *p, bool manual)
 	bfd_sess_set_vrf(p->bfd_config->session, p->bgp->vrf_id);
 	bfd_sess_set_hop_count(p->bfd_config->session,
 			       PEER_IS_MULTIHOP(p) ? p->ttl : 1);
-
-	if (p->nexthop.ifp)
-		bfd_sess_set_interface(p->bfd_config->session,
-				       p->nexthop.ifp->name);
 }
 
 static void bgp_peer_remove_bfd(struct peer *p)
