@@ -18560,6 +18560,30 @@ static void show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table 
 	 * of walking the whole table.
 	 */
 	if (match) {
+		/*
+		 * If the user asked for 0.0.0.0/0 or ::/0 and default-originate
+		 * is configured for this peer, it governs entirely.  Display the
+		 * synthesized entry if active, otherwise show nothing (never
+		 * fall through to the table entry).
+		 */
+		if (is_default_prefix(match) && type == bgp_show_adj_route_advertised &&
+		    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE)) {
+			subgrp = peer_subgroup(peer, afi, safi);
+			if (subgrp && subgrp->default_originate_attr) {
+				struct bgp_dest fake_dest = {};
+
+				if (!use_json)
+					show_adj_route_header(vty, peer, table, header1, header2,
+							      json, wide, detail);
+				route_vty_out_tmp(vty, bgp, &fake_dest, match,
+						  subgrp->default_originate_attr, safi, use_json,
+						  json_ar, wide);
+				(*output_count)++;
+				(*paths_count)++;
+			}
+			return;
+		}
+
 		dest = bgp_node_match(table, match);
 		if (!dest) {
 			if (!use_json)
@@ -18649,32 +18673,29 @@ static void show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table 
 	subgrp = peer_subgroup(peer, afi, safi);
 
 	if (type == bgp_show_adj_route_advertised && subgrp && subgrp->default_originate_attr) {
-		if (!use_json) {
-			vty_out(vty,
-				"BGP table version is %" PRIu64
-				", local router ID is %pI4, vrf id ",
-				table->version, &bgp->router_id);
-			if (bgp->vrf_id == VRF_UNKNOWN)
-				vty_out(vty, "%s", VRFID_NONE_STR);
-			else
-				vty_out(vty, "%u", bgp->vrf_id);
-			vty_out(vty, "\n");
-			vty_out(vty, "Default local pref %u, ",
-				bgp->default_local_pref);
-			vty_out(vty, "local AS %u\n",
-				peer->change_local_as ? peer->change_local_as
-						      : peer->local_as);
-			if (!detail) {
-				vty_out(vty, BGP_SHOW_SCODE_HEADER);
-				vty_out(vty, BGP_SHOW_NCODE_HEADER);
-				vty_out(vty, BGP_SHOW_OCODE_HEADER);
-				vty_out(vty, BGP_SHOW_RPKI_HEADER);
-			}
+		struct prefix default_p = { 0 };
+		struct bgp_dest fake_dest = {};
 
+		show_adj_route_header(vty, peer, table, header1, header2, json, wide, detail);
+
+		if (!use_json)
 			vty_out(vty, "Originating default network %s\n\n",
 				(afi == AFI_IP) ? "0.0.0.0/0" : "::/0");
-		}
+
+		/*
+		 * Display the synthesized default route with attributes.
+		 * 0.0.0.0/0 (or ::/0) is not in the BGP table when
+		 * default-originate is active, so it won't appear in the
+		 * adj-out walk below.  Show it here using the attribute
+		 * saved in the subgroup when the route was originated.
+		 */
+		default_p.family = afi2family(afi);
+		default_p.prefixlen = 0;
+
+		route_vty_out_tmp(vty, bgp, &fake_dest, &default_p, subgrp->default_originate_attr,
+				  safi, use_json, json_ar, wide);
 		(*output_count)++;
+		(*paths_count)++;
 		*header1 = 0;
 	}
 
@@ -18766,6 +18787,18 @@ static void show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table 
 				(*output_count)++;
 			}
 		} else if (type == bgp_show_adj_route_advertised) {
+			const struct prefix *rn_p = bgp_dest_get_prefix(dest);
+
+			/*
+			 * Skip the default prefix from the table if default-originate
+			 * is configured.  It governs entirely: the synthesized entry
+			 * (if active) was already displayed above, and the table entry
+			 * is never shown.
+			 */
+			if (is_default_prefix(rn_p) &&
+			    CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_DEFAULT_ORIGINATE))
+				continue;
+
 			RB_FOREACH (adj, bgp_adj_out_rb, &dest->adj_out)
 				SUBGRP_FOREACH_PEER (adj->subgroup, paf) {
 					if (paf->peer != peer || !adj->attr)
@@ -18775,9 +18808,6 @@ static void show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table 
 							      header1, header2,
 							      json, wide,
 							      detail);
-
-					const struct prefix *rn_p =
-						bgp_dest_get_prefix(dest);
 
 					bgp_attr_dup_into(&attr, adj->attr);
 					ret = bgp_output_modifier(peer, rn_p, &attr, afi, safi,
