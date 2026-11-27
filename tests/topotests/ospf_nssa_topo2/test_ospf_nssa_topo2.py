@@ -10,7 +10,8 @@
 #
 
 """
-test_ospf_nssa_topo2.py: test OSPF NSSA LSA translation with NSSA ranges.
+test_ospf_nssa_topo2.py: test OSPF NSSA LSA translation, with and without
+NSSA ranges.
 """
 
 import os
@@ -154,6 +155,143 @@ def test_ospf_nssa_range_type_7_translation():
         },
         "asExternalLinkStatesCount": None
     })
+
+
+E1 = "E1"
+E2 = "E2 (Larger than any link state path)"
+
+
+def expect_ospf_json(router, command, expected, message):
+    tgen = get_topogen()
+
+    test_func = partial(topotest.router_json_cmp, tgen.gears[router], command, expected)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assert result is None, f"{message}: {result}"
+
+
+def expect_type_7_translation(metrics):
+    """
+    Check that r3 originated each Type-7 LSA with the given metric, then that
+    the ABR r2 translated it into a Type-5 LSA with the same metric (RFC 3101,
+    section 3.2) and that r1 installed the route with that metric.
+    """
+    expect_ospf_json(
+        "r3",
+        "show ip ospf database nssa-external json",
+        {
+            "nssaExternalLinkStates": {
+                "areas": {
+                    "0.0.0.1": [
+                        {
+                            "linkStateId": prefix,
+                            "advertisingRouter": "192.168.1.2",
+                            "metricType": mtype,
+                            "metric": metric,
+                        }
+                        for prefix, mtype, metric in metrics
+                    ]
+                }
+            }
+        },
+        "r3 did not originate the Type-7 LSAs",
+    )
+
+    expect_ospf_json(
+        "r1",
+        "show ip ospf database external json",
+        {
+            "asExternalLinkStates": [
+                {
+                    "linkStateId": prefix,
+                    "advertisingRouter": "192.168.1.1",
+                    "metricType": mtype,
+                    "metric": metric,
+                    "forwardAddress": "192.168.1.2",
+                }
+                for prefix, mtype, metric in metrics
+            ]
+        },
+        "r1 did not receive Type-5 LSAs with the Type-7 metrics",
+    )
+
+    # r1 reaches the forwarding address 192.168.1.2 over two links of cost 10.
+    routes = {}
+    for prefix, mtype, metric in metrics:
+        if mtype == E1:
+            routes[f"{prefix}/32"] = {"routeType": "N E1", "cost": 20 + metric}
+        else:
+            routes[f"{prefix}/32"] = {"routeType": "N E2", "type2cost": metric}
+    expect_ospf_json(
+        "r1",
+        "show ip ospf route json",
+        routes,
+        "r1 did not install the translated routes with the Type-7 metrics",
+    )
+
+
+def test_ospf_nssa_type_7_translation_metric():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Redistribute prefixes outside the NSSA ranges with distinct metrics, so
+    # that r2 translates them one by one instead of aggregating them.
+    tgen.gears["r3"].vtysh_cmd(
+        """
+        configure terminal
+         ip prefix-list NSSA-E2-41 seq 5 permit 172.16.2.1/32
+         ip prefix-list NSSA-E1-53 seq 5 permit 172.16.2.2/32
+         route-map NSSA-METRIC permit 10
+          match ip address prefix-list NSSA-E2-41
+          set metric 41
+         exit
+         route-map NSSA-METRIC permit 20
+          match ip address prefix-list NSSA-E1-53
+          set metric 53
+          set metric-type type-1
+         exit
+         route-map NSSA-METRIC permit 30
+         exit
+         router ospf
+          redistribute static route-map NSSA-METRIC
+         exit
+         ip route 172.16.2.1/32 lo
+         ip route 172.16.2.2/32 lo
+         ip route 172.16.2.3/32 lo
+        """
+    )
+
+    expect_type_7_translation(
+        [
+            ("172.16.2.1", E2, 41),
+            ("172.16.2.2", E1, 53),
+            ("172.16.2.3", E2, 20),
+        ]
+    )
+
+
+def test_ospf_nssa_type_7_translation_metric_change():
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # A new Type-7 metric must reach the translated Type-5 LSA as well.
+    tgen.gears["r3"].vtysh_cmd(
+        """
+        configure terminal
+         route-map NSSA-METRIC permit 10
+          set metric 141
+         exit
+        """
+    )
+
+    expect_type_7_translation(
+        [
+            ("172.16.2.1", E2, 141),
+            ("172.16.2.2", E1, 53),
+            ("172.16.2.3", E2, 20),
+        ]
+    )
 
 
 def test_memory_leak():
