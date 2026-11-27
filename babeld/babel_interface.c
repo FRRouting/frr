@@ -78,10 +78,25 @@ int babel_ifp_create(struct interface *ifp)
 
 int babel_ifp_destroy(struct interface *ifp)
 {
+	struct neighbour *neigh, *next;
+
 	debugf(BABEL_DEBUG_IF, "receive an 'interface delete'");
 
 	if (IS_ENABLE(ifp))
 		interface_reset(ifp);
+
+	/* Unless the interface is retained in the configuration, lib frees it
+	 * right after this hook returns.  Neighbours only borrow their ifp,
+	 * so they must be flushed here: later walkers (show commands, the
+	 * neighbour check timer) would otherwise dereference freed memory.
+	 */
+	neigh = neighs;
+	while (neigh) {
+		next = neigh->next;
+		if (neigh->ifp == ifp)
+			flush_neighbour(neigh);
+		neigh = next;
+	}
 
 	return 0;
 }
