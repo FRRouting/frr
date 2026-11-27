@@ -1155,6 +1155,69 @@ struct ecommunity *ecommunity_list_match_delete(struct ecommunity *ecom,
 	return ecom;
 }
 
+/*
+ * Adds the extended communities defined in a community_list to an existing
+ * extended community structure.
+ * @param ecom  The initial extended community structure (must not be NULL).
+ * @param list  The configured extended community list (permit/deny rules).
+ * @return      A pointer to the updated extended community structure.
+ */
+struct ecommunity *ecommunity_list_add(struct ecommunity *ecom, struct community_list *list)
+{
+	struct community_entry *entry;
+
+	if (!list)
+		return ecom;
+
+	for (entry = list->head; entry; entry = entry->next) {
+		/* Ignore "deny" clauses, we only want to add "permit" entries */
+		if (entry->direct == COMMUNITY_DENY)
+			continue;
+
+		/* Only a standard list (no regex) defines values to add.
+		 * Extended communities of different unit sizes cannot be
+		 * merged.
+		 */
+		if (entry->style == EXTCOMMUNITY_LIST_STANDARD && entry->u.ecom &&
+		    entry->u.ecom->unit_size == ecom->unit_size)
+			ecom = ecommunity_merge(ecom, entry->u.ecom);
+	}
+
+	return ecom;
+}
+
+/*
+ * Adds the large communities defined in a community_list to an existing
+ * large community structure.
+ * @param lcom  The initial large community structure (can be NULL).
+ * @param list  The configured large community list (permit/deny rules).
+ * @return      A pointer to the updated large community structure, NULL if
+ *              lcom is NULL and the list defines no value.
+ */
+struct lcommunity *lcommunity_list_add(struct lcommunity *lcom, struct community_list *list)
+{
+	struct community_entry *entry;
+
+	if (!list)
+		return lcom;
+
+	for (entry = list->head; entry; entry = entry->next) {
+		/* Ignore "deny" clauses, we only want to add "permit" entries */
+		if (entry->direct == COMMUNITY_DENY)
+			continue;
+
+		/* Only a standard list (no regex) defines values to add. */
+		if (entry->style == LARGE_COMMUNITY_LIST_STANDARD && entry->u.lcom) {
+			if (lcom)
+				lcom = lcommunity_merge(lcom, entry->u.lcom);
+			else
+				lcom = lcommunity_dup(entry->u.lcom);
+		}
+	}
+
+	return lcom;
+}
+
 /* Helper to check if every octet do not exceed UINT_MAX */
 bool lcommunity_list_valid(const char *community, int style)
 {
