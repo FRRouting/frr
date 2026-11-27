@@ -54,20 +54,11 @@ static void add_node(struct bgp_table *table, const char *prefix_str, struct tes
 	dest->info = tn;
 }
 
-static bool prefix_in_array(const struct prefix *p, struct prefix *prefix_array,
-			    size_t prefix_array_size)
-{
-	for (size_t i = 0; i < prefix_array_size; ++i) {
-		if (prefix_same(p, &prefix_array[i]))
-			return true;
-	}
-	return false;
-}
-
-static void check_lookup_result(struct bgp_dest *match, va_list arglist)
+static void check_lookup_result(struct route_node *match, va_list arglist)
 {
 	char *prefix_str;
 	struct prefix *prefixes = NULL;
+	bool *found;
 	size_t prefix_count = 0;
 
 	while ((prefix_str = va_arg(arglist, char *))) {
@@ -79,24 +70,53 @@ static void check_lookup_result(struct bgp_dest *match, va_list arglist)
 	}
 
 	/* check if the result is empty and if it is allowd to be empty */
-	assert((prefix_count == 0 && !match) || prefix_count > 0);
 	if (!match) {
+		if (prefix_count > 0) {
+			printfrr("subtree not found, but %zu prefixes were expected!\n",
+				 prefix_count);
+			assert(0);
+		}
 		free(prefixes);
 		return;
 	}
 
-	struct bgp_dest *dest = match;
+	found = calloc(prefix_count ? prefix_count : 1, sizeof(*found));
 
-	while ((dest = bgp_route_next_until(dest, match))) {
-		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
+	/*
+	 * The subtree root itself may be a holder node, so walk the route_nodes,
+	 * starting at the root, and look at those that carry a bgp_dest.
+	 */
+	for (struct route_node *rn = match; rn; rn = route_next_until(rn, match)) {
+		struct bgp_dest *dest = bgp_dest_from_rnode(rn);
+		const struct prefix *dest_p;
+		bool expected = false;
 
-		if (bgp_dest_has_bgp_path_info_data(dest)
-		    && !prefix_in_array(dest_p, prefixes, prefix_count)) {
-			printf("prefix %pFX was not expected!\n", dest_p);
+		if (!bgp_dest_has_bgp_path_info_data(dest))
+			continue;
+
+		dest_p = bgp_dest_get_prefix(dest);
+		for (size_t i = 0; i < prefix_count; ++i) {
+			if (prefix_same(dest_p, &prefixes[i])) {
+				found[i] = true;
+				expected = true;
+			}
+		}
+
+		if (!expected) {
+			printfrr("prefix %pFX was not expected!\n", dest_p);
 			assert(0);
 		}
 	}
 
+	/* every expected prefix must have been found in the subtree */
+	for (size_t i = 0; i < prefix_count; ++i) {
+		if (!found[i]) {
+			printfrr("prefix %pFX was expected, but not found!\n", &prefixes[i]);
+			assert(0);
+		}
+	}
+
+	free(found);
 	free(prefixes);
 }
 
@@ -110,9 +130,9 @@ static void do_test(struct bgp_table *table, const char *prefix, ...)
 	printf("\nDoing lookup for %s\n", prefix);
 	if (str2prefix(prefix, &p) <= 0)
 		assert(0);
-	struct bgp_dest *dest = bgp_table_subtree_lookup(table, &p);
+	struct route_node *rn = bgp_table_subtree_lookup(table, &p);
 
-	check_lookup_result(dest, arglist);
+	check_lookup_result(rn, arglist);
 
 	va_end(arglist);
 
@@ -157,6 +177,10 @@ static void test_range_lookup(void)
 	do_test(table, "0.0.0.0/2", "1.16.0.0/16", "1.16.128.0/18",
 		"1.16.192.0/18", "1.16.64.0/19", "1.16.160.0/19",
 		"1.16.32.0/20", "1.16.32.0/21", "16.0.0.0/16", NULL);
+
+	/* the subtree root is the top of the trie, a holder node */
+	do_test(table, "0.0.0.0/0", "1.16.0.0/16", "1.16.128.0/18", "1.16.192.0/18", "1.16.64.0/19",
+		"1.16.160.0/19", "1.16.32.0/20", "1.16.32.0/21", "16.0.0.0/16", NULL);
 
 	bgp_table_finish(&table);
 }
