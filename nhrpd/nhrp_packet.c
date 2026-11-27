@@ -278,7 +278,13 @@ struct nhrp_extension_header *nhrp_ext_pull(struct zbuf *zb,
 	if (plen > zbuf_used(zb))
 		return NULL;
 
-	zbuf_init(payload, zbuf_pulln(zb, plen), plen, plen);
+	{
+		uint8_t *data = zbuf_pulln(zb, plen);
+
+		if (!data)
+			return NULL;
+		zbuf_init(payload, data, plen, plen);
+	}
 	return ext;
 }
 
