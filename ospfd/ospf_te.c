@@ -1645,6 +1645,14 @@ void ospf_mpls_te_lsa_schedule(struct mpls_te_link *lp, enum lsa_opcode opcode)
  * ------------------------------------------------------
  */
 
+/* AS-scope (type 11) LSAs are installed without an area */
+static struct in_addr lsa_area_id(const struct ospf_lsa *lsa)
+{
+	struct in_addr any = { .s_addr = INADDR_ANY };
+
+	return lsa->area ? lsa->area->area_id : any;
+}
+
 /**
  * Get Vertex from TED by the router which advertised the LSA. A new Vertex and
  * associated Link State Node are created if Vertex is not found.
@@ -1661,13 +1669,13 @@ static struct ls_vertex *get_vertex(struct ls_ted *ted, struct ospf_lsa *lsa)
 	struct ls_vertex *vertex;
 
 	/* Sanity Check */
-	if (!ted || !lsa || !lsa->data || !lsa->area)
+	if (!ted || !lsa || !lsa->data)
 		return NULL;
 
 	/* Search if a Link State Vertex already exist */
 	lnid.origin = OSPFv2;
 	lnid.id.ip.addr = lsa->data->adv_router;
-	lnid.id.ip.area_id = lsa->area->area_id;
+	lnid.id.ip.area_id = lsa_area_id(lsa);
 	vertex = ls_find_vertex_by_id(ted, lnid);
 
 	/* Create Node & Vertex in the Link State Date Base if not found */
@@ -1678,6 +1686,10 @@ static struct ls_vertex *get_vertex(struct ls_ted *ted, struct ospf_lsa *lsa)
 		snprintfrr(lnode->name, MAX_NAME_LENGTH, "%pI4",
 			   &lnid.id.ip.addr);
 		vertex = ls_vertex_add(ted, lnode);
+		if (!vertex) {
+			ls_node_del(lnode);
+			return NULL;
+		}
 	}
 
 	if (IS_LSA_SELF(lsa))
@@ -1920,6 +1932,8 @@ static int ospf_te_parse_router_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 
 	/* Get vertex from LSA Advertise Router ID */
 	vertex = get_vertex(ted, lsa);
+	if (!vertex)
+		return -1;
 
 	/* Set Node type information if it has changed */
 	rl = (struct router_lsa *)lsa->data;
@@ -2015,7 +2029,7 @@ static int ospf_te_delete_router_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 	/* Search Vertex that corresponds to this LSA */
 	lnid.origin = OSPFv2;
 	lnid.id.ip.addr = lsa->data->adv_router;
-	lnid.id.ip.area_id = lsa->area->area_id;
+	lnid.id.ip.area_id = lsa_area_id(lsa);
 	vertex = ls_find_vertex_by_id(ted, lnid);
 	if (!vertex)
 		return -1;
@@ -2642,17 +2656,16 @@ static int ospf_te_parse_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
 	uint32_t len = 0, sum = 0;
 	int i;
 
-	/* Get vertex / Node from LSA Advertised Router ID */
-	vertex = get_vertex(ted, lsa);
-	node = vertex->node;
+	/* SR information is taken from area-scope RI LSAs only (RFC 8665 section 3) */
+	if (!lsa->area) {
+		ote_debug("  |- Ignore Router Information LSA %pI4 without area", &lsa->data->id);
+		return -1;
+	}
 
 	if (lsa->size <= OSPF_LSA_HEADER_SIZE) {
 		zlog_warn("Malformed RI TLV size %zu", lsa->size);
 		return -1;
 	}
-
-	ote_debug("  |- Process Router Information LSA %pI4 for Vertex %pI4",
-		  &lsa->data->id, &node->router_id);
 
 	/* Initialize TLV browsing */
 	len = lsa->size - OSPF_LSA_HEADER_SIZE;
@@ -2660,6 +2673,15 @@ static int ospf_te_parse_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
 		zlog_warn("Malformed RI TLV");
 		return -1;
 	}
+
+	/* Get vertex / Node from LSA Advertised Router ID */
+	vertex = get_vertex(ted, lsa);
+	if (!vertex)
+		return -1;
+	node = vertex->node;
+
+	ote_debug("  |- Process Router Information LSA %pI4 for Vertex %pI4", &lsa->data->id,
+		  &node->router_id);
 
 	for (tlvh = TLV_HDR_TOP(lsah); sum < len && tlvh;) {
 		uint32_t tlv_size = TLV_SIZE(tlvh);
@@ -2807,6 +2829,9 @@ static int ospf_te_delete_ri(struct ls_ted *ted, struct ospf_lsa *lsa)
 	struct ls_vertex *vertex;
 	struct ls_node *node;
 
+	if (!lsa->area)
+		return -1;
+
 	/* Search if a Link State Vertex already exist */
 	lnid.origin = OSPFv2;
 	lnid.id.ip.addr = lsa->data->adv_router;
@@ -2888,10 +2913,16 @@ static int ospf_te_parse_ext_pref(struct ls_ted *ted, struct ospf_lsa *lsa)
 	if (!subnet) {
 		lnid.origin = OSPFv2;
 		lnid.id.ip.addr = lsa->data->adv_router;
-		lnid.id.ip.area_id = lsa->area->area_id;
+		lnid.id.ip.area_id = lsa_area_id(lsa);
 		ls_pref = ls_prefix_new(lnid, &pref);
 		/* and add it to the TED */
 		subnet = ls_subnet_add(ted, ls_pref);
+		if (!subnet) {
+			ote_debug("  |- Cannot add subnet %pFX from %pI4", &pref,
+				  &lsa->data->adv_router);
+			ls_prefix_del(ls_pref);
+			return -1;
+		}
 	}
 
 	ote_debug("  |- Process Extended Prefix LSA %pI4 for subnet (%s:%u:%u)%pFX",
@@ -3032,6 +3063,12 @@ static int ospf_te_parse_ext_link(struct ls_ted *ted, struct ospf_lsa *lsa)
 	uint32_t len = 0, sum = 0;
 	uint16_t i;
 	uint32_t label;
+
+	/* Extended Link LSAs are area-scoped only (RFC 7684 section 3) */
+	if (!lsa->area) {
+		ote_debug("  |- Ignore Extended Link LSA %pI4 without area", &lsa->data->id);
+		return -1;
+	}
 
 	/* Validate LSA/TLV */
 	if (lsa->size < OSPF_LSA_HEADER_SIZE + TLV_HDR_SIZE + EXT_TLV_LINK_SIZE) {

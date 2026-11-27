@@ -940,19 +940,24 @@ struct ls_subnet *ls_subnet_add(struct ls_ted *ted,
 	if (ls_pref == NULL)
 		return NULL;
 
-	new = XCALLOC(MTYPE_LS_DB, sizeof(struct ls_subnet));
-	new->ls_pref = ls_pref;
-	new->key = ls_pref->pref;
-	new->status = NEW;
-	new->type = SUBNET;
-
 	/* Find Vertex */
 	vertex = ls_find_vertex_by_id(ted, ls_pref->adv);
 	if (vertex == NULL) {
 		/* Create a new temporary Node & Vertex if not found */
 		node = ls_node_new(ls_pref->adv, inaddr_any, in6addr_any);
 		vertex = ls_vertex_add(ted, node);
+		if (vertex == NULL) {
+			ls_node_del(node);
+			return NULL;
+		}
 	}
+
+	new = XCALLOC(MTYPE_LS_DB, sizeof(struct ls_subnet));
+	new->ls_pref = ls_pref;
+	new->key = ls_pref->pref;
+	new->status = NEW;
+	new->type = SUBNET;
+
 	/* And attach the subnet to the corresponding Vertex */
 	new->vertex = vertex;
 	listnode_add_sort_nodup(vertex->prefixes, new);
