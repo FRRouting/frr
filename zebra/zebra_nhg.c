@@ -521,6 +521,16 @@ uint32_t zebra_nhg_id_key(const void *arg)
 	return nhe->id;
 }
 
+/* A route's VXLAN encapsulation comes from the EVPN flag and RMAC of its nexthops */
+static bool nhg_nexthop_evpn_same(const struct nexthop *nh1, const struct nexthop *nh2)
+{
+	if (CHECK_FLAG(nh1->flags, NEXTHOP_FLAG_EVPN) != CHECK_FLAG(nh2->flags, NEXTHOP_FLAG_EVPN))
+		return false;
+
+	return !CHECK_FLAG(nh1->flags, NEXTHOP_FLAG_EVPN) ||
+	       !memcmp(&nh1->rmac, &nh2->rmac, sizeof(nh1->rmac));
+}
+
 /* Helper with common nhg/nhe nexthop comparison logic */
 static bool nhg_compare_nexthops(const struct nexthop *nh1,
 				 const struct nexthop *nh2)
@@ -556,6 +566,9 @@ static bool nhg_compare_nexthops(const struct nexthop *nh1,
 		return false;
 
 	if (!nexthop_same(nh1, nh2))
+		return false;
+
+	if (!nhg_nexthop_evpn_same(nh1, nh2))
 		return false;
 
 	return true;
@@ -3462,7 +3475,7 @@ static bool zebra_nhg_nexthop_compare(const struct nexthop *nhop,
 			continue;
 		}
 
-		if (nexthop_same(nhop, old_nhop)) {
+		if (nexthop_same(nhop, old_nhop) && nhg_nexthop_evpn_same(nhop, old_nhop)) {
 			struct nexthop *new_recursive, *old_recursive;
 
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
