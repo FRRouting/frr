@@ -427,6 +427,62 @@ int bgp_ls_attr_cmp(const struct bgp_ls_attr *attr1, const struct bgp_ls_attr *a
 			return numcmp(attr1->mpls_protocol_mask, attr2->mpls_protocol_mask);
 	}
 
+	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_EXT_ADMIN_GROUP_BIT)) {
+		size_t size1 = admin_group_size(&attr1->ext_admin_group);
+		size_t size2 = admin_group_size(&attr2->ext_admin_group);
+
+		if (size1 != size2)
+			return numcmp(size1, size2);
+		if (size1 > 0) {
+			ret = memcmp(attr1->ext_admin_group.bitmap.data,
+				     attr2->ext_admin_group.bitmap.data,
+				     size1 * sizeof(attr1->ext_admin_group.bitmap.data[0]));
+			if (ret != 0)
+				return ret;
+		}
+	}
+
+	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_DELAY_BIT)) {
+		if (attr1->delay != attr2->delay)
+			return numcmp(attr1->delay, attr2->delay);
+	}
+
+	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_MIN_MAX_DELAY_BIT)) {
+		if (attr1->min_delay != attr2->min_delay)
+			return numcmp(attr1->min_delay, attr2->min_delay);
+		if (attr1->max_delay != attr2->max_delay)
+			return numcmp(attr1->max_delay, attr2->max_delay);
+	}
+
+	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_JITTER_BIT) &&
+	    attr1->jitter != attr2->jitter)
+		return numcmp(attr1->jitter, attr2->jitter);
+
+	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_PKT_LOSS_BIT) &&
+	    attr1->pkt_loss != attr2->pkt_loss)
+		return numcmp(attr1->pkt_loss, attr2->pkt_loss);
+
+	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_RESIDUAL_BW_BIT)) {
+		if (attr1->residual_bw < attr2->residual_bw)
+			return -1;
+		if (attr1->residual_bw > attr2->residual_bw)
+			return 1;
+	}
+
+	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_AVAILABLE_BW_BIT)) {
+		if (attr1->available_bw < attr2->available_bw)
+			return -1;
+		if (attr1->available_bw > attr2->available_bw)
+			return 1;
+	}
+
+	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_UTILIZED_BW_BIT)) {
+		if (attr1->utilized_bw < attr2->utilized_bw)
+			return -1;
+		if (attr1->utilized_bw > attr2->utilized_bw)
+			return 1;
+	}
+
 	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_IGP_METRIC_BIT)) {
 		if (attr1->igp_metric_len != attr2->igp_metric_len)
 			return numcmp(attr1->igp_metric_len, attr2->igp_metric_len);
@@ -1427,8 +1483,37 @@ unsigned int bgp_ls_attr_hash_key(const struct bgp_ls_attr *attr)
 	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_MPLS_PROTOCOL_BIT))
 		key = jhash_1word(attr->mpls_protocol_mask, key);
 
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_EXT_ADMIN_GROUP_BIT)) {
+		size_t size = admin_group_size(&attr->ext_admin_group);
+
+		if (size > 0)
+			key = jhash(attr->ext_admin_group.bitmap.data,
+				    size * sizeof(attr->ext_admin_group.bitmap.data[0]), key);
+	}
+
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_DELAY_BIT))
+		key = jhash_1word(attr->delay, key);
+
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_MIN_MAX_DELAY_BIT))
+		key = jhash_2words(attr->min_delay, attr->max_delay, key);
+
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_JITTER_BIT))
+		key = jhash_1word(attr->jitter, key);
+
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_PKT_LOSS_BIT))
+		key = jhash_1word(attr->pkt_loss, key);
+
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_RESIDUAL_BW_BIT))
+		key = jhash(&attr->residual_bw, sizeof(attr->residual_bw), key);
+
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_AVAILABLE_BW_BIT))
+		key = jhash(&attr->available_bw, sizeof(attr->available_bw), key);
+
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_UTILIZED_BW_BIT))
+		key = jhash(&attr->utilized_bw, sizeof(attr->utilized_bw), key);
+
 	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_IGP_METRIC_BIT))
-		key = jhash_1word(attr->igp_metric, key);
+		key = jhash_2words(attr->igp_metric_len, attr->igp_metric, key);
 
 	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRLG_BIT)) {
 		for (int i = 0; i < attr->srlg_count; i++)
@@ -1461,14 +1546,50 @@ unsigned int bgp_ls_attr_hash_key(const struct bgp_ls_attr *attr)
 		key = jhash(&attr->ospf_fwd_addr6, sizeof(struct in6_addr), key);
 	}
 
-	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_PREFIX_SID_BIT))
-		key = jhash(&attr->prefix_sid, sizeof(attr->prefix_sid), key);
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_PREFIX_SID_BIT)) {
+		key = jhash_3words(attr->prefix_sid.sid_flag, attr->prefix_sid.algo,
+				   attr->prefix_sid.sid, key);
+	}
 
 	if (attr->opaque_len > 0)
 		key = jhash(attr->opaque_data, attr->opaque_len, key);
 
-	for (int i = 0; i < attr->mt_id_count; i++)
-		key = jhash_1word(attr->mt_id[i], key);
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_MT_ID_BIT)) {
+		for (int i = 0; i < attr->mt_id_count; i++)
+			key = jhash_1word(attr->mt_id[i], key);
+	}
+
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_CAPABILITIES_BIT))
+		key = jhash(&attr->srv6_cap_flags, sizeof(attr->srv6_cap_flags), key);
+
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_ENDX_SID_BIT)) {
+		if (attr->srv6_endx_sid_count > 0)
+			key = jhash(attr->srv6_endx_sid,
+				    attr->srv6_endx_sid_count * sizeof(attr->srv6_endx_sid[0]),
+				    key);
+	}
+
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_LAN_ENDX_SID_BIT)) {
+		if (attr->srv6_lan_endx_sid_count > 0)
+			key = jhash(attr->srv6_lan_endx_sid,
+				    attr->srv6_lan_endx_sid_count *
+					    sizeof(attr->srv6_lan_endx_sid[0]),
+				    key);
+	}
+
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_LOCATOR_BIT)) {
+		key = jhash_3words(attr->srv6_locator_flags, attr->srv6_locator_algo,
+				   attr->srv6_locator_metric, key);
+	}
+
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_ENDPOINT_BEHAVIOR_BIT)) {
+		key = jhash(&attr->srv6_endpoint_behavior, sizeof(attr->srv6_endpoint_behavior),
+			    key);
+		key = jhash_2words(attr->srv6_endpoint_flags, attr->srv6_endpoint_algo, key);
+	}
+
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_SRV6_SID_STRUCTURE_BIT))
+		key = jhash(&attr->srv6_sid_structure, sizeof(attr->srv6_sid_structure), key);
 
 	return key;
 }
@@ -4533,7 +4654,7 @@ static int parse_residual_bw(struct stream *s, uint16_t length, struct bgp_ls_at
 		return -1;
 	}
 
-	stream_get(&attr->residual_bw, s, 4);
+	attr->residual_bw = stream_getf(s);
 	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_RESIDUAL_BW_BIT);
 
 	return 0;
@@ -4555,7 +4676,7 @@ static int parse_available_bw(struct stream *s, uint16_t length, struct bgp_ls_a
 		return -1;
 	}
 
-	stream_get(&attr->available_bw, s, 4);
+	attr->available_bw = stream_getf(s);
 	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_AVAILABLE_BW_BIT);
 
 	return 0;
@@ -4577,7 +4698,7 @@ static int parse_utilized_bw(struct stream *s, uint16_t length, struct bgp_ls_at
 		return -1;
 	}
 
-	stream_get(&attr->utilized_bw, s, 4);
+	attr->utilized_bw = stream_getf(s);
 	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_UTILIZED_BW_BIT);
 
 	return 0;
