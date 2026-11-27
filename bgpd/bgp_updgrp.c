@@ -925,6 +925,9 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 					    "peerRefreshEvents",
 					    subgrp->peer_refreshes_combined);
 			json_object_int_add(json_subgrp_event,
+					    "peerRefreshResyncEvents",
+					    subgrp->peer_refreshes_resync);
+			json_object_int_add(json_subgrp_event,
 					    "mergeCheckEvents",
 					    subgrp->merge_checks_triggered);
 			json_object_object_add(json_subgrp, "statistics",
@@ -968,6 +971,8 @@ static int update_group_show_walkcb(struct update_group *updgrp, void *arg)
 				subgrp->updgrp_switch_events);
 			vty_out(vty, "    Peer refreshes combined: %u\n",
 				subgrp->peer_refreshes_combined);
+			vty_out(vty, "    Peer refreshes resync: %u\n",
+				subgrp->peer_refreshes_resync);
 			vty_out(vty, "    Merge checks triggered: %u\n",
 				subgrp->merge_checks_triggered);
 			vty_out(vty, "    Coalesce Time: %u%s\n",
@@ -2163,6 +2168,8 @@ void update_group_show_stats(struct bgp *bgp, struct vty *vty)
 		bgp->update_group_stats.updgrp_switch_events);
 	vty_out(vty, "Peer route refreshes combined: %u\n",
 		bgp->update_group_stats.peer_refreshes_combined);
+	vty_out(vty, "Peer route refreshes resync: %u\n",
+		bgp->update_group_stats.peer_refreshes_resync);
 	vty_out(vty, "Merge checks triggered: %u\n",
 		bgp->update_group_stats.merge_checks_triggered);
 }
