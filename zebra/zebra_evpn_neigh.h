@@ -82,6 +82,8 @@ struct zebra_neigh {
  * is local connected
  */
 #define ZEBRA_NEIGH_LOCAL_INACTIVE 0x200
+/* SVD next hop flushed from the kernel with its VxLAN device */
+#define ZEBRA_NEIGH_SVD_FLUSHED 0x400
 #define ZEBRA_NEIGH_ALL_LOCAL_FLAGS                                            \
 	(ZEBRA_NEIGH_LOCAL | ZEBRA_NEIGH_LOCAL_INACTIVE)
 #define ZEBRA_NEIGH_ALL_PEER_FLAGS                                             \
