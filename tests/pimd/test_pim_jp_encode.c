@@ -45,7 +45,12 @@ void pim_channel_del_inherited_oif(struct channel_oil *c_oil, struct interface *
 {
 }
 
-void pim_dm_recv_graft(struct interface *ifp, pim_sgaddr *sg)
+void pim_dm_recv_graft(struct interface *ifp, pim_addr upstream, pim_sgaddr *sg)
+{
+}
+
+void pim_dm_recv_join(struct interface *ifp, struct pim_neighbor *neigh, uint16_t holdtime,
+		      pim_addr upstream, pim_sgaddr *sg, uint8_t source_flags)
 {
 }
 
