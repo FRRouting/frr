@@ -219,7 +219,9 @@ ISIS region
    that are reachable in the level-1 SPT, with the metric of the path to the
    advertising router added to the metric of the prefix. Prefixes that carry
    the up/down bit are not advertised back into level-2 (:rfc:`5302` section
-   2). This requires wide metrics. It is disabled by default, so that the
+   2). When Segment Routing is enabled, the Prefix-SID of a leaked prefix is
+   advertised with it (:rfc:`8667` section 2.1.2). This requires wide
+   metrics. It is disabled by default, so that the
    level-2 routers do not learn more prefixes after an upgrade; use this
    command on the level-1-2 routers to enable it, and the ``no`` form to
    disable it again. Only the leaking of level-1 prefixes into level-2 is

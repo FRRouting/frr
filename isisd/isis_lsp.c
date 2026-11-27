@@ -1101,6 +1101,27 @@ static void leak_local_table_free(struct route_table *table)
 	route_table_finish(table);
 }
 
+/*
+ * RFC 8667 section 2.1.2: the Prefix-SID of a prefix that is propagated into
+ * level-2 keeps its SID, algorithm and flags, except that the R-flag is set
+ * (section 2.1.1.2), the P-flag is set and the E-flag is cleared (section
+ * 2.1.1.3).
+ */
+static void leak_add_prefix_sid(struct isis_subtlvs **subtlvs, enum isis_tlv_context context,
+				const struct isis_spf_leaked_prefix *lp)
+{
+	struct isis_prefix_sid psid;
+
+	if (!lp->has_sid)
+		return;
+
+	psid = lp->sid;
+	SET_FLAG(psid.flags, ISIS_PREFIX_SID_READVERTISED);
+	SET_FLAG(psid.flags, ISIS_PREFIX_SID_NO_PHP);
+	UNSET_FLAG(psid.flags, ISIS_PREFIX_SID_EXPLICIT_NULL);
+	isis_tlvs_add_leaked_prefix_sid(subtlvs, context, &psid);
+}
+
 static void lsp_build_leaked_reach(struct isis_lsp *lsp, struct isis_area *area)
 {
 	struct route_table *v4 = route_table_init();
@@ -1117,32 +1138,28 @@ static void lsp_build_leaked_reach(struct isis_lsp *lsp, struct isis_area *area)
 
 	for (struct route_node *rn = route_top(v4); rn; rn = route_next(rn)) {
 		struct isis_spf_leaked_prefix *lp = rn->info;
+		struct isis_extended_ip_reach *r4;
 
 		if (!lp || leak_prefix_is_local(local4, &rn->p))
 			continue;
-		/* TODO: Prefix SID sub-TLVs are not propagated when leaking, so SR
-		 * Prefix SIDs of leaked prefixes are lost at level 2. Left for a
-		 * follow-up to keep this change small.
-		 */
 		lsp_debug("ISIS (%s): Leaking L1 IPv4 prefix %pFX into L2 (metric %u)",
 			  area->area_tag, &rn->p, lp->metric);
-		isis_tlvs_add_extended_ip_reach(lsp->tlvs, (struct prefix_ipv4 *)&rn->p,
-						lp->metric, false, NULL);
+		r4 = isis_tlvs_add_extended_ip_reach(lsp->tlvs, (struct prefix_ipv4 *)&rn->p,
+						     lp->metric, false, NULL);
+		leak_add_prefix_sid(&r4->subtlvs, ISIS_CONTEXT_SUBTLV_IP_REACH, lp);
 	}
 
 	for (struct route_node *rn = route_top(v6); rn; rn = route_next(rn)) {
 		struct isis_spf_leaked_prefix *lp = rn->info;
+		struct isis_ipv6_reach *r6;
 
 		if (!lp || leak_prefix_is_local(local6, &rn->p))
 			continue;
-		/* TODO: Prefix SID sub-TLVs are not propagated when leaking, so SR
-		 * Prefix SIDs of leaked prefixes are lost at level 2. Left for a
-		 * follow-up to keep this change small.
-		 */
 		lsp_debug("ISIS (%s): Leaking L1 IPv6 prefix %pFX into L2 (metric %u)",
 			  area->area_tag, &rn->p, lp->metric);
-		isis_tlvs_add_ipv6_reach(lsp->tlvs, mtid6, (struct prefix_ipv6 *)&rn->p,
-					 lp->metric, lp->external, NULL);
+		r6 = isis_tlvs_add_ipv6_reach(lsp->tlvs, mtid6, (struct prefix_ipv6 *)&rn->p,
+					      lp->metric, lp->external, NULL);
+		leak_add_prefix_sid(&r6->subtlvs, ISIS_CONTEXT_SUBTLV_IPV6_REACH, lp);
 	}
 
 	leak_local_table_free(local4);
@@ -1170,6 +1187,9 @@ void lsp_leak_l1_to_l2_check(struct isis_area *area)
 				continue;
 			hash = jhash(&rn->p.u.prefix, prefix_blen(&rn->p), hash);
 			hash = jhash_3words(rn->p.prefixlen, lp->metric, lp->external, hash);
+			/* A change of the Prefix-SID changes the level-2 LSP too */
+			hash = jhash_3words(lp->has_sid, lp->sid.value,
+					    (lp->sid.flags << 8) | lp->sid.algorithm, hash);
 		}
 		isis_spf_leak_table_free(tables[i]);
 	}

@@ -50,6 +50,9 @@ void isis_spf_invalidate_routes(struct isis_spftree *tree);
 struct isis_spf_leaked_prefix {
 	uint32_t metric;
 	bool external;
+	/* The Prefix-SID of the prefix in the level-1 SPT, if it has a usable one */
+	bool has_sid;
+	struct isis_prefix_sid sid;
 };
 
 void isis_spf_leak_table_fill(struct isis_spftree *spftree, struct route_table *table);

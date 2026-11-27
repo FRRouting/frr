@@ -1978,8 +1978,9 @@ static void isis_run_spf_with_protection(struct isis_area *area, struct isis_spf
  * Add to @table, a route table, the prefixes of the SPT that a router advertises
  * into level-2: the prefixes learned from other routers, with the metric of the
  * path to them. The prefixes of this router are skipped (they are already in its
- * own LSPs), and so are prefixes that must not be leaked (see process_N()). The
- * route nodes hold a struct isis_spf_leaked_prefix, release them with
+ * own LSPs), and so are prefixes that must not be leaked (see process_N()). A
+ * prefix that has a Prefix-SID in the SPT also gets it. The route nodes hold a
+ * struct isis_spf_leaked_prefix, release them with
  * isis_spf_leak_table_free().
  */
 void isis_spf_leak_table_fill(struct isis_spftree *spftree, struct route_table *table)
@@ -2028,6 +2029,12 @@ void isis_spf_leak_table_fill(struct isis_spftree *spftree, struct route_table *
 
 		lp->metric = vertex->d_N;
 		lp->external = vertex->type == VTYPE_IP6REACH_EXTERNAL;
+
+		/* The Prefix-SID goes with the path that gives the metric (RFC 8667 section 2.1.2) */
+		lp->has_sid = vertex->N.ip.sr.present;
+		memset(&lp->sid, 0, sizeof(lp->sid));
+		if (lp->has_sid)
+			lp->sid = vertex->N.ip.sr.sid;
 	}
 }
 
