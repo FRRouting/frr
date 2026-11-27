@@ -296,6 +296,7 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 			if (ch->ifjoin_state == PIM_IFJOIN_NOINFO) {
 				for (ALL_LIST_ELEMENTS_RO(up->sources, up_node,
 							  child)) {
+					struct pim_ifchannel *child_chrpt;
 					struct channel_oil *c_oil =
 						child->channel_oil;
 
@@ -308,13 +309,15 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 					if (!c_oil)
 						continue;
 
-					/*
-					 * If the S,G has no if channel and the
-					 * c_oil still
-					 * has output here then the *,G was
-					 * supplying the implied
-					 * if channel.  So remove it.
-					 */
+					/* Local membership can still justify inheritance. */
+					pim_ifchannel_find(ch->interface, &child->sg, &child_ch,
+							   &child_chrpt);
+					if (pim_upstream_evaluate_join_desired_interface(child,
+											 NULL,
+											 child_chrpt,
+											 ch))
+						continue;
+
 					if (channel_oil_oif_find(c_oil, pim_ifp->mroute_vif_index))
 						pim_channel_del_inherited_oif(
 							c_oil, ch->interface,
