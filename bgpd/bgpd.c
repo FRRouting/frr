@@ -3982,6 +3982,37 @@ static void bgp_startup_timer_expire(struct event *event)
 		zlog_debug("%s: Startup timer expired", bgp->name_pretty);
 }
 
+/* Start the window in which our OPENs carry the Restart State bit. */
+static void bgp_startup_timer_start(struct bgp *bgp)
+{
+	event_cancel(&bgp->t_startup);
+	event_add_timer(bm->master, bgp_startup_timer_expire, bgp, bgp->restart_time,
+			&bgp->t_startup);
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s: Startup timer started with %u seconds", bgp->name_pretty,
+			   bgp->restart_time);
+}
+
+/* Move a running startup window's deadline by the restart-time change. */
+void bgp_startup_timer_update(struct bgp *bgp, uint32_t old_restart_time)
+{
+	int64_t remain_ms;
+
+	if (!event_is_scheduled(bgp->t_startup))
+		return;
+
+	remain_ms = (int64_t)event_timer_remain_msec(bgp->t_startup) +
+		    ((int64_t)bgp->restart_time - old_restart_time) * 1000;
+
+	event_cancel(&bgp->t_startup);
+	if (remain_ms > 0)
+		event_add_timer_msec(bm->master, bgp_startup_timer_expire, bgp, remain_ms,
+				     &bgp->t_startup);
+	if (BGP_DEBUG(graceful_restart, GRACEFUL_RESTART))
+		zlog_debug("%s: Startup timer updated: %u seconds, %" PRId64 " ms remaining",
+			   bgp->name_pretty, bgp->restart_time, remain_ms > 0 ? remain_ms : 0);
+}
+
 /*
  * On shutdown we call the cleanup function which
  * does a free of the link list nodes,  free up
@@ -4171,9 +4202,6 @@ peer_init:
 	if (name && !bgp->name)
 		bgp->name = XSTRDUP(MTYPE_BGP_NAME, name);
 
-	event_add_timer(bm->master, bgp_startup_timer_expire, bgp,
-			bgp->restart_time, &bgp->t_startup);
-
 	/* printable name we can use in debug messages */
 	if (inst_type == BGP_INSTANCE_TYPE_DEFAULT && !hidden) {
 		bgp->name_pretty = XSTRDUP(MTYPE_BGP_NAME, "VRF default");
@@ -4228,6 +4256,7 @@ peer_init:
 
 	/*initialize global GR FSM */
 	bgp_global_gr_init(bgp);
+	bgp_startup_timer_start(bgp);
 
 	memset(&bgp->ebgprequirespolicywarning, 0,
 	       sizeof(bgp->ebgprequirespolicywarning));
@@ -5935,9 +5964,7 @@ void bgp_shutdown_disable(struct bgp *bgp)
 		  bgp->as);
 
 	/* Reactive the startup timer so peers send R-bit. */
-	event_cancel(&bgp->t_startup);
-	event_add_timer(bm->master, bgp_startup_timer_expire, bgp, bgp->restart_time,
-			&bgp->t_startup);
+	bgp_startup_timer_start(bgp);
 
 	/* clear the BGP instances shutdown flag */
 	UNSET_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN);
