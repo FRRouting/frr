@@ -856,9 +856,9 @@
         "vertex-id":4,
         "metric":10,
         "segment-routing":{
-          "pref-sid":400,
+          "pref-sid":40,
           "algo":0,
-          "flags":"0x60"
+          "flags":"0x40"
         }
       },
       {
@@ -957,9 +957,9 @@
         "vertex-id":4,
         "metric":10,
         "segment-routing":{
-          "pref-sid":1400,
+          "pref-sid":1040,
           "algo":0,
-          "flags":"0x60"
+          "flags":"0x40"
         }
       }
     ]

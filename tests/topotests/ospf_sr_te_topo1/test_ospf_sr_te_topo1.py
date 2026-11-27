@@ -349,6 +349,23 @@ def add_segment_adj(rname, name, index, src, dst):
     )
 
 
+def add_segment_prefix(rname, name, index, prefix):
+    get_topogen().net[rname].cmd(
+        """ \
+        vtysh -c "conf t" \
+              -c "segment-routing" \
+              -c "traffic-eng" \
+              -c "segment-list """
+        + name
+        + """" \
+              -c "index """
+        + str(index)
+        + """ nai prefix """
+        + prefix
+        + ''' algorithm 0"'''
+    )
+
+
 def create_sr_policy(rname, endpoint, bsid):
     get_topogen().net[rname].cmd(
         """ \
@@ -696,6 +713,58 @@ def test_srte_change_sl_priority_error_ted_check_mpls_table_step4():
             True,
         )
         delete_candidate_path(rname, endpoint, 100)
+
+
+#
+# Step 5
+#
+# Checking the MPLS table with a Segment List of Prefix-SIDs that query TED:
+# the SID indexes become labels of the SRGB (16000)
+#
+def test_srte_prefix_segment_list_check_mpls_table_step5():
+    setup_testcase("Test (step 5): check MPLS table for a Prefix-SID Segment List")
+
+    for rname, endpoint, prefixes in [
+        ("rt1", "6.6.6.6", ["4.4.4.4/32", "6.6.6.6/32"]),
+        ("rt6", "1.1.1.1", ["3.3.3.3/32", "1.1.1.1/32"]),
+    ]:
+        for index, prefix in enumerate(prefixes, 1):
+            add_segment_prefix(rname, "prefix", index * 10, prefix)
+        add_candidate_path(rname, endpoint, 100, "prefix", "prefix")
+        cmp_json_output(rname, "show mpls table json", "step5/show_mpls_table.ref")
+        delete_candidate_path(rname, endpoint, 100)
+
+
+#
+# Step 6
+#
+# Checking a new SR Policy configured together with its name in one transaction
+#
+def test_srte_policy_with_name_in_one_transaction_step6():
+    setup_testcase("Test (step 6): add an SR Policy and its name from a file")
+
+    tgen = get_topogen()
+    for rname, endpoint, bsid in [("rt1", "6.6.6.6", 1112), ("rt6", "1.1.1.1", 6667)]:
+        filename = "{}/{}/policy-step6.conf".format(tgen.logdir, rname)
+        with open(filename, "w") as conf:
+            conf.write(
+                "segment-routing\n"
+                " traffic-eng\n"
+                "  policy color 2 endpoint {}\n"
+                "   name named\n"
+                "   binding-sid {}\n".format(endpoint, bsid)
+            )
+        tgen.net[rname].cmd("vtysh -f {}".format(filename))
+        cmp_json_output(
+            rname,
+            "show yang operational-data /frr-pathd:pathd pathd",
+            "step6/show_operational_data.ref",
+        )
+        config = tgen.gears[rname].vtysh_cmd("show running-config")
+        policy = config.split("policy color 2 endpoint {}\n".format(endpoint))
+        assert len(policy) == 2 and policy[1].startswith(
+            "   name named\n"
+        ), "{} has no named policy:\n{}".format(rname, config)
 
 
 # Memory leak test template

@@ -255,6 +255,35 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 	return sid;
 }
 
+/*
+ * Prefix-SID V-Flag: the SID carries a label value instead of an index. It
+ * has the same value in OSPF (RFC 8665) and IS-IS (RFC 8667).
+ */
+#define PATH_TED_PREFIX_SID_VFLG 0x08
+
+/*
+ * The label of a Prefix-SID. An index is taken in the SRGB of the advertising
+ * node, which assumes the same SRGB on every node of the SR domain, as
+ * recommended by RFC 8402.
+ */
+static uint32_t path_ted_prefix_sid_label(const struct ls_subnet *subnet)
+{
+	const struct ls_prefix *pref = subnet->ls_pref;
+	const struct ls_node *node;
+
+	if (CHECK_FLAG(pref->sr.sid_flag, PATH_TED_PREFIX_SID_VFLG))
+		return pref->sr.sid;
+
+	if (!subnet->vertex || !subnet->vertex->node)
+		return MPLS_LABEL_NONE;
+
+	node = subnet->vertex->node;
+	if (!CHECK_FLAG(node->flags, LS_NODE_SR) || pref->sr.sid >= node->srgb.range_size)
+		return MPLS_LABEL_NONE;
+
+	return node->srgb.lower_bound + pref->sr.sid;
+}
+
 uint32_t path_ted_query_type_c(struct prefix *prefix, uint8_t algo)
 {
 	uint32_t sid = MPLS_LABEL_NONE;
@@ -273,7 +302,7 @@ uint32_t path_ted_query_type_c(struct prefix *prefix, uint8_t algo)
 		if (subnet) {
 			if ((CHECK_FLAG(subnet->ls_pref->flags, LS_PREF_SR))
 			    && (subnet->ls_pref->sr.algo == algo))
-				sid = subnet->ls_pref->sr.sid;
+				sid = path_ted_prefix_sid_label(subnet);
 		}
 		break;
 	default:

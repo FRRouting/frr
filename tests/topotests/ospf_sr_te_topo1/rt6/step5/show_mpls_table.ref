@@ -1,0 +1,12 @@
+{
+  "6666": {
+    "inLabel": 6666,
+    "installed": true,
+    "nexthops": [
+      {
+        "type": "SR-TE",
+        "outLabelStack": [16030, 16010]
+      }
+    ]
+  }
+}

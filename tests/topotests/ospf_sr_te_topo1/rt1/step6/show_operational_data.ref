@@ -1,0 +1,12 @@
+{
+  "frr-pathd:pathd": {
+    "srte": {
+      "policy": [
+        {
+          "color": 2,
+          "endpoint": "6.6.6.6"
+        }
+      ]
+    }
+  }
+}
