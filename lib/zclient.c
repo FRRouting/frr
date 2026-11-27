@@ -2661,7 +2661,7 @@ static bool zapi_nexthop_update_decode(struct stream *s, struct prefix *match,
 	}
 
 	for (i = 0; i < nhr->nexthop_num; i++) {
-		if (zapi_nexthop_decode(s, &(nhr->nexthops[i]), 0, 0) != 0)
+		if (zapi_nexthop_decode(s, &(nhr->nexthops[i]), 0, nhr->message) != 0)
 			return false;
 	}
 
