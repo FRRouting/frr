@@ -844,8 +844,8 @@ def test_mpls_lib_step9():
 #
 # Expected changes:
 # -rt2 should uninstall the IPv4 Adj-SIDs attached to the eth-rt4-1 interface
-# -rt2 should reinstall all IPv4 Prefix-SIDs whose nexthop router is rt4 (ECMP shouldn't be used anymore)
-# -rt4 should reinstall all IPv4 Prefix-SIDs whose nexthop router is rt2 (ECMP shouldn't be used anymore)
+# -IPv4 Prefix-SIDs should keep using both links, with rt4 borrowing its loopback
+#  (eth-rt2-1/eth-rt4-1 are configured with "isis unnumbered")
 #
 def test_isis_adjacencies_step10():
     logger.info("Test (step 10): check IS-IS adjacencies")
@@ -854,6 +854,23 @@ def test_isis_adjacencies_step10():
     # Skip if previous fatal error condition is raised
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    rt2 = tgen.gears["rt2"]
+
+    def old_ipv4_nexthops():
+        table = rt2.vtysh_cmd("show mpls table json", isjson=True)
+        return [
+            nexthop
+            for entry in table.values()
+            for nexthop in entry["nexthops"]
+            if nexthop.get("nexthop") == "10.0.2.4"
+        ]
+
+    # Ensure an Adj-SID exists before removing its gateway. Prefix-SIDs use
+    # no-PHP here, whereas the Adj-SID has an implicit-null output label.
+    assert any(
+        nh["outLabel"] == 3 for nh in old_ipv4_nexthops()
+    ), "rt2 has no IPv4 Adj-SID for rt4 on eth-rt4-1"
 
     logger.info("Removing the IPv4 address from rt4's eth-rt2-1 interface")
     tgen.net["rt4"].cmd(
@@ -866,6 +883,14 @@ def test_isis_adjacencies_step10():
             "show yang operational-data /frr-interface:lib isisd",
             "step10/show_yang_interface_isis_adjacencies.ref",
         )
+
+    # The reference JSON checks allow extra entries. Explicitly reject the
+    # stale Adj-SID, which must disappear even though the neighbor continues
+    # advertising IPv4 addresses borrowed from its loopback.
+    _, stale = topotest.run_and_expect(old_ipv4_nexthops, [], count=120, wait=0.5)
+    assert stale == [], "rt2 retained MPLS nexthops for the removed address: {}".format(
+        stale
+    )
 
 
 def test_rib_ipv4_step10():
