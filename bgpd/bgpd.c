@@ -4214,11 +4214,14 @@ peer_init:
 
 	update_bgp_group_init(bgp);
 
+	/* A hidden EVPN owner lost its VNI state during deletion. */
+	if (!bgp->vnihash)
+		bgp_evpn_init(bgp);
+
 	if (!hidden) {
 		/* assign a unique rd id for auto derivation of vrf's RD */
 		bf_assign_index(bm->rd_idspace, bgp->vrf_rd_id);
 
-		bgp_evpn_init(bgp);
 		bgp_evpn_vrf_es_init(bgp);
 		bgp_pbr_init(bgp);
 		bgp_srv6_init(bgp);
@@ -4937,6 +4940,13 @@ int bgp_delete(struct bgp *bgp)
 		 * tripping the "node->lock > 0" assert.
 		 */
 		bgp_evpn_cleanup_per_vni_routes(bgp);
+
+		/* Hidden instances retain their EVPN RIB. Withdraw local VNI
+		 * routes before freeing EVPN state so stale Type-2 routes do not
+		 * survive deletion and interfere with re-origination on revival.
+		 */
+		if (IS_BGP_INSTANCE_HIDDEN(bgp) && !bm->terminating)
+			bgp_evpn_cleanup_on_disable(bgp);
 	}
 
 	/* drop pending BGP-LU label requests before bgp_free() frees the dests */
@@ -4986,6 +4996,12 @@ int bgp_delete(struct bgp *bgp)
 				      bgp->vpn_policy[afi].rmap_name[dir]);
 			bgp->vpn_policy[afi].rmap[dir] = NULL;
 		}
+	}
+
+	/* Clear the EVPN setting so Zebra reconnects do not re-enable it. */
+	if (IS_BGP_INSTANCE_HIDDEN(bgp) && !bm->terminating && bgp->advertise_all_vni) {
+		bgp->advertise_all_vni = 0;
+		bgp_zebra_advertise_all_vni(bgp, 0);
 	}
 
 	/* Deregister from Zebra, if needed */

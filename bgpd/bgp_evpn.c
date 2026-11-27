@@ -9082,7 +9082,9 @@ void bgp_evpn_init(struct bgp *bgp)
 	/* Default BUM handling is to do head-end replication. */
 	bgp->vxlan_flood_ctrl = VXLAN_FLOOD_HEAD_END_REPL;
 
-	bgp_evpn_nh_init(bgp);
+	/* Hidden instances keep their EVPN nexthop table during deletion. */
+	if (!bgp->evpn_nh_table)
+		bgp_evpn_nh_init(bgp);
 }
 
 void bgp_evpn_vrf_delete(struct bgp *bgp_vrf)
