@@ -719,21 +719,18 @@ static void netlink_bridge_vlan_update(struct zebra_dplane_ctx *ctx,
 	int rem;
 	struct bridge_vlan_info *vinfo;
 	struct zebra_dplane_bridge_vlan_info_array *bvarray = NULL;
+	size_t array_size;
 	int32_t count = 0;
 
 	if (af_spec) {
-		for (i = RTA_DATA(af_spec), rem = RTA_PAYLOAD(af_spec);
-		     RTA_OK(i, rem); i = RTA_NEXT(i, rem)) {
+		for (i = RTA_DATA(af_spec), rem = RTA_PAYLOAD(af_spec); RTA_OK(i, rem);
+		     i = RTA_NEXT(i, rem)) {
 			if (i->rta_type != IFLA_BRIDGE_VLAN_INFO)
 				continue;
 
 			count++;
-			bvarray = XREALLOC(
-				MTYPE_TMP, bvarray,
-				sizeof(struct
-				       zebra_dplane_bridge_vlan_info_array) +
-					count * sizeof(struct
-						       zebra_dplane_bridge_vlan_info));
+			array_size = sizeof(*bvarray) + count * sizeof(bvarray->array[0]);
+			bvarray = XREALLOC(MTYPE_TMP, bvarray, array_size);
 
 			vinfo = RTA_DATA(i);
 			bvarray->array[count - 1].flags = vinfo->flags;
@@ -741,13 +738,10 @@ static void netlink_bridge_vlan_update(struct zebra_dplane_ctx *ctx,
 		}
 	}
 
-	if (count) {
-		bvarray->count = count;
-		dplane_ctx_set_ifp_bridge_vlan_info_array(ctx, bvarray);
-	} else if (bvarray) {
-		/* Free allocated memory if count is 0 */
-		XFREE(MTYPE_TMP, bvarray);
-	}
+	if (!bvarray)
+		bvarray = XCALLOC(MTYPE_TMP, sizeof(*bvarray));
+	bvarray->count = count;
+	dplane_ctx_set_ifp_bridge_vlan_info_array(ctx, bvarray);
 }
 
 static int netlink_bridge_interface(struct zebra_dplane_ctx *ctx,

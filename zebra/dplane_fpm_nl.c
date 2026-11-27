@@ -1070,6 +1070,9 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	/* Un-handled by FPM at this time. */
 	case DPLANE_OP_NH_FDB_INSTALL:
 	case DPLANE_OP_NH_FDB_DELETE:
+	case DPLANE_OP_EVPN_MH_NH_UPDATE:
+	case DPLANE_OP_EVPN_MH_NHG_UPDATE:
+	case DPLANE_OP_EVPN_MH_REPLAY_DONE:
 	case DPLANE_OP_PW_INSTALL:
 	case DPLANE_OP_PW_UNINSTALL:
 	case DPLANE_OP_ADDR_INSTALL:
