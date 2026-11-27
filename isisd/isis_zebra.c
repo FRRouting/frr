@@ -1511,7 +1511,8 @@ bool isis_zebra_request_srv6_sid(const struct srv6_sid_ctx *ctx,
 	 * Send the Get SRv6 SID request to the SRv6 Manager and check the
 	 * result
 	 */
-	ret = srv6_manager_get_sid(isis_zclient, ctx, sid_value, locator_name, NULL, false);
+	ret = srv6_manager_get_sid(isis_zclient, ctx, SRV6_SID_REQUEST_ID_DEFAULT, sid_value,
+				   locator_name, NULL, false);
 	if (ret < 0) {
 		zlog_warn("%s: error getting SRv6 SID!", __func__);
 		return false;
@@ -1540,7 +1541,8 @@ void isis_zebra_release_srv6_sid(const struct srv6_sid_ctx *ctx, const char *loc
 	 * Send the Release SRv6 SID request to the SRv6 Manager and check the
 	 * result
 	 */
-	ret = srv6_manager_release_sid(isis_zclient, ctx, locator_name, false);
+	ret = srv6_manager_release_sid(isis_zclient, ctx, SRV6_SID_REQUEST_ID_DEFAULT,
+				       locator_name, false);
 	if (ret < 0) {
 		zlog_warn("%s: error releasing SRv6 SID!", __func__);
 		return;
@@ -1568,8 +1570,8 @@ static int isis_zebra_srv6_sid_notify(ZAPI_CALLBACK_ARGS)
 		return -1;
 
 	/* Decode the received notification message */
-	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, &sid_addr,
-					 &sid_func, NULL, &note, NULL, 0)) {
+	if (!zapi_srv6_sid_notify_decode(zclient->ibuf, &ctx, NULL, &sid_addr, &sid_func, NULL,
+					 &note, NULL, 0)) {
 		zlog_err("%s : error in msg decode", __func__);
 		return -1;
 	}

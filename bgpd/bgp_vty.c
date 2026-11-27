@@ -410,32 +410,30 @@ static void bgp_srv6_sids_unset(struct bgp *bgp)
 		if (bgp_vrf->vpn_policy[AFI_IP].tovpn_sid) {
 			/* release vpnv4 tovpn_sid */
 			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT4;
-			bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->vpn_policy[AFI_IP]
-								 .tovpn_sid_locator->name);
+			bgp_zebra_release_srv6_sid(&ctx, SRV6_SID_REQUEST_ID_DEFAULT,
+						   bgp_vrf->vpn_policy[AFI_IP]
+							   .tovpn_sid_locator->name);
 			/* refresh vpnv4 tovpn_sid */
 			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[AFI_IP].tovpn_sid);
-			UNSET_FLAG(bgp_vrf->vpn_policy[AFI_IP].flags,
-				   BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE);
 		}
 
 		if (bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid) {
 			/* release vpnv6 tovpn_sid */
 			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT6;
-			bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->vpn_policy[AFI_IP6]
-								 .tovpn_sid_locator->name);
+			bgp_zebra_release_srv6_sid(&ctx, SRV6_SID_REQUEST_ID_DEFAULT,
+						   bgp_vrf->vpn_policy[AFI_IP6]
+							   .tovpn_sid_locator->name);
 			/* refresh vpnv6 tovpn_sid */
 			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
-			UNSET_FLAG(bgp_vrf->vpn_policy[AFI_IP6].flags,
-				   BGP_VPN_POLICY_TOVPN_SID_FUNC_WIDE);
 		}
 
 		if (bgp_vrf->tovpn_sid) {
 			/* release vpnvx tovpn_sid */
 			ctx.behavior = ZEBRA_SEG6_LOCAL_ACTION_END_DT46;
-			bgp_zebra_release_srv6_sid(&ctx, bgp_vrf->tovpn_sid_locator->name);
+			bgp_zebra_release_srv6_sid(&ctx, SRV6_SID_REQUEST_ID_DEFAULT,
+						   bgp_vrf->tovpn_sid_locator->name);
 			/* refresh per-vrf tovpn_sid */
 			XFREE(MTYPE_BGP_SRV6_SID, bgp_vrf->tovpn_sid);
-			UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_TOVPN_SID_FUNC_WIDE);
 		}
 
 		/* refresh vpnv4 tovpn_sid_locator */
@@ -10597,6 +10595,7 @@ DEFPY(sid_export,
 {
 	afi_t afi = bgp_node_afi(vty);
 	struct in6_addr *unicast_sid_explicit = NULL;
+	bool vpn_export;
 
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	if (bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
@@ -10621,9 +10620,15 @@ DEFPY(sid_export,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	/* SRv6 unicast disables the route-map locators of the VPN export */
+	vpn_export = vpn_leak_to_vpn_active(bgp, afi, NULL, true);
+
 	if (no) {
 		if (!is_srv6_unicast_enabled(bgp, afi))
 			return CMD_SUCCESS;
+
+		if (vpn_export)
+			vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp, bgp);
 
 		if (bgp->srv6_unicast[afi].rmap_name) {
 			route_map_counter_decrement(
@@ -10640,6 +10645,9 @@ DEFPY(sid_export,
 
 		bgp_srv6_unicast_sid_withdraw(bgp, afi);
 		UNSET_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_BEHAVIOR_DT46);
+
+		if (vpn_export)
+			vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp, bgp);
 
 		return CMD_SUCCESS;
 	}
@@ -10728,6 +10736,9 @@ DEFPY(sid_export,
 		}
 	}
 
+	if (vpn_export)
+		vpn_leak_prechange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp, bgp);
+
 	if (rmap_str) {
 		bgp->srv6_unicast[afi].rmap_name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap_str);
 		route_map_counter_increment(
@@ -10748,6 +10759,10 @@ DEFPY(sid_export,
 		SET_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_BEHAVIOR_DT46);
 	else
 		UNSET_FLAG(bgp->srv6_unicast[afi].flags, SRV6_POLICY_FLAG_BEHAVIOR_DT46);
+
+	/* release the route-map locator SIDs before requesting the unicast SID */
+	if (vpn_export)
+		vpn_leak_postchange(BGP_VPN_POLICY_DIR_TOVPN, afi, bgp, bgp);
 
 	/* request srv6 sid */
 	bgp_srv6_unicast_ensure_afi_sid(bgp, afi);
@@ -11853,6 +11868,9 @@ DEFPY (bgp_imexport_vpn,
 			vpn_leak_prechange(dir, afi, bgp_default, bgp);
 		}
 		UNSET_FLAG(bgp->af_flags[afi][safi], flag);
+		if (dir == BGP_VPN_POLICY_DIR_TOVPN &&
+		    !vpn_leak_to_vpn_config_active(bgp, afi, NULL, true))
+			bgp_srv6_per_locator_cache_reset(bgp, afi);
 		if (previous_state && bgp_default &&
 		    !CHECK_FLAG(bgp_default->af_flags[afi][SAFI_MPLS_VPN],
 				BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL))
@@ -12288,6 +12306,25 @@ DEFUN_YANG_NOSH (exit_address_family,
 	    || vty->node == BGP_IPV4U_NODE
 	    || vty->node == BGP_IPV6U_NODE)
 		vty->node = BGP_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_bgp_srv6_locators,
+       show_bgp_srv6_locators_cmd,
+       "show bgp segment-routing srv6 locators",
+       SHOW_STR
+       BGP_STR
+       "BGP Segment Routing\n"
+       "BGP Segment Routing SRv6\n"
+       "BGP Segment Routing SRv6 locators\n")
+{
+	struct bgp_srv6_locator_entry *entry;
+	char str[PREFIX_STRLEN];
+
+	frr_each (bgp_srv6_locators, &bm->srv6_locators, entry) {
+		prefix2str(&entry->locator->prefix, str, sizeof(str));
+		vty_out(vty, "%-20s %-24s\n", entry->locator->name, str);
+	}
 	return CMD_SUCCESS;
 }
 
@@ -25538,6 +25575,7 @@ void bgp_vty_init(void)
 
 	/* srv6 commands */
 	install_element(VIEW_NODE, &show_bgp_srv6_cmd);
+	install_element(VIEW_NODE, &show_bgp_srv6_locators_cmd);
 	install_element(BGP_NODE, &bgp_segment_routing_srv6_cmd);
 	install_element(BGP_NODE, &no_bgp_segment_routing_srv6_cmd);
 	install_element(BGP_SRV6_NODE, &bgp_srv6_locator_cmd);
