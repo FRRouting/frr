@@ -5,6 +5,10 @@
 
 #include <zebra.h>
 #include <fcntl.h>
+#include <poll.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
 #ifdef SNMP_AGENTX
 #include <net-snmp/net-snmp-config.h>
@@ -12,7 +16,10 @@
 #include <net-snmp/agent/net-snmp-agent-includes.h>
 #include <net-snmp/agent/snmp_vars.h>
 #include <net-snmp/agent/agent_callbacks.h>
+#include <net-snmp/agent/ds_agent.h>
 #include <net-snmp/library/large_fd_set.h>
+#include <net-snmp/library/snmp_transport.h>
+#include <net-snmp/library/system.h>
 
 #include "command.h"
 #include "smux.h"
@@ -25,18 +32,23 @@
 #include "xref.h"
 #include "lib/libagentx.h"
 #include "lib/debug.h"
+#include "monotime.h"
 
 XREF_SETUP();
 
 DEFINE_HOOK(agentx_enabled, (), ());
+DEFINE_MTYPE_STATIC(LIB, AGENTX_TRAP, "AgentX pending SNMP notification");
 
 //bool agentx_enabled = false;
 
-/* True between AgentX master-session open and transport disconnect.
- * In this net-snmp, SNMPD_CALLBACK_INDEX_START / INDEX_STOP are fired
- * only from agentx/subagent.c for that session, not for MIB index walks.
+/*
+ * Master session is open. INDEX_START sets this, INDEX_STOP clears it.
+ * In this net-snmp those fire only for that session, not MIB walks.
+ * show agentx status copies the flag and does not probe the socket.
  */
 static bool agentx_connected;
+/* Session from INDEX_START. Cleared on disconnect. Its socket is the one show reads. */
+static netsnmp_session *agentx_master_sess;
 
 static struct event_loop *agentx_tm;
 static struct event *timeout_thr = NULL;
@@ -61,38 +73,53 @@ static void agentx_read(struct event *t)
 {
 	netsnmp_large_fd_set lfds;
 	int flags, new_flags = 0;
-	int nonblock = false;
+	bool restore = false;
 	struct listnode *ln = EVENT_ARG(t);
 	struct event **thr = listgetdata(ln);
 	XFREE(MTYPE_TMP, thr);
 	list_delete_node(events, ln);
 
+	/*
+	 * The listener for this fd is gone now. This event is one-shot and
+	 * only agentx_events_update() below puts the session's fd back on
+	 * the event loop, so no path out of here may skip it. snmpd dropping
+	 * the AgentX socket lands here, and returning early would leave
+	 * net-snmp unread: it would never see the disconnect or start its
+	 * reconnect.
+	 */
+
 	/* fix for non blocking socket */
 	flags = fcntl(EVENT_FD(t), F_GETFL, 0);
-	if (-1 == flags) {
-		flog_err(EC_LIB_SYSTEM_CALL, "Failed to get FD settings fcntl: %s(%d)",
-			 strerror(errno), errno);
-		return;
-	}
-
-	if (flags & O_NONBLOCK)
-		nonblock = true;
-	else
+	if (flags == -1) {
+		/*
+		 * The session fd is already gone. Logging here repeats once
+		 * per read after snmpd drops the AgentX socket. Still run
+		 * snmp_read2(): it is what notices a dead transport.
+		 */
+		if (errno != EBADF)
+			flog_err(EC_LIB_SYSTEM_CALL, "Failed to get FD settings fcntl: %s(%d)",
+				 strerror(errno), errno);
+	} else if (!(flags & O_NONBLOCK)) {
+		restore = true;
 		new_flags = fcntl(EVENT_FD(t), F_SETFL, flags | O_NONBLOCK);
-
-	if (new_flags == -1)
-		flog_err(EC_LIB_SYSTEM_CALL, "Failed to set snmp fd non blocking: %s(%d)",
-			 strerror(errno), errno);
+		if (new_flags == -1 && errno != EBADF)
+			flog_err(EC_LIB_SYSTEM_CALL, "Failed to set snmp fd non blocking: %s(%d)",
+				 strerror(errno), errno);
+	}
 
 	netsnmp_large_fd_set_init(&lfds, FD_SETSIZE);
 	netsnmp_large_fd_setfd(t->u.fd, &lfds);
 	snmp_read2(&lfds);
 
-	/* Reset the flag */
-	if (!nonblock) {
+	/* Reset the flag. Leave the socket blocking: netsnmp's stream
+	 * send treats a short write as success and would split an AgentX
+	 * message if the fd stayed O_NONBLOCK. Nothing to undo when
+	 * F_GETFL failed: flags is -1 then.
+	 */
+	if (restore) {
 		new_flags = fcntl(EVENT_FD(t), F_SETFL, flags);
 
-		if (new_flags == -1)
+		if (new_flags == -1 && errno != EBADF)
 			flog_err(
 				EC_LIB_SYSTEM_CALL,
 				"Failed to set snmp fd back to original settings: %s(%d)",
@@ -102,6 +129,28 @@ static void agentx_read(struct event *t)
 	netsnmp_check_outstanding_agent_requests();
 	agentx_events_update();
 	netsnmp_large_fd_set_cleanup(&lfds);
+}
+
+/* True on the event loop's owner thread, the only thread that may touch
+ * the event loop or net-snmp state.
+ */
+static bool agentx_on_owner_thread(void)
+{
+	return agentx_tm != NULL &&
+	       pthread_equal(frr_event_loop_get_pthread_owner(agentx_tm), pthread_self());
+}
+
+/* Safely cancel an event only if we're in the owner thread.
+ * event_cancel() requires owner thread. If not in owner thread,
+ * skip cancellation - the event will be cleaned up eventually.
+ */
+static void agentx_event_cancel_safe(struct event **thr)
+{
+	if (thr == NULL || *thr == NULL)
+		return;
+
+	if (agentx_on_owner_thread())
+		event_cancel(thr);
 }
 
 static void agentx_events_update(void)
@@ -114,7 +163,7 @@ static void agentx_events_update(void)
 	struct event **thr;
 	int fd, thr_fd;
 
-	event_cancel(&timeout_thr);
+	agentx_event_cancel_safe(&timeout_thr);
 
 	netsnmp_large_fd_set_init(&lfds, FD_SETSIZE);
 	snmp_select_info2(&maxfd, &lfds, &timeout, &block);
@@ -137,7 +186,7 @@ static void agentx_events_update(void)
 			struct listnode *nextln = listnextnode(ln);
 			if (!netsnmp_large_fd_is_set(fd, &lfds)) {
 				DEBUGD(&agentx_dbg, "AgentX: stop polling fd %d", fd);
-				event_cancel(thr);
+				agentx_event_cancel_safe(thr);
 				XFREE(MTYPE_TMP, thr);
 				list_delete_node(events, ln);
 			}
@@ -168,7 +217,7 @@ static void agentx_events_update(void)
 		thr = listgetdata(ln);
 		DEBUGD(&agentx_dbg, "AgentX: stop polling fd %d",
 		       (thr && *thr) ? EVENT_FD(*thr) : -1);
-		event_cancel(thr);
+		agentx_event_cancel_safe(thr);
 		XFREE(MTYPE_TMP, thr);
 		list_delete_node(events, ln);
 		ln = nextln;
@@ -241,24 +290,645 @@ static int agentx_cli_off(void)
 	return 0;
 }
 
+/*
+ * Deferred SNMP notifications.
+ *
+ * send_v2trap() runs on the calling thread. A mass peer transition would
+ * issue thousands of blocking sends, and each one also walks every IPv4
+ * address via get_myaddr(). The varbind list is copied by
+ * snmp_varlist_add_variable(), so it stays valid after the caller deletes
+ * the object that produced it. The drain yields between batches and will
+ * not call send_v2trap() unless the AgentX socket has room for a full
+ * notification. The socket stays blocking: a non-blocking short write
+ * corrupts the AgentX stream.
+ *
+ * A queued notification can be sent seconds after it was generated, so the
+ * drain supplies sysUpTime.0 itself; see agentx_trap_send().
+ */
+/*
+ * Count cap only, not a memory bound. Each queued notification is a copied
+ * varbind list, and each varbind is a 1136 byte netsnmp_variable_list
+ * because the OID array is inline. That is about 4.6 KB for the four
+ * varbinds of a BGP4 transition and about 8 KB for the seven of a BGP4v2
+ * backward transition, so a full queue holds roughly 287 to 501 MiB, plus
+ * any value longer than the 40 byte inline buffer and allocator overhead.
+ *
+ * At the fastest drain rate (16 / 10 ms = 1600 notifications/s), a full
+ * queue takes 65536 / 1600 = 40.96 s to empty once socket space returns.
+ * While snmpd stays connected but does not read the socket, the backlog is
+ * held with no time limit and, once it reaches this cap, new notifications
+ * are dropped. Only a lost master session frees it, after
+ * AGENTX_TRAP_HOLD_MS.
+ */
+#define AGENTX_TRAP_Q_MAX	     65536
+#define AGENTX_TRAP_Q_BATCH	     16
+#define AGENTX_TRAP_Q_INTERVAL_MS    10
+#define AGENTX_TRAP_DOWN_INTERVAL_MS 1000
+#define AGENTX_TRAP_HOLD_MS	     30000
+#define AGENTX_TRAP_LOG_INTERVAL_MS  10000
+/*
+ * Extra send-buffer room required on top of the half-buffer rule in
+ * agentx_fd_has_space(). The encoded size of a notification is not known
+ * there, so the room left before a blocking send stalls is at least half
+ * of SO_SNDBUF plus this value. A notification has at most 7 varbinds. It
+ * is about 620 bytes encoded in practice and 3356 bytes at the OID and
+ * text length limits, which fits when SO_SNDBUF is 8 KiB or more. The
+ * kernel minimum of 4608 still fits the 620 byte case.
+ */
+#define AGENTX_TRAP_MIN_SPACE 2048
+
+struct agentx_trap_item {
+	netsnmp_variable_list *vars;
+	/* monotime_ns() when the notification was generated. */
+	uint64_t queued_ns;
+	struct agentx_trap_item *next;
+};
+
+/* SNMPv2-MIB sysUpTime.0 */
+static const oid objid_sysuptime[] = { 1, 3, 6, 1, 2, 1, 1, 3, 0 };
+
+/*
+ * Invariant: the trap queue is main-loop only. trap_q_head, trap_q_tail,
+ * trap_q_len, trap_q_dropped and trap_q_ev are read and written only on
+ * the event loop's owner thread. Callers of smux_trap_multi_index() must
+ * be on that thread, because building a notification calls net-snmp and
+ * each object's findVar, which read daemon state that is not
+ * thread-safe. Nothing checks this at runtime. New trap sources must be
+ * called from the owner thread, for example from a hook that runs inside
+ * the event loop.
+ */
+static struct agentx_trap_item *trap_q_head, *trap_q_tail;
+static uint32_t trap_q_len;
+static uint64_t trap_q_dropped;
+static struct event *trap_q_ev;
+static struct timeval trap_q_down_since;
+static bool trap_q_down_valid;
+static struct timeval trap_q_log_since;
+static bool trap_q_log_valid;
+static struct timeval trap_q_hold_log_since;
+static bool trap_q_hold_log_valid;
+static bool trap_addr_cached;
+
+static void agentx_trap_flush(struct event *t);
+static void agentx_trap_debug(const char *what, const netsnmp_variable_list *vb);
+
+static void agentx_trap_schedule(long delay_ms)
+{
+	if (trap_q_ev || !agentx_tm)
+		return;
+	event_add_timer_msec(agentx_tm, agentx_trap_flush, NULL, delay_ms, &trap_q_ev);
+}
+
+static void agentx_trap_log_drop(const char *why, uint32_t queued)
+{
+	if (trap_q_log_valid &&
+	    monotime_since(&trap_q_log_since, NULL) < (int64_t)AGENTX_TRAP_LOG_INTERVAL_MS * 1000)
+		return;
+
+	monotime(&trap_q_log_since);
+	trap_q_log_valid = true;
+	flog_warn(EC_LIB_SNMP,
+		  "AgentX: notification backlog %s (%u queued, %" PRIu64
+		  " dropped); master agent (snmpd) not consuming traps",
+		  why, queued, trap_q_dropped);
+}
+
+/* log_drop is false on shutdown: exiting is not a lost notification. */
+static void agentx_trap_free_queue(bool log_drop, const char *why)
+{
+	uint32_t dropped_now = 0;
+
+	while (trap_q_head) {
+		struct agentx_trap_item *it = trap_q_head;
+
+		trap_q_head = it->next;
+		snmp_free_varbind(it->vars);
+		XFREE(MTYPE_AGENTX_TRAP, it);
+		dropped_now++;
+	}
+	trap_q_tail = NULL;
+	trap_q_len = 0;
+
+	if (!log_drop || !dropped_now)
+		return;
+
+	trap_q_dropped += dropped_now;
+	agentx_trap_log_drop(why, dropped_now);
+}
+
+static void agentx_trap_quiesce(void)
+{
+	if (trap_q_len)
+		DEBUGD(&agentx_dbg, "AgentX: discard %u queued traps on shutdown", trap_q_len);
+
+	agentx_event_cancel_safe(&trap_q_ev);
+	agentx_trap_free_queue(false, NULL);
+	trap_q_down_valid = false;
+}
+
+/*
+ * send_v2trap() also builds an SNMPv1 trap and fills its agent-addr from
+ * v1trapaddress, or from get_myaddr() (a SIOCGIFCONF scan of every IPv4
+ * address) on every trap when that is unset. A subagent sends only to the
+ * AgentX master, as a Notify with no agent-addr, and snmpd fills its own
+ * when it sends SNMPv1 traps. So the value set here leaves the daemon only
+ * if its own net-snmp config adds a v1 trapsink, and it does not need to
+ * follow address changes. Resolve it once per process.
+ */
+static void agentx_cache_trap_addr(void)
+{
+	in_addr_t addr;
+	struct in_addr in;
+	char buf[INET_ADDRSTRLEN];
+
+	if (trap_addr_cached)
+		return;
+
+	/* v1trapaddress from the daemon's net-snmp config wins. */
+	if (netsnmp_ds_get_string(NETSNMP_DS_APPLICATION_ID, NETSNMP_DS_AGENT_TRAP_ADDR)) {
+		trap_addr_cached = true;
+		return;
+	}
+
+	addr = get_myaddr();
+	if (addr == 0)
+		addr = htonl(INADDR_LOOPBACK);
+	in.s_addr = addr;
+	if (!inet_ntop(AF_INET, &in, buf, sizeof(buf)))
+		return;
+
+	if (netsnmp_ds_set_string(NETSNMP_DS_APPLICATION_ID, NETSNMP_DS_AGENT_TRAP_ADDR, buf) != 0)
+		return;
+
+	trap_addr_cached = true;
+}
+
+/* poll() is not enough: POLLOUT is true when a single byte fits, and a
+ * blocking send of the rest of the PDU would stall the main loop. The
+ * encoded size is not known here, so keep the unread bytes below half of
+ * SO_SNDBUF. A send stalls only when the buffer is full, so at least half
+ * of it stays free, far more than one notification. ioctl failure means
+ * this fd is not a stream socket we can measure; ignore it rather than
+ * refusing to send forever.
+ */
+static bool agentx_fd_has_space(int fd)
+{
+#ifdef TIOCOUTQ
+	int queued = 0;
+	int sndbuf = 0;
+	socklen_t optlen = sizeof(sndbuf);
+	int avail;
+
+	if (ioctl(fd, TIOCOUTQ, &queued) < 0)
+		return true;
+	if (getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, &optlen) < 0 || sndbuf <= 0)
+		return true;
+
+	avail = sndbuf / 2 - queued;
+	return avail >= AGENTX_TRAP_MIN_SPACE;
+#else
+	return true;
+#endif
+}
+
+/*
+ * Called from agentx_master_writable() each time the drain cannot send,
+ * with why naming the reason: no transport, poll error, not writable,
+ * transport error, or send buffer full. Only logs under debug agentx,
+ * and rate-limited by AGENTX_TRAP_LOG_INTERVAL_MS, so a busy socket does
+ * not flood the log on every 10 ms wake.
+ */
+static void agentx_trap_debug_hold(const char *why)
+{
+	if (!agentx_debug())
+		return;
+
+	/*
+	 * The drain can wake every 10 ms while the socket stays busy.
+	 * Log that reason at most once per AGENTX_TRAP_LOG_INTERVAL_MS.
+	 * monotime_since() is microseconds, so the interval is scaled.
+	 */
+	if (trap_q_hold_log_valid && monotime_since(&trap_q_hold_log_since, NULL) <
+					     (int64_t)AGENTX_TRAP_LOG_INTERVAL_MS * 1000)
+		return;
+
+	monotime(&trap_q_hold_log_since);
+	trap_q_hold_log_valid = true;
+	DEBUGD(&agentx_dbg, "AgentX: hold trap drain (%s, %u queued)", why, trap_q_len);
+}
+
+/*
+ * The FRR read-event list is not the AgentX transport. It can be empty
+ * while the master session is up, and a descriptor in it that is not
+ * writable stops every trap. send_v2trap() uses this session's socket.
+ * Does not clear a stale session: "show agentx status" must not change
+ * drain state.
+ */
+static int agentx_master_sock_peek(void)
+{
+	void *sessp;
+	netsnmp_transport *transport;
+
+	if (!agentx_master_sess)
+		return -1;
+
+	sessp = snmp_sess_pointer(agentx_master_sess);
+	if (!sessp)
+		return -1;
+
+	transport = snmp_sess_transport(sessp);
+	if (!transport || transport->sock < 0)
+		return -1;
+
+	return transport->sock;
+}
+
+/* Drain-side lookup: forget the session once net-snmp no longer knows it. */
+static int agentx_master_sock(void)
+{
+	if (agentx_master_sess && !snmp_sess_pointer(agentx_master_sess))
+		agentx_master_sess = NULL;
+
+	return agentx_master_sock_peek();
+}
+
+/*
+ * After send_v2trap() the notification is freed, so this backlog is
+ * bytes, not a trap count. TIOCOUTQ on a Unix socket is data written
+ * and not yet read by snmpd, including per-buffer kernel overhead. On
+ * a TCP AgentX socket it is bytes not yet acknowledged, which snmpd
+ * may already have received. SO_SNDBUF is the live cap. A failed call
+ * leaves the valid flag clear.
+ */
+static void agentx_read_sendbuf(int fd, struct agentx_cli_status *status)
+{
+#ifdef TIOCOUTQ
+	int queued = 0;
+	int sndbuf = 0;
+	socklen_t optlen = sizeof(sndbuf);
+
+	if (ioctl(fd, TIOCOUTQ, &queued) == 0 && queued >= 0) {
+		status->send_queued = queued;
+		status->send_queued_valid = true;
+	}
+
+	if (getsockopt(fd, SOL_SOCKET, SO_SNDBUF, &sndbuf, &optlen) == 0 && sndbuf > 0) {
+		status->send_maximum = sndbuf;
+		status->send_maximum_valid = true;
+	}
+#else
+	(void)fd;
+	(void)status;
+#endif
+}
+
+static bool agentx_master_writable(void)
+{
+	struct pollfd pfd;
+	int fd = agentx_master_sock();
+	int ready;
+
+	if (fd < 0) {
+		agentx_trap_debug_hold("no AgentX transport");
+		return false;
+	}
+
+	pfd.fd = fd;
+	pfd.events = POLLOUT;
+	pfd.revents = 0;
+	ready = poll(&pfd, 1, 0);
+	if (ready < 0) {
+		agentx_trap_debug_hold("poll error");
+		return false;
+	}
+	if (ready == 0) {
+		agentx_trap_debug_hold("transport not writable");
+		return false;
+	}
+	if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
+		agentx_trap_debug_hold("transport error");
+		return false;
+	}
+	if (!(pfd.revents & POLLOUT)) {
+		agentx_trap_debug_hold("transport not writable");
+		return false;
+	}
+	if (!agentx_fd_has_space(fd)) {
+		agentx_trap_debug_hold("send buffer full");
+		return false;
+	}
+	return true;
+}
+
+static void agentx_trap_enqueue(netsnmp_variable_list *vars)
+{
+	struct agentx_trap_item *it;
+
+	if (!vars)
+		return;
+
+	agentx_cache_trap_addr();
+
+	if (trap_q_len >= AGENTX_TRAP_Q_MAX) {
+		snmp_free_varbind(vars);
+		trap_q_dropped++;
+		agentx_trap_log_drop("full", trap_q_len);
+		return;
+	}
+
+	it = XCALLOC(MTYPE_AGENTX_TRAP, sizeof(*it));
+	it->vars = vars;
+	it->queued_ns = monotime_ns();
+	if (trap_q_tail)
+		trap_q_tail->next = it;
+	else
+		trap_q_head = it;
+	trap_q_tail = it;
+	trap_q_len++;
+
+	if (agentx_debug())
+		agentx_trap_debug("queue trap", vars);
+
+	/* First item: timer 0 still polls once before it runs. Further
+	 * items keep the timer that is already waiting.
+	 */
+	if (!trap_q_ev)
+		agentx_trap_schedule(0);
+}
+
+/*
+ * Copy the neighbor into buf for a debug line. RFC 4273 puts it in
+ * bgpPeerRemoteAddr, an IpAddress binding, not in the trap OID. The
+ * first 4-byte IPv4 binding is that address. buf stays empty when the
+ * notification has none.
+ */
+static void agentx_trap_peer_addr(const netsnmp_variable_list *vb, char *buf, size_t buflen)
+{
+	buf[0] = '\0';
+	for (; vb; vb = vb->next_variable) {
+		if (vb->type != ASN_IPADDRESS || !vb->val.string || vb->val_len != 4)
+			continue;
+		if (!inet_ntop(AF_INET, vb->val.string, buf, buflen))
+			buf[0] = '\0';
+		return;
+	}
+}
+
+/* Callers check agentx_debug() first: formatting the OID is not free. */
+static void agentx_trap_debug(const char *what, const netsnmp_variable_list *vb)
+{
+	char oidbuf[512];
+	char peerbuf[INET_ADDRSTRLEN];
+
+	oidbuf[0] = '\0';
+	/* First binding is snmpTrapOID; its value is the notification. */
+	if (vb && vb->type == ASN_OBJECT_ID && vb->val.objid && vb->val_len >= sizeof(oid))
+		snprint_objid(oidbuf, sizeof(oidbuf), vb->val.objid, vb->val_len / sizeof(oid));
+	agentx_trap_peer_addr(vb, peerbuf, sizeof(peerbuf));
+	DEBUGD(&agentx_dbg, "AgentX: %s%s%s%s%s (%u queued)", what, oidbuf[0] ? " " : "", oidbuf,
+	       peerbuf[0] ? " neighbor " : "", peerbuf, trap_q_len);
+}
+
+/*
+ * sysUpTime.0 of a queued notification: when it was generated, in the
+ * timebase of the master agent it is sent to. net-snmp resets the subagent
+ * uptime to the master's on every synchronous AgentX response (Open,
+ * Register, Ping), so the age is taken off the current value instead of
+ * keeping the value read at enqueue. That stays right when the session
+ * reopens, when snmpd restarts while traps are held, and for traps queued
+ * before the first Open. A notification generated before the master agent
+ * started is reported as 0.
+ */
+static uint32_t agentx_trap_uptime(const struct agentx_trap_item *it)
+{
+	uint64_t age_cs = (monotime_ns() - it->queued_ns) / 10000000;
+	uint64_t now_cs = netsnmp_get_agent_uptime();
+
+	if (age_cs >= now_cs)
+		return 0;
+	/* TimeTicks is 32 bits; net-snmp truncates its own value the same way. */
+	return (uint32_t)(now_cs - age_cs);
+}
+
+/*
+ * Send a queued notification and free its varbind list.
+ *
+ * send_v2trap() inserts sysUpTime.0 only when the list does not start with
+ * it, and reads the clock when it is called, i.e. at drain time. The master
+ * agent forwards a sysUpTime.0 supplied by the subagent unchanged.
+ */
+static void agentx_trap_send(struct agentx_trap_item *it)
+{
+	netsnmp_variable_list *vars = NULL;
+	uint32_t uptime = agentx_trap_uptime(it);
+
+	if (!snmp_varlist_add_variable(&vars, objid_sysuptime, array_size(objid_sysuptime),
+				       ASN_TIMETICKS, (uint8_t *)&uptime, sizeof(uptime))) {
+		/* Allocation failed: net-snmp stamps the send time instead. */
+		send_v2trap(it->vars);
+		snmp_free_varbind(it->vars);
+		it->vars = NULL;
+		return;
+	}
+
+	vars->next_variable = it->vars;
+	it->vars = NULL;
+	send_v2trap(vars);
+	snmp_free_varbind(vars);
+}
+
+static void agentx_trap_flush(struct event *t)
+{
+	int n = 0;
+
+	if (!agentx_enabled) {
+		agentx_trap_free_queue(false, NULL);
+		return;
+	}
+
+	if (!agentx_connected) {
+		if (!trap_q_down_valid) {
+			monotime(&trap_q_down_since);
+			trap_q_down_valid = true;
+		}
+		if (monotime_since(&trap_q_down_since, NULL) >=
+		    (int64_t)AGENTX_TRAP_HOLD_MS * 1000) {
+			agentx_trap_free_queue(true, "master agent down");
+			return;
+		}
+		if (trap_q_head)
+			agentx_trap_schedule(AGENTX_TRAP_DOWN_INTERVAL_MS);
+		return;
+	}
+
+	while (trap_q_head && n < AGENTX_TRAP_Q_BATCH) {
+		struct agentx_trap_item *it;
+
+		/* Disconnect can run from inside send_v2trap(). */
+		if (!agentx_connected || !agentx_master_writable())
+			break;
+
+		it = trap_q_head;
+		trap_q_head = it->next;
+		if (!trap_q_head)
+			trap_q_tail = NULL;
+		trap_q_len--;
+
+		if (agentx_debug())
+			agentx_trap_debug("send trap to snmpd", it->vars);
+
+		agentx_trap_send(it);
+		XFREE(MTYPE_AGENTX_TRAP, it);
+		n++;
+	}
+
+	if (n)
+		agentx_events_update();
+
+	if (!trap_q_head)
+		return;
+
+	if (!agentx_connected)
+		agentx_trap_schedule(AGENTX_TRAP_DOWN_INTERVAL_MS);
+	else
+		agentx_trap_schedule(AGENTX_TRAP_Q_INTERVAL_MS);
+}
+
+/* transportDomainLocal, RFC 3419. Same OID as netsnmp_UnixDomain. */
+static const oid agentx_unix_domain[] = { 1, 3, 6, 1, 2, 1, 100, 1, 13 };
+
+/*
+ * netsnmp_unix_recv() through net-snmp 5.9.4 allocates a sockaddr_un
+ * and returns without freeing it when recvfrom() fails. The caller never
+ * receives the pointer. snmpd exiting with AgentX data still unread makes
+ * the next read fail with ECONNRESET, leaking once per disconnect.
+ *
+ * Same receive as the library with the upstream fix (V5-9-patches): the
+ * address is getsockname(), the read is non-blocking, and the buffer is
+ * returned only when the read works. Drop once older releases are gone.
+ */
+static int agentx_unix_recv(netsnmp_transport *t, void *buf, int size, void **opaque, int *olength)
+{
+	struct sockaddr_un *to;
+	socklen_t tolen = sizeof(*to);
+	int rc;
+
+	if (!t || t->sock < 0)
+		return -1;
+
+	to = calloc(1, sizeof(*to));
+	if (!to)
+		goto fail;
+
+	/*
+	 * The library already frees on getsockname() failure. Preserve
+	 * errno: the caller records it when the read returns -1.
+	 */
+	if (getsockname(t->sock, (struct sockaddr *)to, &tolen) != 0) {
+		int saved = errno;
+
+		free(to);
+		errno = saved;
+		goto fail;
+	}
+
+	do {
+#ifdef MSG_DONTWAIT
+		rc = recvfrom(t->sock, buf, size, MSG_DONTWAIT, NULL, NULL);
+#else
+		rc = recvfrom(t->sock, buf, size, 0, NULL, NULL);
+#endif
+	} while (rc < 0 && errno == EINTR);
+
+	/*
+	 * The library returns here without freeing. The caller never
+	 * receives the pointer. Any failure leaks it, including EAGAIN
+	 * and the ECONNRESET from snmpd exiting with data still unread.
+	 */
+	if (rc < 0) {
+		int saved = errno;
+
+		free(to);
+		errno = saved;
+		goto fail;
+	}
+
+	/* EOF and a real read both belong to the caller, which frees opaque. */
+	if (opaque)
+		*opaque = to;
+	else
+		free(to);
+	if (olength)
+		*olength = (int)sizeof(*to);
+	return rc;
+
+fail:
+	/* Already freed. A non-NULL opaque would be freed a second time. */
+	if (opaque)
+		*opaque = NULL;
+	if (olength)
+		*olength = 0;
+	return -1;
+}
+
+/*
+ * A reconnect opens a new transport, so INDEX_START installs again.
+ * The Open exchange before that still uses the library receive.
+ */
+static void agentx_install_unix_recv(void)
+{
+	void *sessp;
+	netsnmp_transport *transport;
+
+	if (!agentx_master_sess)
+		return;
+
+	sessp = snmp_sess_pointer(agentx_master_sess);
+	if (!sessp)
+		return;
+
+	transport = snmp_sess_transport(sessp);
+	/* No transport to patch, or this one already has the receive. */
+	if (!transport || !transport->domain || transport->f_recv == agentx_unix_recv)
+		return;
+	/*
+	 * netsnmp_unix_recv() is static in libnetsnmp, so the domain OID
+	 * is how this transport is recognized. Only transportDomainLocal
+	 * has the leak. A TCP master keeps the library receive, which
+	 * returns its buffer on error.
+	 */
+	if (snmp_oid_compare(transport->domain, (size_t)transport->domain_length,
+			     agentx_unix_domain, array_size(agentx_unix_domain)) != 0)
+		return;
+
+	transport->f_recv = agentx_unix_recv;
+}
+
+/* INDEX_START: master session opened. show agentx status reports up. */
 static int agentx_master_up_cb(int majorID, int minorID, void *serverarg, void *clientarg)
 {
-	/* A repeated START for the session that is already up changes nothing. */
-	if (agentx_connected)
-		return SNMP_ERR_NOERROR;
-
+	agentx_master_sess = serverarg;
 	agentx_connected = true;
-	DEBUGD(&agentx_dbg, "AgentX: master agent session up");
+	trap_q_down_valid = false;
+	agentx_install_unix_recv();
+	DEBUGD(&agentx_dbg, "AgentX: master agent session up (%u traps queued)", trap_q_len);
+	if (trap_q_head) {
+		agentx_event_cancel_safe(&trap_q_ev);
+		agentx_trap_schedule(0);
+	}
 	return SNMP_ERR_NOERROR;
 }
 
+/* INDEX_STOP: that transport dropped. show agentx status reports down. */
 static int agentx_master_down_cb(int majorID, int minorID, void *serverarg, void *clientarg)
 {
-	if (!agentx_connected)
-		return SNMP_ERR_NOERROR;
-
+	agentx_master_sess = NULL;
 	agentx_connected = false;
-	DEBUGD(&agentx_dbg, "AgentX: master agent session down");
+	DEBUGD(&agentx_dbg, "AgentX: master agent session down (%u traps queued)", trap_q_len);
+	if (!trap_q_down_valid) {
+		monotime(&trap_q_down_since);
+		trap_q_down_valid = true;
+	}
 	return SNMP_ERR_NOERROR;
 }
 
@@ -266,6 +936,8 @@ static int smux_disable(void)
 {
 	agentx_enabled = false;
 	agentx_connected = false;
+	agentx_master_sess = NULL;
+	agentx_trap_quiesce();
 
 	return 0;
 }
@@ -275,12 +947,45 @@ bool smux_enabled(void)
 	return agentx_enabled;
 }
 
+/*
+ * pending and dropped are the daemon queue. connected copies
+ * agentx_connected. Read the socket only while that is set.
+ */
+static int agentx_cli_show_cb(struct agentx_cli_status *status)
+{
+	int fd;
+
+	assert(status);
+
+	status->enabled = agentx_enabled;
+	status->connected = agentx_connected;
+	status->pending = trap_q_len;
+	status->dropped = trap_q_dropped;
+	status->send_queued_valid = false;
+	status->send_maximum_valid = false;
+	status->socket_fd_valid = false;
+
+	if (!agentx_connected)
+		return 0;
+
+	fd = agentx_master_sock_peek();
+	if (fd < 0)
+		return 0;
+
+	status->socket_fd = fd;
+	status->socket_fd_valid = true;
+	agentx_read_sendbuf(fd, status);
+
+	return 0;
+}
+
 void smux_init(struct event_loop *tm)
 {
 	agentx_tm = tm;
 
 	hook_register(agentx_cli_enabled, agentx_cli_on);
 	hook_register(agentx_cli_disabled, agentx_cli_off);
+	hook_register(agentx_cli_show, agentx_cli_show_cb);
 
 	netsnmp_enable_subagent();
 	snmp_disable_log();
@@ -422,9 +1127,10 @@ int smux_trap_multi_index(struct variable *vp, size_t vp_len, const oid *ename,
 	}
 
 
-	send_v2trap(notification_vars);
-	snmp_free_varbind(notification_vars);
-	agentx_events_update();
+	/* Ownership of notification_vars moves to the queue. The caller's
+	 * object (for example a BGP peer) may be freed as soon as we return.
+	 */
+	agentx_trap_enqueue(notification_vars);
 	return 1;
 }
 
@@ -440,6 +1146,8 @@ static void smux_events_delete_thread(void *arg)
 
 void smux_terminate(void)
 {
+	agentx_trap_quiesce();
+
 	if (events) {
 		events->del = smux_events_delete_thread;
 		list_delete(&events);

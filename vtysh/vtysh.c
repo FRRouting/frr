@@ -3182,6 +3182,224 @@ static int show_per_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 }
 #pragma GCC diagnostic pop
 
+/*
+ * Daemons that call libagentx_init(). The daemon command is NOSH; this
+ * wrapper is the one vtysh installs. Each connected client is one value.
+ * OSPF numbered instances share the ospfd slot and hang off its next
+ * chain. One disconnected client must not hide the others, and their
+ * JSON objects must not be concatenated under a single key.
+ */
+#define VTYSH_AGENTX_SHOW                                                                         \
+	(VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_OSPFD | VTYSH_OSPF6D | VTYSH_LDPD | VTYSH_BGPD |        \
+	 VTYSH_ISISD | VTYSH_EIGRPD | VTYSH_FABRICD)
+
+/* Socket basename without ".vty": bgpd.vty -> bgpd, ospfd-1.vty -> ospfd-1. */
+static void vtysh_agentx_client_label(const struct vtysh_client *client, char *label,
+				      size_t label_len)
+{
+	const char *base;
+	const char *dot;
+	size_t len;
+
+	base = strrchr(client->path, '/');
+	base = base ? base + 1 : client->path;
+	if (!base[0])
+		base = client->name;
+
+	dot = strrchr(base, '.');
+	if (dot && strcmp(dot, ".vty") == 0)
+		len = (size_t)(dot - base);
+	else
+		len = strlen(base);
+
+	if (len >= label_len)
+		len = label_len - 1;
+	memcpy(label, base, len);
+	label[len] = '\0';
+}
+
+/*
+ * A client lost after an I/O error is VTYSH_WAS_ACTIVE. Reconnect it
+ * before its header or JSON key is written, so a daemon that is still
+ * down is left out. A client that was never connected stays at -1 and
+ * is not retried. vtysh_reconnect() runs "end" through vtysh, so stdout
+ * is held back; its stderr progress line is kept.
+ */
+static void vtysh_agentx_reconnect(struct vtysh_client *client)
+{
+	FILE *saved_of, *saved_of_saved;
+
+	if (client->fd != VTYSH_WAS_ACTIVE)
+		return;
+
+	saved_of = gvty->of;
+	saved_of_saved = gvty->of_saved;
+	gvty->of = NULL;
+	gvty->of_saved = NULL;
+	vtysh_reconnect(client);
+	gvty->of = saved_of;
+	gvty->of_saved = saved_of_saved;
+}
+
+/* Reassemble the lines vtysh_client_run() splits on '\n'. */
+static void vtysh_agentx_reply_line(void *arg, const char *line)
+{
+	buffer_putstr(arg, line);
+	buffer_putc(arg, '\n');
+}
+
+/*
+ * The daemon reply is usable only when it is one JSON object and nothing
+ * else. A transport error or a "% Unknown command" line is not.
+ */
+static struct json_object *vtysh_agentx_one_object(const char *text)
+{
+	struct json_tokener *tok;
+	struct json_object *obj;
+	enum json_tokener_error err;
+	size_t len, end;
+	const char *extra;
+
+	len = strlen(text);
+	if (!len)
+		return NULL;
+
+	tok = json_tokener_new();
+	if (!tok)
+		return NULL;
+
+	obj = json_tokener_parse_ex(tok, text, (int)len);
+	err = json_tokener_get_error(tok);
+	/*
+	 * json_tokener_get_parse_end() arrived in json-c 0.15. Older
+	 * releases keep the same offset in tok->char_offset.
+	 */
+#if JSON_C_MAJOR_VERSION > 0 || JSON_C_MINOR_VERSION >= 15
+	end = json_tokener_get_parse_end(tok);
+#else
+	end = (size_t)tok->char_offset;
+#endif
+	json_tokener_free(tok);
+
+	if (err != json_tokener_success || !obj || !json_object_is_type(obj, json_type_object)) {
+		json_object_free(obj);
+		return NULL;
+	}
+
+	extra = text + end;
+	while (*extra && isspace((unsigned char)*extra))
+		extra++;
+	if (*extra) {
+		json_object_free(obj);
+		return NULL;
+	}
+	return obj;
+}
+
+/*
+ * Read one client with output held back. vtysh_client_run() writes an I/O
+ * diagnostic on gvty->of and still returns CMD_SUCCESS, so the socket has
+ * to be checked again after the call. of and of_saved are both cleared:
+ * with of NULL, vty_out() falls through to of_saved.
+ */
+static struct json_object *vtysh_agentx_client_json(struct vtysh_client *client, const char *line)
+{
+	struct buffer *reply;
+	char *text;
+	struct json_object *obj = NULL;
+	FILE *saved_of, *saved_of_saved;
+	int ret;
+
+	reply = buffer_new(0);
+	saved_of = gvty->of;
+	saved_of_saved = gvty->of_saved;
+	gvty->of = NULL;
+	gvty->of_saved = NULL;
+	ret = vtysh_client_run(client, line, vtysh_agentx_reply_line, reply, NULL);
+	gvty->of = saved_of;
+	gvty->of_saved = saved_of_saved;
+
+	text = buffer_getstr(reply);
+	buffer_free(reply);
+
+	if (ret == CMD_SUCCESS && client->fd >= 0)
+		obj = vtysh_agentx_one_object(text);
+	XFREE(MTYPE_TMP, text);
+	return obj;
+}
+
+static void vtysh_show_agentx_send(struct vty *vty, struct cmd_token **argv, int argc, bool as_json)
+{
+	unsigned int i;
+	char *line;
+	struct vtysh_client *client;
+	struct json_object *root = NULL;
+	char label[64];
+
+	/*
+	 * VIEW_NODE rejects the "do" shortcut. do_prepend() adds it only
+	 * when this session is in some other node.
+	 */
+	line = do_prepend(vty, argv, argc);
+
+	if (as_json) {
+		root = json_object_new_object();
+		if (!root) {
+			XFREE(MTYPE_TMP, line);
+			return;
+		}
+	}
+
+	for (i = 0; i < array_size(vtysh_client); i++) {
+		if (!(vtysh_client[i].flag & VTYSH_AGENTX_SHOW))
+			continue;
+
+		for (client = &vtysh_client[i]; client; client = client->next) {
+			struct json_object *obj;
+
+			vtysh_agentx_reconnect(client);
+			if (client->fd < 0)
+				continue;
+
+			vtysh_agentx_client_label(client, label, sizeof(label));
+
+			if (!as_json) {
+				vty_out(vty, "AgentX status for %s:\n", label);
+				/* This client only. execute_name walks the chain. */
+				vtysh_client_run(client, line, NULL, NULL, NULL);
+				vty_out(vty, "\n");
+				continue;
+			}
+
+			obj = vtysh_agentx_client_json(client, line);
+			if (!obj) {
+				fprintf(stderr,
+					"%% %s: AgentX status unavailable, omitted from JSON\n",
+					label);
+				continue;
+			}
+			json_object_object_add(root, label, obj);
+		}
+	}
+
+	if (as_json)
+		vty_json(vty, root);
+
+	XFREE(MTYPE_TMP, line);
+}
+
+DEFPY(vtysh_show_agentx, vtysh_show_agentx_cmd,
+      "show agentx status [json$json]",
+      SHOW_STR
+      "SNMP AgentX subagent\n"
+      "AgentX subagent status\n"
+      JSON_STR)
+{
+	vtysh_show_agentx_send(vty, argv, argc, !!json);
+
+	return CMD_SUCCESS;
+}
+
 static int show_one_daemon(struct vty *vty, struct cmd_token **argv, int argc,
 			   const char *name)
 {
@@ -5911,6 +6129,8 @@ void vtysh_init_vty(void)
 	install_element(ENABLE_NODE, &vtysh_show_running_config_cmd);
 	install_element(ENABLE_NODE, &vtysh_copy_running_config_cmd);
 	install_element(ENABLE_NODE, &vtysh_copy_to_running_cmd);
+
+	install_element(VIEW_NODE, &vtysh_show_agentx_cmd);
 
 	install_element(ENABLE_NODE, &show_route_map_cmd);
 	install_element(ENABLE_NODE, &show_route_map_unused_cmd);

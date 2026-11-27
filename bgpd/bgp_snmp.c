@@ -116,6 +116,9 @@ int bgpTrapEstablished(struct peer_connection *connection)
 {
 	struct peer *peer = connection->peer;
 
+	if (!smux_enabled())
+		return 0;
+
 	if (CHECK_FLAG(bm->options, BGP_OPT_TRAPS_RFC4273))
 		bgp4TrapEstablished(peer);
 
@@ -127,6 +130,9 @@ int bgpTrapEstablished(struct peer_connection *connection)
 
 int bgpTrapBackwardTransition(struct peer *peer)
 {
+	if (!smux_enabled())
+		return 0;
+
 	if (CHECK_FLAG(bm->options, BGP_OPT_TRAPS_RFC4273))
 		bgp4TrapBackwardTransition(peer);
 
