@@ -24,6 +24,7 @@ from lib.topolog import logger
 from lib.common_config import (
     required_linux_kernel_version,
     shutdown_bringup_interface_in_kernel,
+    step,
 )
 from lib.checkping import check_ping
 
@@ -79,15 +80,15 @@ def setup_module(mod):
     tgen.gears["r1"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r1"].run("ip link add vrf10 type vrf table 10")
     shutdown_bringup_interface_in_kernel(
-        tgen.gears['r1'].tgen,
-        tgen.gears['r1'].name,
+        tgen.gears["r1"].tgen,
+        tgen.gears["r1"].name,
         "vrf10",
         True,
     )
     tgen.gears["r1"].run("ip link add vrf20 type vrf table 20")
     shutdown_bringup_interface_in_kernel(
-        tgen.gears['r1'].tgen,
-        tgen.gears['r1'].name,
+        tgen.gears["r1"].tgen,
+        tgen.gears["r1"].name,
         "vrf20",
         True,
     )
@@ -98,15 +99,15 @@ def setup_module(mod):
     tgen.gears["r2"].run("sysctl net.vrf.strict_mode=1")
     tgen.gears["r2"].run("ip link add vrf10 type vrf table 10")
     shutdown_bringup_interface_in_kernel(
-        tgen.gears['r2'].tgen,
-        tgen.gears['r2'].name,
+        tgen.gears["r2"].tgen,
+        tgen.gears["r2"].name,
         "vrf10",
         True,
     )
     tgen.gears["r2"].run("ip link add vrf20 type vrf table 20")
     shutdown_bringup_interface_in_kernel(
-        tgen.gears['r2'].tgen,
-        tgen.gears['r2'].name,
+        tgen.gears["r2"].tgen,
+        tgen.gears["r2"].name,
         "vrf20",
         True,
     )
@@ -372,6 +373,163 @@ def test_bgp_srv6_reset():
     check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_locator_recreated.json")
     check_ping("ce1", "192.168.2.2", True, 10, 0.5)
     check_ping("ce1", "2001:2::2", True, 10, 1)
+
+
+def test_srv6_locator_without_default_bgp_and_restore():
+    """Verify configuring an SRv6 locator for a VRF without the default BGP instance
+    does not crash bgpd.
+
+    Verify VPN routes and connectivity return after the default BGP instance is
+    restored.
+    """
+    # Keep this destructive default-instance transition last in the module.
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    def check_default_instance(present):
+        expect = {"vrfs": {"default": {} if present else None}}
+        test_func = functools.partial(
+            topotest.router_json_cmp, r1, "show bgp vrfs json", expect
+        )
+        result, diff = topotest.run_and_expect(test_func, None, count=15, wait=1)
+        status = r1.check_router_running()
+        assert status == "", "r1 daemons stopped running: {}".format(status)
+        assert result, "Unexpected default BGP instance state:\n{}".format(diff)
+
+    step("Verify VPN service works with the default BGP instance", reset=True)
+    check_default_instance(True)
+    check_ping("ce1", "192.168.2.2", True, 10, 0.5)
+    check_ping("ce1", "2001:2::2", True, 10, 1)
+
+    step("Restart bgpd with VRF leaks and no default BGP instance")
+    vrf_config = []
+    include_vrf = True
+    with open(os.path.join(CWD, "r1", "bgpd.conf")) as config:
+        for line in config:
+            if line.startswith("router bgp "):
+                include_vrf = " vrf " in line
+            if include_vrf:
+                vrf_config.append(line)
+    assert vrf_config, "Could not find the VRF BGP configuration"
+    r1.cmd_raises("cat > /etc/frr/bgpd.conf", stdin="".join(vrf_config))
+    r1.killDaemons(["bgpd"], wait=True)
+    result = r1.startDaemons(["bgpd"])
+    assert result == "", "Could not restart bgpd: {}".format(result)
+
+    check_default_instance(False)
+    check_ping("ce1", "192.168.2.2", False, 10, 0.5)
+    check_ping("ce1", "2001:2::2", False, 10, 1)
+
+    step("Configure an SRv6 locator and VRF while default BGP is absent")
+    r1.cmd_raises("ip link add vrf30 type vrf table 30 && ip link set up dev vrf30")
+    r1.vtysh_multicmd(
+        """
+        configure terminal
+        vrf vrf30
+        exit-vrf
+        segment-routing
+         srv6
+          locators
+           locator LOC
+            prefix fcbb:bbbb:1::/48
+            format usid-f3216
+        """,
+        raises=True,
+    )
+    r1.vtysh_multicmd(
+        """
+        configure terminal
+        router bgp 1 vrf vrf30
+         segment-routing srv6
+          locator LOC
+        """,
+        daemon="bgpd",
+        raises=True,
+    )
+
+    step("Wait for bgpd to receive the SRv6 locator")
+
+    def check_locator_received():
+        return "Received SRv6 locator LOC" in r1.net.getLog("log", "bgpd")
+
+    result, _ = topotest.run_and_expect(check_locator_received, True, count=15, wait=1)
+    status = r1.check_router_running()
+    assert status == "", "r1 daemons stopped running: {}".format(status)
+    assert result, "bgpd did not receive the SRv6 locator before default BGP"
+
+    check_default_instance(False)
+    output = r1.vtysh_cmd("show bgp vrfs json", isjson=True)
+    assert output.get("vrfs", {}).get("default") is None, output
+    assert "vrf30" in output.get("vrfs", {}), output
+
+    step("Restore the original default BGP configuration")
+    r1.vtysh_multicmd(
+        """
+        configure terminal
+        router bgp 1
+         bgp router-id 1.1.1.1
+         no bgp ebgp-requires-policy
+         neighbor 2001::2 remote-as 2
+         neighbor 2001::2 timers 3 10
+         neighbor 2001::2 timers connect 1
+         neighbor 2001::2 capability extended-nexthop
+         address-family ipv4 vpn
+          neighbor 2001::2 activate
+         exit-address-family
+         address-family ipv6 vpn
+          neighbor 2001::2 activate
+         exit-address-family
+         segment-routing srv6
+          locator loc1
+        """,
+        daemon="bgpd",
+        raises=True,
+    )
+    check_default_instance(True)
+
+    step("Wait for VPN routes after restoring default BGP")
+    for afi in ("ipv4", "ipv6"):
+        cmd = "show bgp {} vpn json".format(afi)
+
+        def check_vpn_rib_initialized():
+            output = r1.vtysh_cmd(cmd, isjson=True)
+            return None if "tableVersion" in output else output
+
+        result, diff = topotest.run_and_expect(
+            check_vpn_rib_initialized, None, count=15, wait=1
+        )
+        assert result, "r1 {} VPN RIB did not initialize: {}".format(afi, diff)
+
+    step("Verify VPN routes and reachability recover")
+    check_rib("r1", "show bgp ipv4 vpn json", "r1/vpnv4_rib.json")
+    check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib.json")
+    check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib.json")
+    check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib.json")
+    check_ping("ce1", "192.168.2.2", True, 10, 0.5)
+    check_ping("ce1", "2001:2::2", True, 10, 1)
+
+    step("Remove the test VRF and locator configuration")
+    r1.vtysh_multicmd(
+        "configure terminal\nno router bgp 1 vrf vrf30", daemon="bgpd", raises=True
+    )
+    r1.vtysh_multicmd(
+        """
+        configure terminal
+        segment-routing
+         srv6
+          locators
+           no locator LOC
+        """,
+        raises=True,
+    )
+    r1.cmd_raises("ip link delete vrf30")
+    r1.vtysh_multicmd("configure terminal\nno vrf vrf30", raises=True)
+    running_config = r1.vtysh_cmd("show running-config")
+    assert "vrf30" not in running_config, running_config
+    assert "locator LOC" not in running_config, running_config
 
 
 if __name__ == "__main__":

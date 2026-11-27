@@ -1398,6 +1398,7 @@ struct peer_connection *bgp_peer_connection_new(struct peer *peer, const union s
 
 	connection->peer = peer;
 	connection->fd = -1;
+	connection->socket_binding_ifindex = IFINDEX_INTERNAL;
 
 	connection->ibuf = stream_fifo_new();
 	connection->obuf = stream_fifo_new();

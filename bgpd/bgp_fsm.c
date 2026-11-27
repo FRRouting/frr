@@ -704,6 +704,7 @@ const char *const peer_down_str[] = {
 	"Cease: out of resources",
 	"Cease: hard reset",
 	"Cease: subcode unknown",
+	"Bound interface deleted",
 };
 
 static void bgp_graceful_restart_timer_off(struct peer_connection *connection)
@@ -2359,6 +2360,7 @@ enum bgp_fsm_state_progress bgp_stop(struct peer_connection *connection)
 		connection->fd = -1;
 		connection->dir = UNKNOWN;
 	}
+	connection->socket_binding_ifindex = IFINDEX_INTERNAL;
 
 	/* Reset capabilities. */
 	peer->cap = 0;

@@ -1564,6 +1564,11 @@ struct peer_connection {
 
 	int fd;
 
+	/* ifindex of the device the socket is bound to (SO_BINDTODEVICE), or
+	 * IFINDEX_INTERNAL if the socket is not bound to an interface.
+	 */
+	ifindex_t socket_binding_ifindex;
+
 	/* Thread flags */
 	_Atomic uint32_t thread_flags;
 #define PEER_THREAD_WRITES_ON (1U << 0)
@@ -2278,6 +2283,7 @@ struct peer {
 #define PEER_DOWN_CEASE_NO_RESOURCE	 44U /* Out of resources */
 #define PEER_DOWN_CEASE_HARD_RESET	 45U /* Hard reset */
 #define PEER_DOWN_CEASE_UNKNOWN		 46U /* Subcode unknown */
+#define PEER_DOWN_BOUND_IF_DEL		 47U /* Bound interface deleted */
 
 	/*
 	 * Remember to update peer_down_str in bgp_fsm.c when you add
