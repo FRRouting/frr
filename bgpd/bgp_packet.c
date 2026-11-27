@@ -346,8 +346,14 @@ static void bgp_process_pending_refresh(struct peer_connection *connection, afi_
 
 	if (CHECK_FLAG(peer->af_sflags[afi][safi],
 		       PEER_STATUS_REFRESH_PENDING)) {
+		bool plain = CHECK_FLAG(peer->af_sflags[afi][safi],
+					PEER_STATUS_REFRESH_PENDING_PLAIN);
+		struct peer_af *paf = peer_af_find(peer, afi, safi);
+
 		UNSET_FLAG(peer->af_sflags[afi][safi],
 			   PEER_STATUS_REFRESH_PENDING);
+		UNSET_FLAG(peer->af_sflags[afi][safi],
+			   PEER_STATUS_REFRESH_PENDING_PLAIN);
 		bgp_route_refresh_send(connection, afi, safi, 0, 0, 0, BGP_ROUTE_REFRESH_BORR);
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
@@ -356,7 +362,15 @@ static void bgp_process_pending_refresh(struct peer_connection *connection, afi_
 
 		SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_BORR_SEND);
 		UNSET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_EORR_SEND);
-		bgp_announce_route(peer, afi, safi, true);
+
+		/* Resync eligibility is re-checked now, with the subgroup's
+		 * current state; it must not start before BoRR, just sent
+		 * above (bgp_resync_combine() can force a shared walk).
+		 */
+		if (plain && paf && bgp_resync_eligible(paf))
+			bgp_resync_start(paf);
+		else
+			bgp_announce_route(peer, afi, safi, true);
 	}
 }
 
@@ -384,6 +398,12 @@ static void bgp_write_proceed_actions(struct peer_connection *connection)
 		subgrp = paf->subgroup;
 		if (!subgrp)
 			continue;
+
+		if (paf->resync) {
+			BGP_TIMER_ON(connection->t_generate_updgrp_packets,
+				     bgp_generate_updgrp_packets, 0);
+			return;
+		}
 
 		next_pkt = paf->next_pkt_to_send;
 		if (next_pkt && next_pkt->buffer) {
@@ -549,6 +569,29 @@ void bgp_generate_updgrp_packets(struct event *event)
 			}
 
 			/*
+			 * Route-refresh resync: one packet for this peer
+			 * alone, alternating with the shared packets. Don't
+			 * take the turn when the subgroup's packet queue is
+			 * full: this peer not advancing in it as fast as the
+			 * others would then stall compaction for the whole
+			 * subgroup (a slow/alternating peer blocking everyone
+			 * else's shared updates).
+			 */
+			if (paf->resync &&
+			    (!next_pkt || !next_pkt->buffer ||
+			     (paf->resync->turn &&
+			      !bpacket_queue_is_full(peer->bgp, PAF_PKTQ(paf))))) {
+				struct stream *rs = bgp_resync_packet(paf);
+
+				if (rs) {
+					peer->pkt_stime[afi][safi] = monotime(NULL);
+					s = rs;
+					bgp_packet_add(connection, s);
+					continue;
+				}
+			}
+
+			/*
 			 * If we still don't have a packet to send to the peer,
 			 * then try to find out out if we have to send eor or
 			 * if not, skip to the next AFI, SAFI. Don't send the
@@ -557,16 +600,32 @@ void bgp_generate_updgrp_packets(struct event *event)
 			 * yet.
 			 */
 			if (!next_pkt || !next_pkt->buffer) {
-				if (!event_is_scheduled(paf->t_announce_route)) {
+				if (!event_is_scheduled(paf->t_announce_route) &&
+				    !paf->resync) {
+					/* Make sure we supress BGP UPDATES
+					 * for normal processing later again.
+					 */
+					UNSET_FLAG(paf->subgroup->sflags,
+						   SUBGRP_STATUS_FORCE_UPDATES);
+
+
 					/* If route-refresh BoRR message was
 					 * already sent and we are done with
 					 * re-announcing tables for a decent
 					 * afi/safi, we ready to send
-					 * EoRR request.
+					 * EoRR request. Hold off while the
+					 * subgroup's packet queue is still
+					 * full: the resync walk skipped
+					 * destinations with a pending shared
+					 * advertisement (adj->adv), counting
+					 * on that queue to deliver them.
 					 */
 					if (CHECK_FLAG(
 						    peer->af_sflags[afi][safi],
-						    PEER_STATUS_BORR_SEND)) {
+						    PEER_STATUS_BORR_SEND) &&
+					    !bpacket_queue_is_full(
+						    peer->bgp,
+						    PAF_PKTQ(paf))) {
 						bgp_route_refresh_send(connection, afi, safi, 0, 0,
 								       0, BGP_ROUTE_REFRESH_EORR);
 
@@ -631,6 +690,8 @@ void bgp_generate_updgrp_packets(struct event *event)
 			assert(s);
 			bgp_packet_add(connection, s);
 			bpacket_queue_advance_peer(paf);
+			if (paf->resync)
+				paf->resync->turn = true;
 		}
 	} while (s && (++generated < wpq) && (connection->obuf->count <= bm->outq_limit) &&
 		 !event_should_yield(event));
@@ -3010,6 +3071,7 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 	safi_t safi;
 	struct stream *s;
 	uint8_t subtype;
+	bool plain;
 	bgp_size_t msg_length =
 		size - (BGP_MSG_ROUTE_REFRESH_MIN_SIZE - BGP_HEADER_SIZE);
 
@@ -3278,6 +3340,17 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 		return BGP_PACKET_NOOP;
 	}
 
+	/*
+	 * Plain ROUTE-REFRESH: no ORF in the message nor previously received,
+	 * normal request, first update not deferred. It asks for what was
+	 * already advertised: candidate for a resync (bgp_resync_eligible()).
+	 */
+	plain = size == BGP_MSG_ROUTE_REFRESH_MIN_SIZE - BGP_HEADER_SIZE &&
+		subtype == BGP_ROUTE_REFRESH_NORMAL &&
+		!peer->orf_plist[afi][safi] &&
+		!CHECK_FLAG(peer->af_sflags[afi][safi],
+			    PEER_STATUS_ORF_WAIT_REFRESH);
+
 	/* First update is deferred until ORF or ROUTE-REFRESH is received */
 	if (CHECK_FLAG(peer->af_sflags[afi][safi],
 		       PEER_STATUS_ORF_WAIT_REFRESH))
@@ -3301,7 +3374,14 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug("%pBP rcvd route-refresh (REQUEST) for %s/%s before EoR",
 					   peer, afi2str(afi), safi2str(safi));
-			/* Can't send BoRR now, postpone after EoR */
+			/* Can't send BoRR now, postpone after EoR; remember if
+			 * it was resync-eligible (eligibility itself is
+			 * re-checked when the BoRR finally goes out, not
+			 * cached here).
+			 */
+			if (plain)
+				SET_FLAG(peer->af_sflags[afi][safi],
+					 PEER_STATUS_REFRESH_PENDING_PLAIN);
 			SET_FLAG(peer->af_sflags[afi][safi], PEER_STATUS_REFRESH_PENDING);
 			return BGP_PACKET_NOOP;
 		}
@@ -3320,7 +3400,16 @@ static int bgp_route_refresh_receive(struct peer_connection *connection, bgp_siz
 	}
 
 	/* Perform route refreshment to the peer */
-	bgp_announce_route(peer, afi, safi, true);
+	{
+		struct peer_af *paf = peer_af_find(peer, afi, safi);
+
+		if (plain && paf && bgp_resync_eligible(paf)) {
+			bgp_resync_start(paf);
+			BGP_TIMER_ON(connection->t_generate_updgrp_packets,
+				     bgp_generate_updgrp_packets, 0);
+		} else
+			bgp_announce_route(peer, afi, safi, true);
+	}
 
 	/* No FSM action necessary */
 	return BGP_PACKET_NOOP;

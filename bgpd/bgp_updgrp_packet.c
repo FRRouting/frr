@@ -1570,3 +1570,337 @@ void bpacket_attr_vec_arr_set_vec(struct bpacket_attr_vec_arr *vecarr,
 	if (attr)
 		bpacket_vec_arr_inherit_attr_flags(vecarr, type, attr);
 }
+
+/*
+ * Route-refresh resync.
+ *
+ * A plain ROUTE-REFRESH (no ORF) asks for the routes already advertised:
+ * they are in the adj-out of the peer's subgroup, outbound policy already
+ * applied. Instead of splitting the peer into a subgroup of its own (adj-out
+ * copy + table walk + one advertisement per route), the peer stays in its
+ * subgroup and a cursor walks the VPN table: for each destination, the
+ * subgroup adj-out entry is encoded into a packet for this peer alone, built
+ * like the shared ones (subgroup_update_packet) and adapted to the peer by
+ * bpacket_reformat_for_peer(). Resync packets alternate with the shared ones
+ * (bgp_generate_updgrp_packets), at the pace of the peer's output queue.
+ *
+ * Only adj->attr (state already encoded in a shared packet) is sent; an entry
+ * with a pending advertisement or withdraw is skipped, the shared stream
+ * carries it. Every prefix therefore ends with its latest state; at worst the
+ * peer gets a duplicate.
+ *
+ * Restricted to (bgp_resync_eligible): option `bgp route-refresh resync`,
+ * VPN, peer sharing its subgroup, no addpath TX, subgroup adj-out complete.
+ */
+DEFINE_MTYPE_STATIC(BGPD, BGP_RESYNC, "BGP route-refresh resync");
+
+bool bgp_resync_eligible(struct peer_af *paf)
+{
+	struct update_subgroup *subgrp = PAF_SUBGRP(paf);
+	struct peer *peer = PAF_PEER(paf);
+
+	if (paf->safi != SAFI_MPLS_VPN)
+		return false;
+	if (!CHECK_FLAG(peer->bgp->af_flags[paf->afi][paf->safi],
+			BGP_VPNVX_ROUTE_REFRESH_RESYNC))
+		return false;
+	if (!subgrp || subgrp->peer_count < 2)
+		return false;
+	if (event_is_scheduled(paf->t_announce_route))
+		return false;
+	if (update_subgroup_needs_refresh(subgrp) || subgrp->t_coalesce)
+		return false;
+	if (bgp_addpath_encode_tx(peer, paf->afi, paf->safi))
+		return false;
+	if (CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV) &&
+	    !CHECK_FLAG(peer->af_sflags[paf->afi][paf->safi],
+			PEER_STATUS_EOR_SEND))
+		return false;
+	return true;
+}
+
+/* Move the cursor to the first prefix at or after the current position. */
+static void bgp_resync_load(struct bgp_resync *r)
+{
+	while (r->rd_dest && !r->dest) {
+		if (!r->table) {
+			r->table = bgp_dest_get_bgp_table_info(r->rd_dest);
+			if (r->table) {
+				bgp_table_lock(r->table);
+				r->dest = bgp_table_top(r->table);
+				continue;
+			}
+		}
+		if (r->table) {
+			bgp_table_unlock(r->table);
+			r->table = NULL;
+		}
+		r->rd_dest = bgp_route_next(r->rd_dest);
+	}
+}
+
+static void bgp_resync_advance(struct bgp_resync *r)
+{
+	if (r->dest)
+		r->dest = bgp_route_next(r->dest);
+	bgp_resync_load(r);
+}
+
+void bgp_resync_stop(struct peer_af *paf)
+{
+	struct bgp_resync *r = paf->resync;
+
+	if (!r)
+		return;
+
+	if (r->dest)
+		bgp_dest_unlock_node(r->dest);
+	if (r->table)
+		bgp_table_unlock(r->table);
+	if (r->rd_dest)
+		bgp_dest_unlock_node(r->rd_dest);
+
+	if (bgp_debug_neighbor_events(paf->peer))
+		zlog_debug("%pBP %s/%s route-refresh resync %s: %u prefixes in %u packets",
+			   paf->peer, afi2str(paf->afi), safi2str(paf->safi),
+			   r->rd_dest ? "stopped" : "done", r->sent, r->packets);
+
+	XFREE(MTYPE_BGP_RESYNC, paf->resync);
+}
+
+/*
+ * Many peers of the subgroup resyncing (e.g. all the VPEs refreshing after a
+ * route-target change): K resyncs encode the table K times. Once the
+ * configured share of the subgroup is reached, replace them by one forced
+ * walk of the subgroup itself, as the original "all peers pending" combine
+ * of peer_af_announce_route(): encoded once, shared, no split, no adj-out
+ * copy. Peers that did not ask get the table again (duplicates, harmless).
+ */
+static bool bgp_resync_combine(struct peer_af *paf)
+{
+	struct update_subgroup *subgrp = PAF_SUBGRP(paf);
+	struct peer *peer = PAF_PEER(paf);
+	uint8_t pct = peer->bgp->rr_resync_combine_pct[paf->afi][paf->safi];
+	struct peer_af *cur;
+	uint32_t resyncing = 1; /* this request */
+
+	if (!pct)
+		return false;
+
+	SUBGRP_FOREACH_PEER (subgrp, cur)
+		if (cur != paf &&
+		    (cur->resync || event_is_scheduled(cur->t_announce_route)))
+			resyncing++;
+
+	if ((uint64_t)resyncing * 100 < (uint64_t)pct * subgrp->peer_count)
+		return false;
+
+	SUBGRP_FOREACH_PEER (subgrp, cur) {
+		bgp_resync_stop(cur);
+		bgp_stop_announce_route_timer(cur);
+	}
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%pBP %s/%s route-refresh resync: %u/%d peers of u%" PRIu64
+			   ":s%" PRIu64 " (threshold %u%%), combined into one walk",
+			   peer, afi2str(paf->afi), safi2str(paf->safi), resyncing,
+			   subgrp->peer_count, subgrp->update_group->id, subgrp->id,
+			   pct);
+
+	SET_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES);
+	subgroup_announce_route(subgrp);
+	SUBGRP_INCR_STAT_BY(subgrp, peer_refreshes_combined, resyncing - 1);
+	return true;
+}
+
+void bgp_resync_start(struct peer_af *paf)
+{
+	struct peer *peer = PAF_PEER(paf);
+	struct bgp_table *rib = peer->bgp->rib[paf->afi][paf->safi];
+	struct bgp_resync *r;
+
+	/* A new request restarts from the beginning */
+	bgp_resync_stop(paf);
+
+	if (bgp_resync_combine(paf))
+		return;
+
+	r = XCALLOC(MTYPE_BGP_RESYNC, sizeof(*r));
+	r->rd_dest = rib ? bgp_table_top(rib) : NULL;
+	bgp_resync_load(r);
+	paf->resync = r;
+	SUBGRP_INCR_STAT(paf->subgroup, peer_refreshes_resync);
+
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug("%pBP %s/%s route-refresh resync started (u%" PRIu64
+			   ":s%" PRIu64 ", %d peers)",
+			   peer, afi2str(paf->afi), safi2str(paf->safi),
+			   paf->subgroup->update_group->id, paf->subgroup->id,
+			   paf->subgroup->peer_count);
+}
+
+/* Path given to the encoder: the selected one (no addpath here). */
+static struct bgp_path_info *bgp_resync_path(struct bgp_dest *dest)
+{
+	struct bgp_path_info *pi;
+
+	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next)
+		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED) &&
+		    !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED))
+			return pi;
+	return NULL;
+}
+
+/*
+ * Build the next resync packet of the peer: consecutive prefixes whose
+ * adj-out entry carries the same attribute. Returns the packet, ready for the
+ * peer's output queue, or NULL once the walk is over (the resync is then
+ * freed, so that EoRR can be sent).
+ */
+struct stream *bgp_resync_packet(struct peer_af *paf)
+{
+	struct bgp_resync *r = paf->resync;
+	struct update_subgroup *subgrp = PAF_SUBGRP(paf);
+	struct bpacket_attr_vec_arr vecarr;
+	struct bpacket pkt = {};
+	struct peer *peer;
+	struct stream *s, *snlri, *packet, *out;
+	struct bgp_adj_out *adj;
+	struct bgp_path_info *path;
+	struct attr *attr = NULL;
+	bgp_size_t total_attr_len = 0;
+	size_t attrlen_pos = 0, mpattrlen_pos = 0, mpattr_pos = 0;
+	afi_t afi = paf->afi;
+	safi_t safi = paf->safi;
+	int space_remaining, space_needed;
+	struct prefix_rd *prd;
+	mpls_label_t label, *label_pnt;
+	uint8_t num_labels;
+	uint32_t num_pfx = 0;
+
+	if (!r)
+		return NULL;
+
+	if (!subgrp || !peer_established(PAF_PEER(paf)->connection)) {
+		bgp_resync_stop(paf);
+		return NULL;
+	}
+
+	/* Encode with the subgroup's representative peer, like the shared
+	 * packets; bpacket_reformat_for_peer() adapts it to paf's peer.
+	 */
+	peer = SUBGRP_PEER(subgrp);
+	s = subgrp->work;
+	stream_reset(s);
+	snlri = subgrp->scratch;
+	stream_reset(snlri);
+	bpacket_attr_vec_arr_reset(&vecarr);
+	r->turn = false;
+
+	for (; r->dest; bgp_resync_advance(r)) {
+		const struct prefix *dest_p = bgp_dest_get_prefix(r->dest);
+
+		adj = adj_lookup(r->dest, subgrp, 0);
+		if (!adj || !adj->attr || adj->adv)
+			continue;
+
+		path = bgp_resync_path(r->dest);
+		if (!path)
+			continue;
+
+		if (attr && adj->attr != attr)
+			break;
+
+		space_remaining = STREAM_CONCAT_REMAIN(s, snlri, STREAM_SIZE(s)) -
+				  BGP_MAX_PACKET_SIZE_OVERFLOW;
+		space_needed = BGP_NLRI_LENGTH +
+			       bgp_packet_mpattr_prefix_size(afi, safi, dest_p);
+		if (space_remaining < space_needed)
+			break;
+
+		if (stream_empty(s)) {
+			bgp_packet_set_marker(s, BGP_MSG_UPDATE);
+			stream_putw(s, 0);
+			attrlen_pos = stream_get_endp(s);
+			stream_putw(s, 0);
+			mpattr_pos = stream_get_endp(s);
+			total_attr_len = bgp_packet_attribute(NULL, peer, s, adj->attr, &vecarr,
+							      NULL, afi, safi, path->peer, NULL,
+							      NULL, 0, r->dest->srv6_unicast, 0, 0,
+							      path, NULL, false);
+
+			space_remaining = STREAM_CONCAT_REMAIN(s, snlri, STREAM_SIZE(s)) -
+					  BGP_MAX_PACKET_SIZE_OVERFLOW;
+			if (space_remaining < space_needed) {
+				flog_err(EC_BGP_UPDGRP_ATTR_LEN,
+					 "%pBP resync: attributes too long for %pBD, skipped",
+					 PAF_PEER(paf), r->dest);
+				stream_reset(s);
+				bpacket_attr_vec_arr_reset(&vecarr);
+				continue;
+			}
+		}
+
+		prd = r->dest->pdest ? (struct prefix_rd *)bgp_dest_get_prefix(
+					       r->dest->pdest)
+				     : NULL;
+
+		/* Same label choice as subgroup_update_packet() */
+		if (CHECK_FLAG(path->flags, BGP_PATH_MPLSVPN_NH_LABEL_BIND) &&
+		    path->mplsvpn.bmnc.nh_label_bind_cache && path->peer &&
+		    path->peer != peer && path->sub_type != BGP_ROUTE_IMPORTED &&
+		    path->sub_type != BGP_ROUTE_STATIC &&
+		    bgp_mplsvpn_path_uses_valid_mpls_label(path) &&
+		    bgp_path_info_nexthop_changed(path, peer, afi)) {
+			label = bgp_mplsvpn_nh_label_bind_get_label(path);
+			label_pnt = &label;
+			num_labels = 1;
+		} else {
+			num_labels = BGP_PATH_INFO_NUM_LABELS(path);
+			label_pnt = num_labels ? &path->extra->labels->label[0]
+					       : NULL;
+		}
+
+		if (stream_empty(snlri))
+			mpattrlen_pos = bgp_packet_mpattr_start(snlri, peer, afi, safi,
+								&vecarr, adj->attr);
+
+		bgp_packet_mpattr_prefix(snlri, afi, safi, dest_p, prd, label_pnt,
+					 num_labels, false, 0, adj->attr,
+					 NULL, path);
+
+		attr = adj->attr;
+		num_pfx++;
+	}
+
+	if (stream_empty(s)) {
+		if (!r->dest)
+			bgp_resync_stop(paf);
+		return NULL;
+	}
+
+	bgp_packet_mpattr_end(snlri, mpattrlen_pos);
+	total_attr_len += stream_get_endp(snlri);
+	stream_putw_at(s, attrlen_pos, total_attr_len);
+
+	packet = stream_dupcat(s, snlri, mpattr_pos);
+	bpacket_attr_vec_arr_update(&vecarr, mpattr_pos);
+	bgp_packet_set_size(packet);
+	stream_reset(s);
+	stream_reset(snlri);
+
+	r->sent += num_pfx;
+	r->packets++;
+
+	if (bgp_debug_update(PAF_PEER(paf), NULL, subgrp->update_group, 0))
+		zlog_debug("u%" PRIu64 ":s%" PRIu64 " %pBP resync UPDATE numpfx %u",
+			   subgrp->update_group->id, subgrp->id, PAF_PEER(paf),
+			   num_pfx);
+
+	pkt.buffer = packet;
+	pkt.arr = vecarr;
+	out = bpacket_reformat_for_peer(&pkt, paf);
+	stream_free(packet);
+
+	return out;
+}

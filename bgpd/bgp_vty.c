@@ -3331,6 +3331,33 @@ DEFUN(no_bgp_suppress_duplicates, no_bgp_suppress_duplicates_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(bgp_route_refresh_resync, bgp_route_refresh_resync_cmd,
+      "[no$no] bgp route-refresh resync [combine-threshold (0-100)$pct]",
+      NO_STR
+      BGP_STR
+      "Route refresh\n"
+      "Answer a plain VPN ROUTE-REFRESH by a per-peer resync, without splitting the update-subgroup\n"
+      "Replace the resyncs by one walk of the whole subgroup when enough of its peers are resyncing\n"
+      "Percentage of the subgroup peers resyncing (0: never, default 100)\n")
+{
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+
+	if (!bgp)
+		return CMD_WARNING;
+
+	if (no) {
+		UNSET_FLAG(bgp->af_flags[afi][safi], BGP_VPNVX_ROUTE_REFRESH_RESYNC);
+		bgp->rr_resync_combine_pct[afi][safi] = BGP_RR_RESYNC_COMBINE_PCT_DEFAULT;
+	} else {
+		SET_FLAG(bgp->af_flags[afi][safi], BGP_VPNVX_ROUTE_REFRESH_RESYNC);
+		bgp->rr_resync_combine_pct[afi][safi] =
+			pct_str ? pct : BGP_RR_RESYNC_COMBINE_PCT_DEFAULT;
+	}
+	return CMD_SUCCESS;
+}
+
 DEFUN(bgp_reject_as_sets, bgp_reject_as_sets_cmd,
       "bgp reject-as-sets",
       BGP_STR
@@ -16066,6 +16093,14 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 					    PAF_SUBGRP(paf)->id);
 			json_object_int_add(json_addr, "packetQueueLength",
 					    bpacket_queue_virtual_length(paf));
+			if (paf->resync) {
+				json_object_boolean_true_add(json_addr,
+							      "resyncInProgress");
+				json_object_int_add(json_addr, "resyncPrefixesSent",
+						    paf->resync->sent);
+				json_object_int_add(json_addr, "resyncPacketsSent",
+						    paf->resync->packets);
+			}
 		}
 
 		/* weight */
@@ -16401,6 +16436,10 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 				PAF_UPDGRP(paf)->id, PAF_SUBGRP(paf)->id);
 			vty_out(vty, "  Packet Queue length %d\n",
 				bpacket_queue_virtual_length(paf));
+			if (paf->resync)
+				vty_out(vty,
+					"  Route-refresh resync in progress: %u prefixes, %u packets sent\n",
+					paf->resync->sent, paf->resync->packets);
 		} else {
 			vty_out(vty, "  Not part of any update group\n");
 		}
@@ -22431,6 +22470,15 @@ static void bgp_vpn_config_write(struct vty *vty, struct bgp *bgp, afi_t afi,
 	if (!CHECK_FLAG(bgp->af_flags[afi][safi],
 			BGP_VPNVX_RETAIN_ROUTE_TARGET_ALL))
 		vty_out(vty, "  no bgp retain route-target all\n");
+
+	if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_VPNVX_ROUTE_REFRESH_RESYNC)) {
+		vty_out(vty, "  bgp route-refresh resync");
+		if (bgp->rr_resync_combine_pct[afi][safi] !=
+		    BGP_RR_RESYNC_COMBINE_PCT_DEFAULT)
+			vty_out(vty, " combine-threshold %u",
+				bgp->rr_resync_combine_pct[afi][safi]);
+		vty_out(vty, "\n");
+	}
 }
 
 /* Address family based peer configuration display.  */
@@ -25367,6 +25415,10 @@ void bgp_vty_init(void)
 	/* BGP retain all route-target */
 	install_element(BGP_VPNV4_NODE, &bgp_retain_route_target_cmd);
 	install_element(BGP_VPNV6_NODE, &bgp_retain_route_target_cmd);
+
+	/* BGP route-refresh resync */
+	install_element(BGP_VPNV4_NODE, &bgp_route_refresh_resync_cmd);
+	install_element(BGP_VPNV6_NODE, &bgp_route_refresh_resync_cmd);
 
 #ifdef DEV_BUILD
 	/* "bgp test" commands */

@@ -639,6 +639,7 @@ struct bgp {
 		uint32_t split_events;
 		uint32_t updgrp_switch_events;
 		uint32_t peer_refreshes_combined;
+		uint32_t peer_refreshes_resync;
 		uint32_t adj_count;
 		uint32_t merge_checks_triggered;
 
@@ -829,7 +830,7 @@ struct bgp {
 	bool gr_route_sync_pending;
 
 	/* BGP Per AF flags */
-	uint16_t af_flags[AFI_MAX][SAFI_MAX];
+	uint32_t af_flags[AFI_MAX][SAFI_MAX];
 #define BGP_CONFIG_DAMPENING				(1 << 0)
 /* l2vpn evpn flags - 1 << 0 is used for DAMPENNG */
 #define BGP_L2VPN_EVPN_ADV_IPV4_UNICAST (1 << 1)
@@ -851,6 +852,8 @@ struct bgp {
 /* EVPN VPN route advertisement flags */
 #define BGP_L2VPN_EVPN_ADV_IPV4_VPN (1 << 14)
 #define BGP_L2VPN_EVPN_ADV_IPV6_VPN (1 << 15)
+/* Answer a plain ROUTE-REFRESH by a per-peer resync (no subgroup split) */
+#define BGP_VPNVX_ROUTE_REFRESH_RESYNC (1 << 16)
 
 	/* BGP per AF peer count */
 	uint32_t af_peer_count[AFI_MAX][SAFI_MAX];
@@ -986,6 +989,15 @@ struct bgp {
 	bool heuristic_coalesce;
 	/* Actual coalesce time */
 	uint32_t coalesce_time;
+
+	/*
+	 * Route-refresh resync: when this percentage of the peers of a
+	 * subgroup are resyncing, the resyncs are replaced by one forced
+	 * walk of the whole subgroup (0: never). Per AFI/SAFI, set when
+	 * BGP_VPNVX_ROUTE_REFRESH_RESYNC is enabled on it.
+	 */
+	uint8_t rr_resync_combine_pct[AFI_MAX][SAFI_MAX];
+#define BGP_RR_RESYNC_COMBINE_PCT_DEFAULT 100
 
 	/* Auto-shutdown new peers */
 	bool autoshutdown;
@@ -1387,6 +1399,8 @@ enum bgp_peer_sub_sort {
 #define BGP_ANNOUNCE_ROUTE_SHORT_DELAY_MS  100
 #define BGP_ANNOUNCE_ROUTE_DELAY_MS        500
 
+struct bgp_resync;
+
 struct peer_af {
 	/* back pointer to the peer */
 	struct peer *peer;
@@ -1412,6 +1426,12 @@ struct peer_af {
 
 	/* Runs from a received BoRR until the matching EoRR */
 	struct event *t_refresh_stalepath;
+
+	/*
+	 * Route-refresh resync in progress (bgp_resync_start()): the
+	 * adj-out of the subgroup is sent again to this peer alone.
+	 */
+	struct bgp_resync *resync;
 
 	afi_t afi;
 	safi_t safi;
@@ -2055,7 +2075,7 @@ struct peer {
 #define PEER_STATUS_BFD_STRICT_HOLD		 (1U << 8) /* BFD strict mode holds the connection */
 
 	/* Peer status af flags (reset in bgp_stop) */
-	uint16_t af_sflags[AFI_MAX][SAFI_MAX];
+	uint32_t af_sflags[AFI_MAX][SAFI_MAX];
 #define PEER_STATUS_ORF_PREFIX_SEND   (1U << 0) /* prefix-list send peer */
 #define PEER_STATUS_ORF_WAIT_REFRESH  (1U << 1) /* wait refresh received peer */
 #define PEER_STATUS_PREFIX_THRESHOLD  (1U << 2) /* exceed prefix-threshold */
@@ -2074,6 +2094,8 @@ struct peer {
 #define PEER_STATUS_GR_WAIT_EOR	    (1U << 14) /* wait for EOR */
 /* Paths-Limit tuple received in the current CAPABILITY message */
 #define PEER_STATUS_PATHS_LIMIT_MSG_RCV (1U << 15)
+/* pending refresh request (PEER_STATUS_REFRESH_PENDING) was plain, resync-eligible */
+#define PEER_STATUS_REFRESH_PENDING_PLAIN (1U << 16)
 	/* Configured timer values. */
 	_Atomic uint32_t holdtime;
 	_Atomic uint32_t keepalive;
