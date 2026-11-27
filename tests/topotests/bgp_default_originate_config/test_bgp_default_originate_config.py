@@ -257,8 +257,13 @@ def test_adjout_cache_clearing():
         )
         if output.get("bgpOriginatingDefaultNetwork") != "0.0.0.0/0":
             return "bgpOriginatingDefaultNetwork not set"
-        if "0.0.0.0/0" in output.get("advertisedRoutes", {}):
-            return "Stale 0.0.0.0/0 in advertisedRoutes"
+        routes = output.get("advertisedRoutes", {})
+        if "0.0.0.0/0" not in routes:
+            return "synthesized 0.0.0.0/0 not in advertisedRoutes"
+        if routes["0.0.0.0/0"].get("community"):
+            return "stale table-route community in 0.0.0.0/0: {}".format(
+                routes["0.0.0.0/0"]["community"]
+            )
         return None
 
     assert _wait_for(_check_adjout) is None
