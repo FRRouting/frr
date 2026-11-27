@@ -54,6 +54,7 @@ struct zebra_es_if_info {
 	uint16_t df_pref;
 	uint8_t flags;
 #define ZIF_CFG_ES_FLAG_BYPASS (1 << 0)
+#define ZIF_CFG_ES_FLAG_BPP    (1 << 1)
 
 	struct zebra_evpn_es *es; /* local ES */
 };

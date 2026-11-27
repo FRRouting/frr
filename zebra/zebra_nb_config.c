@@ -2688,6 +2688,24 @@ int lib_interface_zebra_evpn_mh_uplink_modify(struct nb_cb_modify_args *args)
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-zebra:zebra/evpn-mh/bridge-port-protection
+ */
+int lib_interface_zebra_evpn_mh_bridge_port_protection_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	bool bpp;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	ifp = nb_running_get_entry(args->dnode, NULL, true);
+	bpp = yang_dnode_get_bool(args->dnode, NULL);
+	zebra_evpn_es_bpp_cfg_update(ifp->info, bpp);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/ipv6-router-advertisements/send-advertisements
  */
 int lib_interface_zebra_ipv6_router_advertisements_send_advertisements_modify(

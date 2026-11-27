@@ -23,6 +23,72 @@ extern "C" {
 
 typedef struct json_object json_object;
 struct l2vni_walk_ctx;
+struct zebra_l3mh_peer;
+struct zebra_l3mh_port;
+struct zebra_if;
+
+PREDECL_DLIST(zebra_l3mh_peer_neighs);
+PREDECL_DLIST(zebra_l3mh_port_neighs);
+
+enum zebra_l3mh_neigh_lifecycle {
+	ZEBRA_L3MH_NEIGH_NOT_MANAGED,
+	ZEBRA_L3MH_NEIGH_LOCAL_DYNAMIC,
+	ZEBRA_L3MH_NEIGH_PEER_SYNC_PROTECTED,
+	ZEBRA_L3MH_NEIGH_HANDOFF_WAIT,
+	ZEBRA_L3MH_NEIGH_VALIDATION_PENDING,
+};
+
+enum zebra_l3mh_neigh_removal_reason {
+	ZEBRA_L3MH_NEIGH_REMOVE_NONE,
+	ZEBRA_L3MH_NEIGH_REMOVE_PEER_WITHDRAW,
+	ZEBRA_L3MH_NEIGH_REMOVE_INTERFACE_DOWN,
+	ZEBRA_L3MH_NEIGH_REMOVE_MAC_LOSS,
+	ZEBRA_L3MH_NEIGH_REMOVE_KERNEL_DELETE,
+	ZEBRA_L3MH_NEIGH_REMOVE_CONFIG_CHANGE,
+	ZEBRA_L3MH_NEIGH_REMOVE_AGEOUT,
+	ZEBRA_L3MH_NEIGH_REMOVE_ADMIN,
+};
+
+enum zebra_l3mh_nud_event {
+	ZEBRA_L3MH_NUD_IGNORE,
+	ZEBRA_L3MH_NUD_LEARN,
+	ZEBRA_L3MH_NUD_TRANSIENT,
+	ZEBRA_L3MH_NUD_FAILED,
+	ZEBRA_L3MH_NUD_DELETE,
+};
+
+static inline enum zebra_l3mh_nud_event zebra_evpn_l3mh_nud_classify(uint16_t state, bool deleted)
+{
+	if (deleted)
+		return ZEBRA_L3MH_NUD_DELETE;
+	if (state & ZEBRA_NEIGH_STATE_FAILED)
+		return ZEBRA_L3MH_NUD_FAILED;
+	if (state &
+	    (ZEBRA_NEIGH_STATE_INCOMPLETE | ZEBRA_NEIGH_STATE_DELAY | ZEBRA_NEIGH_STATE_PROBE))
+		return ZEBRA_L3MH_NUD_TRANSIENT;
+	if (state & (ZEBRA_NEIGH_STATE_REACHABLE | ZEBRA_NEIGH_STATE_STALE |
+		     ZEBRA_NEIGH_STATE_NOARP | ZEBRA_NEIGH_STATE_PERMANENT))
+		return ZEBRA_L3MH_NUD_LEARN;
+	return ZEBRA_L3MH_NUD_IGNORE;
+}
+
+/* Validate transitions among the currently recorded binding states. */
+static inline bool zebra_evpn_l3mh_neigh_transition_valid(enum zebra_l3mh_neigh_lifecycle current,
+							  enum zebra_l3mh_neigh_lifecycle next)
+{
+	if ((unsigned int)current > ZEBRA_L3MH_NEIGH_VALIDATION_PENDING ||
+	    (unsigned int)next > ZEBRA_L3MH_NEIGH_VALIDATION_PENDING)
+		return false;
+	if (next == ZEBRA_L3MH_NEIGH_HANDOFF_WAIT)
+		return current == ZEBRA_L3MH_NEIGH_LOCAL_DYNAMIC ||
+		       current == ZEBRA_L3MH_NEIGH_HANDOFF_WAIT ||
+		       current == ZEBRA_L3MH_NEIGH_VALIDATION_PENDING;
+	if (next == ZEBRA_L3MH_NEIGH_VALIDATION_PENDING)
+		return current == ZEBRA_L3MH_NEIGH_HANDOFF_WAIT ||
+		       current == ZEBRA_L3MH_NEIGH_PEER_SYNC_PROTECTED ||
+		       current == ZEBRA_L3MH_NEIGH_VALIDATION_PENDING;
+	return true;
+}
 
 #define IS_ZEBRA_NEIGH_ACTIVE(n) (n->state == ZEBRA_NEIGH_ACTIVE)
 
@@ -60,6 +126,45 @@ struct zebra_neigh {
 
 	struct zebra_evpn *zevpn;
 
+	/* VLAN / Ethernet Tag (ETAG) of the bridge domain that owns this
+	 * neighbor. Used by the L3VNI-keyed neighbor-sync container to
+	 * originate the correct per-SVI ETAG and to tear down per-BD.
+	 */
+	vlanid_t eth_tag;
+
+	/* ES bond and bridge for a pure-L3 static neighbor's MAC pin. A held
+	 * peer can record a desired bond alone until its pin is installed.
+	 */
+	ifindex_t sync_mac_ifindex;
+	uint32_t sync_mac_seq;
+	bool sync_mac_confirmed;
+	ifindex_t sync_mac_bridge_ifindex;
+
+	/* Recorded binding for a local or peer-synced pure-L3 neighbor. */
+	enum zebra_l3mh_neigh_lifecycle l3mh_state;
+	enum zebra_l3mh_neigh_removal_reason l3mh_last_removal_reason;
+	struct ethaddr l3mh_expected_mac;
+	esi_t l3mh_expected_esi;
+	ifindex_t l3mh_expected_ifindex;
+	vlanid_t l3mh_expected_eth_tag;
+	uint32_t l3mh_generation;
+	uint32_t l3mh_probe_seq;
+	uint32_t l3mh_probe_generation;
+	uint32_t l3mh_check_seq;
+	uint16_t l3mh_check_state;
+	bool l3mh_check_deleted;
+	bool l3mh_check_reprobe;
+	bool l3mh_check_retried;
+	uint32_t l3mh_down_generation;
+	struct event *l3mh_down_timer;
+	struct ipaddr l3mh_peer_origin; /* Advertising PE, separate from forwarding. */
+	bool l3mh_peer_rt1_lost;
+	bool l3mh_validation_learned;
+	struct zebra_l3mh_peer *l3mh_peer;
+	struct zebra_l3mh_peer_neighs_item l3mh_peer_item;
+	struct zebra_l3mh_port *l3mh_port;
+	struct zebra_l3mh_port_neighs_item l3mh_port_item;
+
 	/* Refcnt - Only used by SVD neighs currently */
 	uint32_t refcnt;
 
@@ -82,6 +187,8 @@ struct zebra_neigh {
  * is local connected
  */
 #define ZEBRA_NEIGH_LOCAL_INACTIVE 0x200
+/* Saved NTF_ROUTER of the peer's copy while a local learn overlays it. */
+#define ZEBRA_NEIGH_ES_PEER_ROUTER 0x400
 #define ZEBRA_NEIGH_ALL_LOCAL_FLAGS                                            \
 	(ZEBRA_NEIGH_LOCAL | ZEBRA_NEIGH_LOCAL_INACTIVE)
 #define ZEBRA_NEIGH_ALL_PEER_FLAGS                                             \
@@ -101,6 +208,9 @@ struct zebra_neigh {
 	 */
 	uint32_t rem_seq;
 	uint32_t loc_seq;
+
+	/* Saved ESI of the peer's copy while a local learn overlays it. */
+	esi_t rem_esi;
 
 	/* list of hosts pointing to this remote NH entry */
 	struct host_rb_tree_entry host_rb;
@@ -124,6 +234,119 @@ struct zebra_neigh {
 	 */
 	uint64_t gr_refresh_time;
 };
+
+/* Keep the slot occupied through cancellation until its result arrives. */
+static inline bool zebra_evpn_l3mh_probe_begin(struct zebra_neigh *n, uint32_t seq)
+{
+	if (!seq || !n->l3mh_generation || n->l3mh_probe_seq)
+		return false;
+	n->l3mh_probe_seq = seq;
+	n->l3mh_probe_generation = n->l3mh_generation;
+	return true;
+}
+
+static inline void zebra_evpn_l3mh_probe_cancel(struct zebra_neigh *n)
+{
+	n->l3mh_probe_generation = 0;
+}
+
+static inline bool zebra_evpn_l3mh_probe_current(const struct zebra_neigh *n)
+{
+	return n->l3mh_probe_generation && n->l3mh_probe_generation == n->l3mh_generation;
+}
+
+static inline bool zebra_evpn_l3mh_probe_complete(struct zebra_neigh *n, uint32_t seq, bool success)
+{
+	if (!seq || n->l3mh_probe_seq != seq)
+		return false;
+	n->l3mh_probe_seq = 0;
+	if (success && zebra_evpn_l3mh_probe_current(n))
+		return true;
+	zebra_evpn_l3mh_probe_cancel(n);
+	return false;
+}
+
+static inline void zebra_evpn_l3mh_down_cancel(struct zebra_neigh *n)
+{
+	if (n->l3mh_down_timer)
+		event_cancel(&n->l3mh_down_timer);
+	n->l3mh_down_generation = 0;
+}
+
+/* Record the ES attachment. A missing ESI clears the binding. */
+static inline void zebra_evpn_l3mh_neigh_record(struct zebra_neigh *n,
+						enum zebra_l3mh_neigh_lifecycle next,
+						ifindex_t ifindex, const esi_t *esi)
+{
+	struct ethaddr mac = {};
+	esi_t expected_esi = {};
+	vlanid_t eth_tag = 0;
+
+	if (esi) {
+		mac = n->emac;
+		expected_esi = *esi;
+		eth_tag = n->eth_tag;
+	} else {
+		next = ZEBRA_L3MH_NEIGH_NOT_MANAGED;
+		ifindex = 0;
+	}
+
+	if (!zebra_evpn_l3mh_neigh_transition_valid(n->l3mh_state, next))
+		return;
+
+	if (n->l3mh_state == next && n->l3mh_expected_ifindex == ifindex &&
+	    n->l3mh_expected_eth_tag == eth_tag &&
+	    !memcmp(&n->l3mh_expected_mac, &mac, sizeof(mac)) &&
+	    !memcmp(&n->l3mh_expected_esi, &expected_esi, sizeof(expected_esi)))
+		return;
+
+	zebra_evpn_l3mh_down_cancel(n);
+	n->l3mh_check_seq = 0;
+	n->l3mh_check_reprobe = false;
+	n->l3mh_state = next;
+	n->l3mh_validation_learned = false;
+	n->l3mh_last_removal_reason = ZEBRA_L3MH_NEIGH_REMOVE_NONE;
+	n->l3mh_expected_mac = mac;
+	n->l3mh_expected_esi = expected_esi;
+	n->l3mh_expected_ifindex = ifindex;
+	n->l3mh_expected_eth_tag = eth_tag;
+	if (++n->l3mh_generation == 0)
+		n->l3mh_generation++;
+}
+
+static inline void zebra_evpn_l3mh_neigh_record_local(struct zebra_neigh *n, ifindex_t ifindex,
+						      const esi_t *esi)
+{
+	zebra_evpn_l3mh_neigh_record(n, ZEBRA_L3MH_NEIGH_LOCAL_DYNAMIC, ifindex, esi);
+}
+
+static inline bool zebra_evpn_l3mh_down_begin(struct zebra_neigh *n, struct event_loop *loop,
+					      uint32_t duration, void (*expire)(struct event *))
+{
+	if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL) || !IS_ZEBRA_NEIGH_ACTIVE(n) ||
+	    !n->l3mh_expected_ifindex ||
+	    (n->l3mh_state != ZEBRA_L3MH_NEIGH_LOCAL_DYNAMIC &&
+	     n->l3mh_state != ZEBRA_L3MH_NEIGH_VALIDATION_PENDING))
+		return false;
+
+	zebra_evpn_l3mh_probe_cancel(n);
+	zebra_evpn_l3mh_neigh_record(n, ZEBRA_L3MH_NEIGH_HANDOFF_WAIT, n->l3mh_expected_ifindex,
+				     &n->l3mh_expected_esi);
+	n->l3mh_down_generation = n->l3mh_generation;
+	event_add_timer(loop, expire, n, duration, &n->l3mh_down_timer);
+	return true;
+}
+
+static inline bool zebra_evpn_l3mh_down_expire(struct zebra_neigh *n)
+{
+	/* Dispatch clears the timer reference. A scheduled timer belongs to a new hold. */
+	if (n->l3mh_down_timer || n->l3mh_state != ZEBRA_L3MH_NEIGH_HANDOFF_WAIT ||
+	    !n->l3mh_down_generation || n->l3mh_down_generation != n->l3mh_generation)
+		return false;
+
+	n->l3mh_down_generation = 0;
+	return true;
+}
 
 static inline bool zebra_neigh_cmp(const struct zebra_neigh *n1, const struct zebra_neigh *n2)
 {
@@ -277,11 +500,56 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 				  const struct ipaddr *ip,
 				  const struct ethaddr *macaddr, bool is_router,
 				  bool local_inactive, bool dp_static);
+int zebra_evpn_l3vni_local_neigh_update(struct interface *ifp, struct interface *br_if,
+					const struct ipaddr *ip, const struct ethaddr *macaddr,
+					uint16_t nud_state, bool is_own, bool is_router);
+int zebra_evpn_l3vni_local_neigh_del(struct interface *ifp, const struct ipaddr *ip,
+				     enum zebra_l3mh_nud_event event);
+struct zebra_dplane_ctx;
+bool zebra_evpn_l3vni_neigh_start_probe(struct zebra_neigh *n, const struct interface *ifp);
+bool zebra_evpn_l3vni_neigh_start_down_timer(struct zebra_neigh *n);
+void zebra_evpn_l3vni_neigh_port_down(struct zebra_if *zif);
+void zebra_evpn_l3vni_neigh_port_up(struct zebra_if *zif);
+bool zebra_evpn_l3vni_neigh_probe_result(const struct zebra_dplane_ctx *ctx);
+bool zebra_evpn_l3vni_neigh_probe_delete_event(ns_id_t ns_id, ifindex_t ifindex,
+					       const struct ipaddr *ip, bool deleted);
+void zebra_evpn_l3vni_neigh_flush(struct zebra_evpn *zevpn);
+void zebra_evpn_l3vni_neigh_flush_all(void);
+void zebra_evpn_l3vni_neigh_handoff_bd(vni_t l3vni, vlanid_t vid, struct zebra_evpn *l2zevpn,
+				       struct interface *svi_ifp);
+void zebra_evpn_l2vni_neigh_handoff_to_l3(struct zebra_evpn *l2zevpn, struct interface *svi_ifp);
+void zebra_evpn_l3vni_neigh_readvertise_mac(vni_t l3vni, const struct ethaddr *macaddr,
+					    vlanid_t vid);
+void zebra_evpn_l3vni_neigh_debug_mac_event(vni_t l3vni, const struct ethaddr *macaddr,
+					    vlanid_t vid, struct interface *acc_ifp, bool present);
+void zebra_evpn_l3vni_neigh_readvertise_bd(vni_t l3vni, vlanid_t vid);
+void zebra_evpn_l3vni_remote_neigh_add(vni_t vni, const struct ipaddr *ip,
+				       const struct ethaddr *macaddr, vlanid_t eth_tag,
+				       uint32_t seq, const esi_t *esi, const struct ipaddr *origin,
+				       uint8_t flags);
+void zebra_evpn_l3vni_peer_backing_invalidate(vni_t vni, const esi_t *esi,
+					      const struct ipaddr *origin);
+void zebra_evpn_l3vni_remote_neigh_del(struct zebra_evpn *zevpn, const struct ipaddr *ip,
+				       const struct ethaddr *macaddr, vlanid_t eth_tag);
+void zebra_evpn_l3vni_remote_neigh_reinstall_bd(vni_t l3vni, vlanid_t vid);
+void zebra_evpn_l3vni_svi_vrf_change(struct interface *ifp, vrf_id_t old_vrf_id);
+void zebra_evpn_l3vni_svi_addr_add(struct interface *ifp);
+void zebra_evpn_l3vni_sync_mac_result(const struct zebra_dplane_ctx *ctx);
+bool zebra_evpn_l3vni_sync_mac_event(vni_t vni, const struct interface *bond,
+				     const struct interface *br_if, const struct ethaddr *mac,
+				     vlanid_t vid, bool deleted);
+bool zebra_evpn_l3vni_neigh_check_loss(struct interface *ifp, ns_id_t ns_id,
+				       const struct ipaddr *ip, uint16_t state, bool deleted);
+void zebra_evpn_l3vni_neigh_check_result(const struct zebra_dplane_ctx *ctx);
+ifindex_t zebra_evpn_l3vni_sync_mac_ifindex(vni_t l3vni, const struct ethaddr *mac, vlanid_t vid,
+					    const struct interface *br_if);
 int zebra_evpn_remote_neigh_update(struct zebra_evpn *zevpn, struct interface *ifp,
 				   const struct ipaddr *ip, const struct ethaddr *macaddr,
 				   uint16_t state, bool is_router);
 void zebra_evpn_send_neigh_to_client(struct zebra_evpn *zevpn);
 void zebra_evpn_clear_dup_neigh_hash(struct zebra_evpn *zevpn, struct zebra_neigh *n);
+const char *zebra_evpn_l3mh_neigh_lifecycle_name(enum zebra_l3mh_neigh_lifecycle state);
+const char *zebra_evpn_l3mh_neigh_removal_reason_name(enum zebra_l3mh_neigh_removal_reason reason);
 void zebra_evpn_print_neigh(const struct zebra_neigh *n, void *ctxt, json_object *json);
 void zebra_evpn_print_neigh_hash(struct neigh_walk_ctx *ctx, const struct zebra_neigh *n,
 				 int addr_width, int r_vtep_width);

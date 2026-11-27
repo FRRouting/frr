@@ -30,6 +30,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_vxlan_if.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_evpn_bpp.h"
 
 /* definitions */
 
@@ -255,6 +256,7 @@ void zebra_l2_bridge_add_update(struct interface *ifp,
 
 	/* Link all slaves to this bridge */
 	map_slaves_to_bridge(ifp, 1, false, ZEBRA_BRIDGE_NO_ACTION);
+	zebra_evpn_bpp_re_eval_schedule();
 }
 
 /*
@@ -266,6 +268,7 @@ void zebra_l2_bridge_del(struct interface *ifp)
 
 	/* Unlink all slaves to this bridge */
 	map_slaves_to_bridge(ifp, 0, false, ZEBRA_BRIDGE_NO_ACTION);
+	zebra_evpn_bpp_re_eval_schedule();
 }
 
 void zebra_l2if_update_bridge(struct interface *ifp, uint8_t chgflags)
@@ -455,6 +458,14 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 
 	ctx.chgflags = ZEBRA_VXLIF_MASTER_CHANGE;
 
+	/* Once unslaved, a delete cannot find the BD to unlink the L2VNI from. */
+	if (zif->zif_type == ZEBRA_IF_VXLAN && IS_ZEBRA_VXLAN_IF_VNI(zif) &&
+	    old_bridge_ifindex != IFINDEX_INTERNAL && bridge_ifindex == IFINDEX_INTERNAL) {
+		struct zebra_vxlan_vni *vni = zebra_vxlan_if_vni_find(zif, 0);
+
+		if (vni)
+			zebra_evpn_vl_vxl_deref(vni->access_vlan, vni->vni, zif);
+	}
 
 	zif->brslave_info.ns_id = ns_id;
 	zif->brslave_info.bridge_ifindex = bridge_ifindex;
@@ -462,8 +473,15 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 	if (bridge_ifindex != IFINDEX_INTERNAL) {
 		zebra_l2_map_slave_to_bridge(&zif->brslave_info, zvrf->zns);
 		/* In the case of VxLAN, invoke the handler for EVPN. */
-		if (zif->zif_type == ZEBRA_IF_VXLAN)
+		if (zif->zif_type == ZEBRA_IF_VXLAN) {
+			if (IS_ZEBRA_VXLAN_IF_VNI(zif)) {
+				struct zebra_vxlan_vni *vni = zebra_vxlan_if_vni_find(zif, 0);
+
+				if (vni)
+					zebra_evpn_vl_vxl_ref(vni->access_vlan, vni->vni, zif);
+			}
 			zebra_vxlan_if_update(ifp, &ctx);
+		}
 		if (zif->es_info.es)
 			zebra_evpn_es_local_br_port_update(zif);
 	} else if (old_bridge_ifindex != IFINDEX_INTERNAL) {
@@ -494,6 +512,8 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 
 		zebra_l2_unmap_slave_from_bridge(&zif->brslave_info);
 	}
+
+	zebra_evpn_bpp_if_update(zif);
 }
 
 void zebra_l2if_update_bond_slave(struct interface *ifp, ifindex_t bond_ifindex,
@@ -577,4 +597,6 @@ void zebra_vlan_mbr_re_eval(struct interface *ifp, bitfield_t old_vlan_bitmap)
 	bf_for_each_set_bit(old_vlan_bitmap, vid, IF_VLAN_BITMAP_MAX) {
 		zebra_evpn_vl_mbr_deref(vid, zif);
 	}
+
+	zebra_evpn_bpp_if_update(zif);
 }

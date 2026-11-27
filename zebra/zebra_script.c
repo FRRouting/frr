@@ -424,6 +424,9 @@ void lua_pushzebra_dplane_ctx(lua_State *L, const struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_TC_FILTER_UPDATE:
 	case DPLANE_OP_NH_FDB_INSTALL:
 	case DPLANE_OP_NH_FDB_DELETE:
+	case DPLANE_OP_EVPN_MH_NH_UPDATE:
+	case DPLANE_OP_EVPN_MH_NHG_UPDATE:
+	case DPLANE_OP_EVPN_MH_REPLAY_DONE:
 		/* Not currently handled */
 	case DPLANE_OP_INTF_NETCONFIG: /*NYI*/
 	case DPLANE_OP_INTF_SPEED_GET:

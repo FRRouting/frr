@@ -8,6 +8,10 @@
     "uplink": false,
     "@uplink": {
       "default:default": true
+    },
+    "bridge-port-protection": false,
+    "@bridge-port-protection": {
+      "default:default": true
     }
   }
 }

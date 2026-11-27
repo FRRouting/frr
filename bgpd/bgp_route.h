@@ -163,6 +163,8 @@ struct bgp_path_mh_info {
 	struct bgp_path_evpn_nh_info *nh_info;
 };
 
+struct bgp_evpn_ip_ead_path_owners;
+
 struct bgp_sid_info {
 	struct in6_addr sid;
 	uint8_t loc_block_len;
@@ -172,6 +174,9 @@ struct bgp_sid_info {
 	uint8_t transposition_len;
 	uint8_t transposition_offset;
 };
+
+PREDECL_DLIST(bgp_l3mh_rt2_paths);
+PREDECL_DLIST(bgp_l3mh_rt2_candidates);
 
 /* new structure for EVPN */
 struct bgp_path_info_extra_evpn {
@@ -184,6 +189,16 @@ struct bgp_path_info_extra_evpn {
 	} vni_info;
 	/* Destination Ethernet Segment links for EVPN MH */
 	struct bgp_path_mh_info *mh_info;
+	/* Per-VRF ownership of imported IP A-D state. */
+	struct bgp_evpn_ip_ead_path_owners *ip_ead_owners;
+
+	/* RT-1 generation when this L3MH RT-2 was advertised. */
+	struct bgp_l3mh_rt1_scope *l3mh_rt1_scope;
+	struct bgp_l3mh_rt2_paths_item l3mh_rt2_item;
+	struct bgp_l3mh_rt2_binding *l3mh_rt2_binding;
+	struct bgp_l3mh_rt2_candidates_item l3mh_rt2_candidate_item;
+	struct bgp_path_info *l3mh_rt2_path;
+	uint64_t l3mh_rt2_generation;
 
 	struct bgp_path_info *type5_originator;
 };

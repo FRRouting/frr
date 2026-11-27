@@ -50,6 +50,8 @@
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_trace.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_evpn_bpp.h"
+#include "zebra/zebra_evpn_neigh.h"
 #include "zebra/zebra_neigh.h"
 #include "zebra/zebra_script.h"
 #include "zebra/zebra_tc.h"
@@ -213,6 +215,7 @@ struct wq_evpn_wrapper {
 	uint32_t seq;
 	esi_t esi;
 	vni_t vni;
+	vlanid_t eth_tag;
 	struct ipaddr ip;
 	struct ethaddr macaddr;
 	struct prefix prefix;
@@ -223,6 +226,7 @@ struct wq_evpn_wrapper {
 #define WQ_EVPN_WRAPPER_TYPE_REM_ES       0x02
 #define WQ_EVPN_WRAPPER_TYPE_REM_MACIP    0x03
 #define WQ_EVPN_WRAPPER_TYPE_REM_VTEP     0x04
+#define WQ_EVPN_WRAPPER_TYPE_L3MH_BACKING_INVALIDATE 0x05
 
 enum wq_label_types {
 	WQ_LABEL_FTN_UNINSTALL,
@@ -2494,9 +2498,15 @@ static void process_subq_evpn(struct listnode *lnode)
 
 		if (w->add_p)
 			zebra_evpn_rem_macip_add(w->vni, &w->macaddr, ipa_len, &w->ip, w->flags,
-						 w->seq, &w->vtep_ip, &w->esi);
+						 w->seq, &w->vtep_ip, &w->esi, w->eth_tag);
 		else
-			zebra_evpn_rem_macip_del(w->vni, &w->macaddr, ipa_len, &w->ip, &w->vtep_ip);
+			zebra_evpn_rem_macip_del(w->vni, &w->macaddr, ipa_len, &w->ip, &w->vtep_ip,
+						 w->eth_tag);
+	} else if (w->type == WQ_EVPN_WRAPPER_TYPE_L3MH_BACKING_INVALIDATE) {
+		struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(w->vrf_id);
+
+		if (zvrf && zvrf->l3vni == w->vni)
+			zebra_evpn_l3vni_peer_backing_invalidate(w->vni, &w->esi, &w->vtep_ip);
 	} else if (w->type == WQ_EVPN_WRAPPER_TYPE_REM_VTEP) {
 		if (w->add_p)
 			zebra_vxlan_remote_vtep_add(w->vrf_id, w->vni, &w->vtep_ip, w->flags);
@@ -3749,12 +3759,26 @@ int zebra_rib_queue_evpn_rem_es_del(const esi_t *esi, const struct ipaddr *vtep_
 	return mq_add_handler(w, rib_meta_queue_evpn_add);
 }
 
+/* Process peer invalidation in order with remote MAC/IP updates. */
+int zebra_rib_queue_evpn_l3mh_peer_backing_invalidate(vrf_id_t vrf_id, vni_t vni, const esi_t *esi,
+						      const struct ipaddr *origin)
+{
+	struct wq_evpn_wrapper *w = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(*w));
+
+	w->type = WQ_EVPN_WRAPPER_TYPE_L3MH_BACKING_INVALIDATE;
+	w->vrf_id = vrf_id;
+	w->vni = vni;
+	w->esi = *esi;
+	w->vtep_ip = *origin;
+	return mq_add_handler(w, rib_meta_queue_evpn_add);
+}
+
 /*
  * Enqueue EVPN remote macip update for processing
  */
 int zebra_rib_queue_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 				       const struct ipaddr *ipaddr, uint8_t flags, uint32_t seq,
-				       struct ipaddr *vtep_ip, const esi_t *esi)
+				       struct ipaddr *vtep_ip, const esi_t *esi, vlanid_t eth_tag)
 {
 	struct wq_evpn_wrapper *w;
 	char buf[ESI_STR_LEN];
@@ -3764,6 +3788,7 @@ int zebra_rib_queue_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 	w->type = WQ_EVPN_WRAPPER_TYPE_REM_MACIP;
 	w->add_p = true;
 	w->vni = vni;
+	w->eth_tag = eth_tag;
 	w->macaddr = *macaddr;
 	w->ip = *ipaddr;
 	w->flags = flags;
@@ -3785,7 +3810,8 @@ int zebra_rib_queue_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 }
 
 int zebra_rib_queue_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
-				       const struct ipaddr *ip, struct ipaddr *vtep_ip)
+				       const struct ipaddr *ip, struct ipaddr *vtep_ip,
+				       vlanid_t eth_tag)
 {
 	struct wq_evpn_wrapper *w;
 
@@ -3794,6 +3820,7 @@ int zebra_rib_queue_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
 	w->type = WQ_EVPN_WRAPPER_TYPE_REM_MACIP;
 	w->add_p = false;
 	w->vni = vni;
+	w->eth_tag = eth_tag;
 	w->macaddr = *macaddr;
 	w->ip = *ip;
 	w->vtep_ip = *vtep_ip;
@@ -5601,6 +5628,12 @@ static void rib_process_dplane_results(struct event *event)
 				zebra_evpn_l2_nh_dplane_result(ctx);
 				break;
 
+			case DPLANE_OP_EVPN_MH_NH_UPDATE:
+			case DPLANE_OP_EVPN_MH_NHG_UPDATE:
+			case DPLANE_OP_EVPN_MH_REPLAY_DONE:
+				zebra_evpn_bpp_dplane_result(ctx);
+				break;
+
 			case DPLANE_OP_RULE_ADD:
 			case DPLANE_OP_RULE_DELETE:
 			case DPLANE_OP_RULE_UPDATE:
@@ -5649,6 +5682,8 @@ static void rib_process_dplane_results(struct event *event)
 			case DPLANE_OP_VTEP_ADD:
 			case DPLANE_OP_VTEP_DELETE:
 			case DPLANE_OP_BR_PORT_UPDATE:
+				zebra_evpn_bpp_dplane_result(ctx);
+				break;
 			case DPLANE_OP_NEIGH_TABLE_UPDATE:
 			case DPLANE_OP_GRE_SET:
 			case DPLANE_OP_SRV6_ENCAP_SRCADDR_SET:
@@ -5675,8 +5710,11 @@ static void rib_process_dplane_results(struct event *event)
 				zebra_neigh_dplane_update(ctx);
 				break;
 
-			case DPLANE_OP_FDB_READ:
 			case DPLANE_OP_NEIGH_READ:
+				zebra_evpn_l3vni_neigh_check_result(ctx);
+				break;
+
+			case DPLANE_OP_FDB_READ:
 			case DPLANE_OP_TC_QDISC_READ:
 				break;
 			} /* Dispatch by op code */

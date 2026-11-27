@@ -27,7 +27,9 @@
 #include "zebra/rt.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/interface.h"
+#include "zebra/zebra_evpn_neigh.h"
 #include "zebra/zebra_neigh.h"
+#include "zebra/zebra_vrf.h"
 #include "zebra/zebra_pbr.h"
 #include "zebra/zebra_vxlan_if.h"
 #include "zebra/zebra_vxlan.h"
@@ -112,7 +114,8 @@ static int zebra_neigh_rb_cmp(const struct zebra_neigh_ent *n1,
 }
 RB_GENERATE(zebra_neigh_rb_head, zebra_neigh_ent, rb_node, zebra_neigh_rb_cmp);
 
-static struct zebra_neigh_ent *zebra_neigh_find(ns_id_t ns_id, ifindex_t ifindex, struct ipaddr *ip)
+static struct zebra_neigh_ent *zebra_neigh_find(ns_id_t ns_id, ifindex_t ifindex,
+						const struct ipaddr *ip)
 {
 	struct zebra_neigh_ent tmp;
 
@@ -122,8 +125,20 @@ static struct zebra_neigh_ent *zebra_neigh_find(ns_id_t ns_id, ifindex_t ifindex
 	return RB_FIND(zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree, &tmp);
 }
 
+uint16_t zebra_neigh_mac_state(ns_id_t ns_id, ifindex_t ifindex, const struct ipaddr *ip,
+			       const struct ethaddr *mac)
+{
+	const struct zebra_neigh_ent *n = zebra_neigh_find(ns_id, ifindex, ip);
+
+	if (!n || !CHECK_FLAG(n->flags, ZEBRA_NEIGH_ENT_ACTIVE) ||
+	    memcmp(&n->mac, mac, sizeof(*mac)))
+		return 0;
+	return n->neigh_state;
+}
+
 static struct zebra_neigh_ent *zebra_neigh_new(ns_id_t ns_id, ifindex_t ifindex, struct ipaddr *ip,
-					       struct ethaddr *mac, uint32_t ndm_state)
+					       struct ethaddr *mac, uint32_t ndm_state,
+					       bool is_router)
 {
 	struct zebra_neigh_ent *n;
 
@@ -136,6 +151,8 @@ static struct zebra_neigh_ent *zebra_neigh_new(ns_id_t ns_id, ifindex_t ifindex,
 		memcpy(&n->mac, mac, sizeof(*mac));
 		SET_FLAG(n->flags, ZEBRA_NEIGH_ENT_ACTIVE);
 	}
+	if (is_router)
+		SET_FLAG(n->flags, ZEBRA_NEIGH_ENT_ROUTER);
 
 	n->neigh_state = ndm_state;
 	/* Add to rb_tree */
@@ -231,9 +248,87 @@ void zebra_neigh_del_all(struct interface *ifp)
 	}
 }
 
+/* Replay one tracked L3-interface neighbor through the no-L2VNI pure-L3
+ * neighbor sync path. The L3VNI/L2VNI skips live in
+ * zebra_vxlan_l3vni_neigh_replay_entry().
+ */
+static void zebra_neigh_l3_replay_one(struct zebra_neigh_ent *n)
+{
+	struct interface *ifp, *link_if;
+	struct zebra_if *zif;
+
+	/* Skip entries retained only for PBR references (no live MAC). */
+	if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_ENT_ACTIVE))
+		return;
+
+	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(n->ns_id), n->ifindex);
+	if (!ifp || !ifp->info)
+		return;
+	zif = ifp->info;
+
+	/* Resolve the underlying bridge from the SVI, exactly as the
+	 * live kernel-neigh path does.
+	 */
+	if (IS_ZEBRA_IF_VLAN(ifp))
+		link_if = if_lookup_by_index_per_ns(zebra_ns_lookup(n->ns_id), zif->link_ifindex);
+	else if (IS_ZEBRA_IF_BRIDGE(ifp))
+		link_if = ifp;
+	else
+		return;
+	if (!link_if)
+		return;
+
+	zebra_vxlan_l3vni_neigh_replay_entry(ifp, link_if, &n->ip, &n->mac, n->neigh_state,
+					     CHECK_FLAG(n->flags, ZEBRA_NEIGH_ENT_ROUTER));
+}
+
+/* Replay every tracked local L3-interface neighbor (ip/mac learned from the
+ * kernel and held in this "l3 interface database") back through the no-L2VNI
+ * pure-L3 neighbor sync path. Used to (re)originate sync for hosts learned
+ * before the feature became eligible (knob enable, L3VNI oper-up, bgpd GR
+ * reconnect). Reusing this in-memory table avoids an expensive full kernel
+ * neighbor dump (dplane_neigh_read()). The retained NTF router flag is
+ * replayed so a router neighbor is not mistakenly re-originated as a host.
+ */
+void zebra_neigh_l3_replay(void)
+{
+	struct zebra_neigh_ent *n;
+
+	RB_FOREACH (n, zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree)
+		zebra_neigh_l3_replay_one(n);
+}
+
+/* Replay only the neighbors of one SVI. Used when a BD loses its L2VNI so
+ * hosts still in the kernel, but no longer in the L2 EVPN table, are
+ * re-originated as pure-L3 without walking every other interface.
+ */
+void zebra_neigh_l3_replay_ifp(struct interface *ifp)
+{
+	struct zebra_neigh_ent *n;
+	struct zebra_neigh_ent lookup = {};
+	struct zebra_vrf *zvrf;
+	struct zebra_ns *zns;
+
+	if (!ifp || !ifp->vrf)
+		return;
+
+	zvrf = ifp->vrf->info;
+	zns = zvrf ? zvrf->zns : NULL;
+	if (!zns)
+		return;
+
+	lookup.ns_id = zns->ns_id;
+	lookup.ifindex = ifp->ifindex;
+
+	for (n = RB_NFIND(zebra_neigh_rb_head, &zneigh_info->neigh_rb_tree, &lookup);
+	     n && n->ns_id == zns->ns_id && n->ifindex == ifp->ifindex;
+	     n = RB_NEXT(zebra_neigh_rb_head, n))
+		zebra_neigh_l3_replay_one(n);
+}
+
 /* kernel neigh add */
 void zebra_neigh_add(ns_id_t ns_id, struct interface *ifp, struct ipaddr *ip, struct ethaddr *mac,
-		     uint16_t ndm_state)
+		     uint16_t ndm_state, bool is_router)
 {
 	struct zebra_neigh_ent *n;
 
@@ -249,6 +344,7 @@ void zebra_neigh_add(ns_id_t ns_id, struct interface *ifp, struct ipaddr *ip, st
 	n = zebra_neigh_find(ns_id, ifp->ifindex, ip);
 	if (n) {
 		n->neigh_state = ndm_state;
+		COND_FLAG(n->flags, ZEBRA_NEIGH_ENT_ROUTER, is_router);
 
 		if (!memcmp(&n->mac, mac, sizeof(*mac)))
 			return;
@@ -259,7 +355,7 @@ void zebra_neigh_add(ns_id_t ns_id, struct interface *ifp, struct ipaddr *ip, st
 		/* update rules linked to the neigh */
 		zebra_neigh_pbr_rules_update(n);
 	} else {
-		zebra_neigh_new(ns_id, ifp->ifindex, ip, mac, ndm_state);
+		zebra_neigh_new(ns_id, ifp->ifindex, ip, mac, ndm_state, is_router);
 	}
 }
 
@@ -288,7 +384,7 @@ void zebra_neigh_ref(ns_id_t ns_id, int ifindex, struct ipaddr *ip, struct zebra
 
 	n = zebra_neigh_find(ns_id, ifindex, ip);
 	if (!n)
-		n = zebra_neigh_new(ns_id, ifindex, ip, NULL, 0);
+		n = zebra_neigh_new(ns_id, ifindex, ip, NULL, 0, false);
 
 	/* link the pbr entry to the neigh */
 	if (rule->action.neigh == n)
@@ -385,29 +481,30 @@ void zebra_neigh_terminate(void)
  * In the event the kernel deletes ipv4 link-local neighbor entries created for
  * 5549 support, re-install them.
  */
-static void zebra_neigh_handle_5549(uint32_t ndm_family, uint32_t ndm_state, struct zebra_if *zif,
+static bool zebra_neigh_handle_5549(uint32_t ndm_family, uint32_t ndm_state, struct zebra_if *zif,
 				    struct interface *ifp, struct ipaddr *ip, bool handle_failed)
 {
 	if (ndm_family != AF_INET)
-		return;
+		return false;
 
 	if (!zif->v6_2_v4_ll_neigh_entry)
-		return;
+		return false;
 
 	struct in_addr ipv4_ll;
 
 	inet_pton(AF_INET, ipv4_ll_buf, &ipv4_ll);
 
 	if (ipv4_ll.s_addr != ip->ip._v4_addr.s_addr)
-		return;
+		return false;
 
 	if (handle_failed && ndm_state & ZEBRA_NUD_FAILED) {
 		zlog_info("Neighbor Entry for %s has entered a failed state, not reinstalling",
 			  ifp->name);
-		return;
+		return true;
 	}
 
 	if_nbr_ipv6ll_to_ipv4ll_neigh_update(ifp, &zif->v6_2_v4_ll_addr6, true);
+	return true;
 }
 
 /* Is vni mcast group */
@@ -448,6 +545,12 @@ void zebra_neigh_dplane_update(struct zebra_dplane_ctx *ctx)
 		zebra_neigh_ipaddr_update(ctx);
 	} else if (op == DPLANE_OP_NEIGH_INSTALL || op == DPLANE_OP_NEIGH_DELETE ||
 		   op == DPLANE_OP_NEIGH_UPDATE) {
+		if (zebra_evpn_l3vni_neigh_probe_result(ctx))
+			return;
+		if (op == DPLANE_OP_NEIGH_INSTALL &&
+		    dplane_ctx_get_status(ctx) != ZEBRA_DPLANE_REQUEST_QUEUED &&
+		    CHECK_FLAG(dplane_ctx_neigh_get_update_flags(ctx), DPLANE_NEIGH_CREATE_ONLY))
+			return;
 		zebra_neigh_macfdb_update(ctx);
 	}
 }
@@ -486,14 +589,27 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 
 	ndm_state = dplane_ctx_neigh_get_ndm_state(ctx);
 	ndm_family = dplane_ctx_neigh_get_ndm_family(ctx);
+	if ((op == DPLANE_OP_NEIGH_IP_DELETE ||
+	     (op == DPLANE_OP_NEIGH_IP_INSTALL && (ndm_state & ZEBRA_NUD_FAILED))) &&
+	    zebra_evpn_l3vni_neigh_probe_delete_event(ns_id, ndm_ifindex, &ip,
+						      op == DPLANE_OP_NEIGH_IP_DELETE)) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_L3_NEIGH)
+			zlog_debug("L3MH probe consumed %s for %pIA", dplane_op2str(op), &ip);
+		return;
+	}
 
-	/* if kernel deletes our rfc5549 neighbor entry, re-install it */
-	if (op == DPLANE_OP_NEIGH_IP_DELETE && (ndm_state & ZEBRA_NUD_PERMANENT)) {
-		zebra_neigh_handle_5549(ndm_family, ndm_state, zif, ifp, &ip, false);
+	/* Consume a permanent delete handled by RFC 5549. */
+	if (op == DPLANE_OP_NEIGH_IP_DELETE && (ndm_state & ZEBRA_NUD_PERMANENT) &&
+	    zebra_neigh_handle_5549(ndm_family, ndm_state, zif, ifp, &ip, false)) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("    Neighbor Entry received is a 5549 entry, finished");
 		return;
 	}
+	if ((op == DPLANE_OP_NEIGH_IP_DELETE ||
+	     (op == DPLANE_OP_NEIGH_IP_INSTALL && (ndm_state & ZEBRA_NUD_FAILED))) &&
+	    zebra_evpn_l3vni_neigh_check_loss(ifp, ns_id, &ip, ndm_state,
+					      op == DPLANE_OP_NEIGH_IP_DELETE))
+		return;
 
 	/* if kernel marks our rfc5549 neighbor entry invalid, re-install it */
 	if (op == DPLANE_OP_NEIGH_IP_INSTALL && !(ndm_state & ZEBRA_NUD_VALID))
@@ -569,7 +685,7 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 			if (is_own)
 				zebra_neigh_del(ns_id, ifp, &ip);
 			else
-				zebra_neigh_add(ns_id, ifp, &ip, &mac, ndm_state);
+				zebra_neigh_add(ns_id, ifp, &ip, &mac, ndm_state, is_router);
 
 			if (link_if)
 				zebra_vxlan_handle_kernel_neigh_update(ifp, link_if, &ip, &mac,
@@ -580,7 +696,7 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 
 		zebra_neigh_del(ns_id, ifp, &ip);
 		if (link_if)
-			zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip);
+			zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip, ndm_state, false);
 		return;
 	}
 
@@ -594,7 +710,7 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 	 */
 	zebra_neigh_del(ns_id, ifp, &ip);
 	if (link_if)
-		zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip);
+		zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip, ndm_state, true);
 }
 
 static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx)

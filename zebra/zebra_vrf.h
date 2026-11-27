@@ -142,6 +142,11 @@ struct zebra_vrf {
 
 	int advertise_svi_macip;
 
+	/* Whether EVPN L3 multihoming (L3MH) neighbor (ARP/ND) sync is enabled.
+	 * Only in the EVPN instance.
+	 */
+	int advertise_l3vni_neigh;
+
 	/* l3-vni info */
 	vni_t l3vni;
 

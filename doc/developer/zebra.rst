@@ -161,6 +161,13 @@ Zebra Protocol Commands
 
 The definitions of zebra protocol commands can be found at ``lib/zclient.h``.
 
+``ZEBRA_EVPN_BPP_PEER_DEL`` can invalidate L3MH neighbor backing with type
+``ZAPI_EVPN_BPP_PEER_L3_NEIGH_BACKING``. This type uses the tenant VRF in the
+header and adds a 32-bit L3VNI after the existing ESI, type, address family,
+and peer VTEP fields. Bgpd sends it when the peer's last per-ES IP A-D path
+is withdrawn in that scope. Zebra processes it in order with EVPN MAC/IP
+updates, including when bridge-port protection is disabled.
+
 
 Zebra Dataplane
 ===============

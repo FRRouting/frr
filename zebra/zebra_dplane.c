@@ -20,6 +20,8 @@
 #include "zebra/netconf_netlink.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_dplane.h"
+#include "zebra/zebra_errors.h"
+#include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/rt.h"
@@ -50,7 +52,7 @@ DEFINE_MTYPE(ZEBRA, VLAN_CHANGE_ARR, "Vlan Change Array");
  * are made. The minor version (at least) should be updated when new APIs
  * are introduced.
  */
-static uint32_t zdplane_version = MAKE_FRRVERSION(4, 1, 0);
+static uint32_t zdplane_version = MAKE_FRRVERSION(4, 2, 0);
 
 /* Control for collection of extra interface info with route updates; a plugin
  * can enable the extra info via a dplane api.
@@ -113,6 +115,24 @@ struct dplane_fdb_nh_info {
 	struct ipaddr vtep_ip;
 	struct nh_grp nh_grp[ES_VTEP_MAX_CNT];
 	uint16_t nh_grp_count;
+};
+
+/* EVPN-MH protection Member (FPM only). */
+struct dplane_evpn_mh_nh_info {
+	bool is_del;
+	uint32_t nh_id;
+	uint8_t type;
+	struct ipaddr vtep;
+	struct ethaddr rmac;
+};
+
+/* EVPN-MH protection Group (FPM only). members is allocated. */
+struct dplane_evpn_mh_nhg_info {
+	bool is_del;
+	uint32_t nhg_id;
+	esi_t esi;
+	uint32_t member_count;
+	struct dplane_evpn_mh_member *members;
 };
 
 /*
@@ -455,6 +475,8 @@ struct dplane_macfdb_read_info {
 struct dplane_neigh_read_info {
 	ifindex_t ifindex;
 	struct ipaddr ip;
+	struct ethaddr mac;
+	bool matched;
 };
 
 /*
@@ -557,6 +579,8 @@ struct zebra_dplane_ctx {
 		struct dplane_vlan_info vlan_info;
 		struct dplane_mac_info macinfo;
 		struct dplane_fdb_nh_info fdb_nh;
+		struct dplane_evpn_mh_nh_info evpn_mh_nh;
+		struct dplane_evpn_mh_nhg_info evpn_mh_nhg;
 		struct dplane_neigh_info neigh;
 		struct dplane_rule_info rule;
 		struct dplane_tc_qdisc_info tc_qdisc;
@@ -808,16 +832,14 @@ static enum zebra_dplane_result pw_update_internal(struct zebra_pw *pw,
 static enum zebra_dplane_result intf_addr_update_internal(
 	const struct interface *ifp, const struct connected *ifc,
 	enum dplane_op_e op);
-static enum zebra_dplane_result mac_update_common(enum dplane_op_e op, const struct interface *ifp,
-						  const struct interface *br_ifp, vlanid_t vid,
-						  const struct ethaddr *mac, vni_t vni,
-						  const struct ipaddr *vtep_ip, bool sticky,
-						  uint32_t nhg_id, uint32_t update_flags);
 static enum zebra_dplane_result
-neigh_update_internal(enum dplane_op_e op, const struct interface *ifp,
-		      const void *link, int link_family,
-		      const struct ipaddr *ip, vni_t vni, uint32_t flags,
-		      uint16_t state, uint32_t update_flags, int protocol);
+mac_update_common(enum dplane_op_e op, const struct interface *ifp, const struct interface *br_ifp,
+		  vlanid_t vid, const struct ethaddr *mac, vni_t vni, const struct ipaddr *vtep_ip,
+		  bool sticky, uint32_t nhg_id, uint32_t update_flags, uint32_t seq);
+static enum zebra_dplane_result
+neigh_update_internal(enum dplane_op_e op, const struct interface *ifp, const void *link,
+		      int link_family, const struct ipaddr *ip, vni_t vni, uint32_t flags,
+		      uint16_t state, uint32_t update_flags, int protocol, uint32_t seq);
 
 /*
  * Public APIs
@@ -997,6 +1019,12 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_MAC_DELETE:
 	case DPLANE_OP_NH_FDB_INSTALL:
 	case DPLANE_OP_NH_FDB_DELETE:
+	case DPLANE_OP_EVPN_MH_NH_UPDATE:
+	case DPLANE_OP_EVPN_MH_REPLAY_DONE:
+		break;
+	case DPLANE_OP_EVPN_MH_NHG_UPDATE:
+		XFREE(MTYPE_DP_CTX, ctx->u.evpn_mh_nhg.members);
+		break;
 	case DPLANE_OP_NEIGH_INSTALL:
 	case DPLANE_OP_NEIGH_UPDATE:
 	case DPLANE_OP_NEIGH_DELETE:
@@ -1261,6 +1289,13 @@ const char *dplane_op2str(enum dplane_op_e op)
 		return "NH_FDB_INSTALL";
 	case DPLANE_OP_NH_FDB_DELETE:
 		return "NH_FDB_DELETE";
+
+	case DPLANE_OP_EVPN_MH_NH_UPDATE:
+		return "EVPN_MH_NH_UPDATE";
+	case DPLANE_OP_EVPN_MH_NHG_UPDATE:
+		return "EVPN_MH_NHG_UPDATE";
+	case DPLANE_OP_EVPN_MH_REPLAY_DONE:
+		return "EVPN_MH_REPLAY_DONE";
 
 	case DPLANE_OP_LSP_INSTALL:
 		return "LSP_INSTALL";
@@ -2784,6 +2819,63 @@ uint16_t dplane_ctx_get_fdb_nh_grp_count(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.fdb_nh.nh_grp_count;
 }
 
+bool dplane_ctx_get_evpn_mh_is_del(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	if (ctx->zd_op == DPLANE_OP_EVPN_MH_NHG_UPDATE)
+		return ctx->u.evpn_mh_nhg.is_del;
+	return ctx->u.evpn_mh_nh.is_del;
+}
+
+uint32_t dplane_ctx_get_evpn_mh_nh_id(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.evpn_mh_nh.nh_id;
+}
+
+uint8_t dplane_ctx_get_evpn_mh_nh_type(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.evpn_mh_nh.type;
+}
+
+const struct ipaddr *dplane_ctx_get_evpn_mh_vtep(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return &ctx->u.evpn_mh_nh.vtep;
+}
+
+const struct ethaddr *dplane_ctx_get_evpn_mh_rmac(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return &ctx->u.evpn_mh_nh.rmac;
+}
+
+uint32_t dplane_ctx_get_evpn_mh_nhg_id(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.evpn_mh_nhg.nhg_id;
+}
+
+const esi_t *dplane_ctx_get_evpn_mh_esi(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return &ctx->u.evpn_mh_nhg.esi;
+}
+
+uint32_t dplane_ctx_get_evpn_mh_member_count(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.evpn_mh_nhg.member_count;
+}
+
+const struct dplane_evpn_mh_member *
+dplane_ctx_get_evpn_mh_members(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+	return ctx->u.evpn_mh_nhg.members;
+}
+
 /* Accessors for LSP information */
 
 mpls_label_t dplane_ctx_get_in_label(const struct zebra_dplane_ctx *ctx)
@@ -4205,6 +4297,16 @@ const struct ipaddr *dplane_ctx_get_neigh_read_ip(const struct zebra_dplane_ctx 
 	DPLANE_CTX_VALID(ctx);
 
 	return &ctx->u.neigh_read.ip;
+}
+
+bool dplane_ctx_neigh_read_matches(const struct zebra_dplane_ctx *ctx)
+{
+	return ctx->u.neigh_read.matched;
+}
+
+void dplane_ctx_neigh_read_match(struct zebra_dplane_ctx *ctx, const struct ethaddr *mac)
+{
+	ctx->u.neigh_read.matched = !memcmp(&ctx->u.neigh_read.mac, mac, sizeof(*mac));
 }
 
 int dplane_ctx_tc_qdisc_notify_get_kind(const struct zebra_dplane_ctx *ctx)
@@ -5741,6 +5843,12 @@ static enum zebra_dplane_result fdb_nh_update_common(enum dplane_op_e op, uint32
 	zns = zvrf ? zvrf->zns : zebra_ns_lookup(NS_DEFAULT);
 	dplane_ctx_ns_init(ctx, zns, false);
 
+	if (id && !zebra_evpn_mh_is_fdb_nh(id)) {
+		zebra_evpn_mh_id_channel_violation(id, "kernel FDB NH");
+		dplane_ctx_free(&ctx);
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
+	}
+
 	ctx->u.fdb_nh.id = id;
 	if (vtep_ip)
 		ctx->u.fdb_nh.vtep_ip = *vtep_ip;
@@ -5794,6 +5902,104 @@ enum zebra_dplane_result dplane_nhg_fdb_add(uint32_t nhg_id, uint32_t nh_cnt,
 					    const struct nh_grp *nh_ids)
 {
 	return fdb_nh_update_common(DPLANE_OP_NH_FDB_INSTALL, nhg_id, NULL, nh_cnt, nh_ids);
+}
+
+static struct zebra_dplane_ctx *evpn_mh_ctx_new(enum dplane_op_e op)
+{
+	struct zebra_dplane_ctx *ctx;
+	struct zebra_vrf *zvrf;
+	struct zebra_ns *zns;
+
+	ctx = dplane_ctx_alloc();
+	ctx->zd_op = op;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+
+	zvrf = zebra_vrf_get_evpn();
+	zns = zvrf ? zvrf->zns : zebra_ns_lookup(NS_DEFAULT);
+	dplane_ctx_ns_init(ctx, zns, false);
+	return ctx;
+}
+
+static enum zebra_dplane_result evpn_mh_ctx_enqueue(struct zebra_dplane_ctx *ctx)
+{
+	int ret = dplane_update_enqueue(ctx);
+
+	if (ret == AOK)
+		return ZEBRA_DPLANE_REQUEST_QUEUED;
+
+	dplane_ctx_free(&ctx);
+	return ZEBRA_DPLANE_REQUEST_FAILURE;
+}
+
+enum zebra_dplane_result dplane_evpn_mh_nh_update(bool is_del, uint32_t nh_id, uint8_t type,
+						  const struct ipaddr *vtep,
+						  const struct ethaddr *rmac)
+{
+	struct zebra_dplane_ctx *ctx;
+
+	if (!nh_id || !zebra_evpn_mh_id_is_l3_bpp(nh_id)) {
+		zebra_evpn_mh_id_channel_violation(nh_id, "protection Member dplane");
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
+	}
+
+	ctx = evpn_mh_ctx_new(DPLANE_OP_EVPN_MH_NH_UPDATE);
+	ctx->u.evpn_mh_nh.is_del = is_del;
+	ctx->u.evpn_mh_nh.nh_id = nh_id;
+	ctx->u.evpn_mh_nh.type = type;
+	if (vtep)
+		ctx->u.evpn_mh_nh.vtep = *vtep;
+	if (rmac)
+		ctx->u.evpn_mh_nh.rmac = *rmac;
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL || IS_ZEBRA_DEBUG_EVPN_MH_PROT)
+		zlog_debug("init evpn-mh nh ctx %s: id 0x%x del %u vtep %pIA",
+			   dplane_op2str(ctx->zd_op), nh_id, is_del, &ctx->u.evpn_mh_nh.vtep);
+
+	return evpn_mh_ctx_enqueue(ctx);
+}
+
+enum zebra_dplane_result dplane_evpn_mh_nhg_update(bool is_del, uint32_t nhg_id, const esi_t *esi,
+						   uint32_t member_count,
+						   const struct dplane_evpn_mh_member *members)
+{
+	struct zebra_dplane_ctx *ctx;
+
+	if (!nhg_id || !zebra_evpn_mh_id_is_l3_bpp(nhg_id)) {
+		zebra_evpn_mh_id_channel_violation(nhg_id, "protection Group dplane");
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
+	}
+	if (member_count > EVPN_MH_NHG_MAX_MEMBERS) {
+		flog_err(EC_ZEBRA_BAD_NHG_MESSAGE, "EVPN-MH Group 0x%x member count %u exceeds %u",
+			 nhg_id, member_count, EVPN_MH_NHG_MAX_MEMBERS);
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
+	}
+
+	ctx = evpn_mh_ctx_new(DPLANE_OP_EVPN_MH_NHG_UPDATE);
+	ctx->u.evpn_mh_nhg.is_del = is_del;
+	ctx->u.evpn_mh_nhg.nhg_id = nhg_id;
+	if (esi)
+		memcpy(&ctx->u.evpn_mh_nhg.esi, esi, sizeof(esi_t));
+	if (member_count && members) {
+		ctx->u.evpn_mh_nhg.members = XMALLOC(MTYPE_DP_CTX, member_count * sizeof(*members));
+		memcpy(ctx->u.evpn_mh_nhg.members, members, member_count * sizeof(*members));
+		ctx->u.evpn_mh_nhg.member_count = member_count;
+	}
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL || IS_ZEBRA_DEBUG_EVPN_MH_PROT)
+		zlog_debug("init evpn-mh nhg ctx %s: id 0x%x del %u members %u",
+			   dplane_op2str(ctx->zd_op), nhg_id, is_del, member_count);
+
+	return evpn_mh_ctx_enqueue(ctx);
+}
+
+enum zebra_dplane_result dplane_evpn_mh_replay_done(void)
+{
+	struct zebra_dplane_ctx *ctx = evpn_mh_ctx_new(DPLANE_OP_EVPN_MH_REPLAY_DONE);
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL || IS_ZEBRA_DEBUG_EVPN_MH_PROT)
+		zlog_debug("init evpn-mh replay-done ctx");
+
+	return evpn_mh_ctx_enqueue(ctx);
 }
 
 /*
@@ -5977,7 +6183,7 @@ done:
 enum zebra_dplane_result dplane_br_port_update(const struct interface *ifp, bool non_df,
 					       uint32_t sph_filter_cnt,
 					       const struct ipaddr *sph_filters,
-					       uint32_t backup_nhg_id)
+					       uint32_t backup_nhg_id, uint32_t seq)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	uint32_t flags = 0;
@@ -6014,6 +6220,7 @@ enum zebra_dplane_result dplane_br_port_update(const struct interface *ifp, bool
 	dplane_ctx_ns_init(ctx, zns, false);
 
 	ctx->zd_ifindex = ifp->ifindex;
+	ctx->zd_seq = seq;
 	strlcpy(ctx->zd_ifname, ifp->name, sizeof(ctx->zd_ifname));
 
 	/* Init the br-port-specific data area */
@@ -6316,9 +6523,8 @@ enum zebra_dplane_result dplane_rem_mac_add(const struct interface *ifp,
 		update_flags |= DPLANE_MAC_WAS_STATIC;
 
 	/* Use common helper api */
-	result = mac_update_common(DPLANE_OP_MAC_INSTALL, ifp, bridge_ifp, vid,
-				   mac, vni, vtep_ip, sticky, nhg_id,
-				   update_flags);
+	result = mac_update_common(DPLANE_OP_MAC_INSTALL, ifp, bridge_ifp, vid, mac, vni, vtep_ip,
+				   sticky, nhg_id, update_flags, 0);
 	return result;
 }
 
@@ -6336,8 +6542,8 @@ enum zebra_dplane_result dplane_rem_mac_del(const struct interface *ifp,
 	update_flags |= DPLANE_MAC_REMOTE;
 
 	/* Use common helper api */
-	result = mac_update_common(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp, vid,
-				   mac, vni, vtep_ip, false, 0, update_flags);
+	result = mac_update_common(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp, vid, mac, vni, vtep_ip,
+				   false, 0, update_flags, 0);
 	return result;
 }
 
@@ -6354,7 +6560,7 @@ enum zebra_dplane_result dplane_rem_mac_net_del(const struct interface *ifp,
 	uint32_t update_flags = DPLANE_MAC_REMOTE | DPLANE_MAC_SELF_ONLY;
 
 	return mac_update_common(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp, 0, mac, vni, vtep_ip,
-				 false, 0, update_flags);
+				 false, 0, update_flags, 0);
 }
 
 /*
@@ -6381,9 +6587,8 @@ enum zebra_dplane_result dplane_neigh_ip_update(enum dplane_op_e op,
 
 	update_flags = DPLANE_NEIGH_NO_EXTENSION;
 
-	result = neigh_update_internal(op, ifp, (const void *)link_ip,
-				       ipaddr_family(link_ip), ip, 0, 0, state,
-				       update_flags, protocol);
+	result = neigh_update_internal(op, ifp, (const void *)link_ip, ipaddr_family(link_ip), ip,
+				       0, 0, state, update_flags, protocol, 0);
 
 	return result;
 }
@@ -6411,8 +6616,18 @@ enum zebra_dplane_result dplane_local_mac_add(const struct interface *ifp,
 
 	/* Use common helper api */
 	result = mac_update_common(DPLANE_OP_MAC_INSTALL, ifp, bridge_ifp, vid, mac, 0, &vtep_ip,
-				   sticky, 0, update_flags);
+				   sticky, 0, update_flags, 0);
 	return result;
+}
+
+enum zebra_dplane_result dplane_l3mh_mac_pin(const struct interface *ifp,
+					     const struct interface *bridge_ifp, vlanid_t vid,
+					     const struct ethaddr *mac, uint32_t seq)
+{
+	const struct ipaddr vtep_ip = { .ipa_type = IPADDR_NONE };
+
+	return mac_update_common(DPLANE_OP_MAC_INSTALL, ifp, bridge_ifp, vid, mac, 0, &vtep_ip,
+				 false, 0, DPLANE_MAC_SET_STATIC, seq);
 }
 
 /*
@@ -6428,7 +6643,7 @@ dplane_local_mac_del(const struct interface *ifp,
 
 	/* Use common helper api */
 	result = mac_update_common(DPLANE_OP_MAC_DELETE, ifp, bridge_ifp, vid, mac, 0, &vtep_ip,
-				   false, 0, 0);
+				   false, 0, 0, 0);
 	return result;
 }
 /*
@@ -6467,11 +6682,10 @@ void dplane_mac_init(struct zebra_dplane_ctx *ctx, const struct interface *ifp,
 /*
  * Common helper api for MAC address/vxlan updates
  */
-static enum zebra_dplane_result mac_update_common(enum dplane_op_e op, const struct interface *ifp,
-						  const struct interface *br_ifp, vlanid_t vid,
-						  const struct ethaddr *mac, vni_t vni,
-						  const struct ipaddr *vtep_ip, bool sticky,
-						  uint32_t nhg_id, uint32_t update_flags)
+static enum zebra_dplane_result
+mac_update_common(enum dplane_op_e op, const struct interface *ifp, const struct interface *br_ifp,
+		  vlanid_t vid, const struct ethaddr *mac, vni_t vni, const struct ipaddr *vtep_ip,
+		  bool sticky, uint32_t nhg_id, uint32_t update_flags, uint32_t seq)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	int ret;
@@ -6483,6 +6697,7 @@ static enum zebra_dplane_result mac_update_common(enum dplane_op_e op, const str
 
 	ctx = dplane_ctx_alloc();
 	ctx->zd_op = op;
+	ctx->zd_seq = seq;
 
 	/* Common init for the ctx */
 	dplane_mac_init(ctx, ifp, br_ifp, vid, mac, vni, vtep_ip, sticky,
@@ -6523,11 +6738,24 @@ enum zebra_dplane_result dplane_rem_neigh_add(const struct interface *ifp,
 	if (was_static)
 		update_flags |= DPLANE_NEIGH_WAS_STATIC;
 
-	result = neigh_update_internal(
-		DPLANE_OP_NEIGH_INSTALL, ifp, (const void *)mac, AF_ETHERNET,
-		ip, 0, flags, DPLANE_NUD_NOARP, update_flags, 0);
+	result = neigh_update_internal(DPLANE_OP_NEIGH_INSTALL, ifp, (const void *)mac, AF_ETHERNET,
+				       ip, 0, flags, DPLANE_NUD_NOARP, update_flags, 0, 0);
 
 	return result;
+}
+
+/* Program a peer-static L3MH neighbor. Repairs require an empty slot. */
+enum zebra_dplane_result dplane_l3mh_neigh_add(const struct interface *ifp,
+					       const struct ipaddr *ip, const struct ethaddr *mac,
+					       uint32_t flags, bool create_only)
+{
+	uint32_t update_flags = DPLANE_NEIGH_REMOTE;
+
+	if (create_only)
+		SET_FLAG(update_flags, DPLANE_NEIGH_CREATE_ONLY);
+
+	return neigh_update_internal(DPLANE_OP_NEIGH_INSTALL, ifp, mac, AF_ETHERNET, ip, 0, flags,
+				     DPLANE_NUD_PERMANENT, update_flags, 0, 0);
 }
 
 /*
@@ -6557,9 +6785,8 @@ enum zebra_dplane_result dplane_local_neigh_add(const struct interface *ifp,
 	if (set_router)
 		ntf |= DPLANE_NTF_ROUTER;
 
-	result = neigh_update_internal(DPLANE_OP_NEIGH_INSTALL, ifp,
-				       (const void *)mac, AF_ETHERNET, ip, 0,
-				       ntf, state, update_flags, 0);
+	result = neigh_update_internal(DPLANE_OP_NEIGH_INSTALL, ifp, (const void *)mac,
+				       AF_ETHERNET, ip, 0, ntf, state, update_flags, 0, 0);
 
 	return result;
 }
@@ -6575,9 +6802,8 @@ enum zebra_dplane_result dplane_rem_neigh_delete(const struct interface *ifp,
 
 	update_flags |= DPLANE_NEIGH_REMOTE;
 
-	result = neigh_update_internal(DPLANE_OP_NEIGH_DELETE, ifp, NULL,
-				       AF_ETHERNET, ip, 0, 0, 0, update_flags,
-				       0);
+	result = neigh_update_internal(DPLANE_OP_NEIGH_DELETE, ifp, NULL, AF_ETHERNET, ip, 0, 0, 0,
+				       update_flags, 0, 0);
 
 	return result;
 }
@@ -6597,8 +6823,8 @@ enum zebra_dplane_result dplane_vtep_add(const struct interface *ifp, const stru
 
 	frrtrace(4, frr_zebra, dplane_vtep_add_del, ifp, ip, vni, 1);
 
-	result = neigh_update_internal(DPLANE_OP_VTEP_ADD, ifp, &mac, AF_ETHERNET, ip, vni, 0, 0, 0,
-				       0);
+	result = neigh_update_internal(DPLANE_OP_VTEP_ADD, ifp, &mac, AF_ETHERNET, ip, vni, 0, 0,
+				       0, 0, 0);
 
 	return result;
 }
@@ -6619,7 +6845,7 @@ enum zebra_dplane_result dplane_vtep_delete(const struct interface *ifp, const s
 	frrtrace(4, frr_zebra, dplane_vtep_add_del, ifp, ip, vni, 2);
 
 	result = neigh_update_internal(DPLANE_OP_VTEP_DELETE, ifp, (const void *)&mac, AF_ETHERNET,
-				       ip, vni, 0, 0, 0, 0);
+				       ip, vni, 0, 0, 0, 0, 0);
 
 	return result;
 }
@@ -6629,11 +6855,32 @@ enum zebra_dplane_result dplane_neigh_discover(const struct interface *ifp,
 {
 	enum zebra_dplane_result result;
 
-	result = neigh_update_internal(DPLANE_OP_NEIGH_DISCOVER, ifp, NULL,
-				       AF_ETHERNET, ip, 0, DPLANE_NTF_USE,
-				       DPLANE_NUD_INCOMPLETE, 0, 0);
+	result = neigh_update_internal(DPLANE_OP_NEIGH_DISCOVER, ifp, NULL, AF_ETHERNET, ip, 0,
+				       DPLANE_NTF_USE, DPLANE_NUD_INCOMPLETE, 0, 0, 0);
 
 	return result;
+}
+
+enum zebra_dplane_result dplane_neigh_probe(const struct interface *ifp, const struct ipaddr *ip,
+					    const struct ethaddr *mac, vni_t vni, uint32_t seq)
+{
+	return neigh_update_internal(DPLANE_OP_NEIGH_INSTALL, ifp, mac, AF_ETHERNET, ip, vni, 0,
+				     DPLANE_NUD_PROBE,
+				     DPLANE_NEIGH_NO_EXTENSION | DPLANE_NEIGH_CREATE_ONLY |
+					     DPLANE_NEIGH_NO_PROTOCOL,
+				     0, seq);
+}
+
+enum zebra_dplane_result dplane_neigh_probe_delete(const struct interface *ifp,
+						   const struct ipaddr *ip, vni_t vni,
+						   uint32_t seq, bool expiry)
+{
+	uint32_t flags = DPLANE_NEIGH_REMOTE | DPLANE_NEIGH_NO_PROTOCOL;
+
+	if (expiry)
+		flags |= DPLANE_NEIGH_L3MH_EXPIRY;
+	return neigh_update_internal(DPLANE_OP_NEIGH_DELETE, ifp, NULL, AF_ETHERNET, ip, vni, 0, 0,
+				     flags, 0, seq);
 }
 
 enum zebra_dplane_result dplane_neigh_table_update(const struct interface *ifp,
@@ -6696,10 +6943,9 @@ enum zebra_dplane_result dplane_neigh_table_update(const struct interface *ifp,
  * Common helper api for neighbor updates
  */
 static enum zebra_dplane_result
-neigh_update_internal(enum dplane_op_e op, const struct interface *ifp,
-		      const void *link, const int link_family,
-		      const struct ipaddr *ip, vni_t vni, uint32_t flags,
-		      uint16_t state, uint32_t update_flags, int protocol)
+neigh_update_internal(enum dplane_op_e op, const struct interface *ifp, const void *link,
+		      const int link_family, const struct ipaddr *ip, vni_t vni, uint32_t flags,
+		      uint16_t state, uint32_t update_flags, int protocol, uint32_t seq)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	int ret;
@@ -6733,6 +6979,7 @@ neigh_update_internal(enum dplane_op_e op, const struct interface *ifp,
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
 	ctx->zd_vrf_id = ifp->vrf->vrf_id;
 	dplane_ctx_set_type(ctx, protocol);
+	ctx->zd_seq = seq;
 
 	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
 	dplane_ctx_ns_init(ctx, zns, false);
@@ -7129,7 +7376,8 @@ static enum zebra_dplane_result dplane_fdb_read_enqueue(struct zebra_ns *zns, if
 }
 
 static enum zebra_dplane_result dplane_neigh_read_enqueue(struct zebra_ns *zns, ifindex_t ifindex,
-							  const struct ipaddr *ip)
+							  const struct ipaddr *ip,
+							  const struct ethaddr *mac, uint32_t seq)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	struct zebra_dplane_ctx *ctx;
@@ -7137,6 +7385,7 @@ static enum zebra_dplane_result dplane_neigh_read_enqueue(struct zebra_ns *zns, 
 
 	ctx = dplane_ctx_alloc();
 	ctx->zd_op = DPLANE_OP_NEIGH_READ;
+	ctx->zd_seq = seq;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
 
 	dplane_ctx_ns_init(ctx, zns, false);
@@ -7144,6 +7393,8 @@ static enum zebra_dplane_result dplane_neigh_read_enqueue(struct zebra_ns *zns, 
 	ctx->u.neigh_read.ifindex = ifindex;
 	if (ip)
 		ctx->u.neigh_read.ip = *ip;
+	if (mac)
+		ctx->u.neigh_read.mac = *mac;
 
 	ret = dplane_update_enqueue(ctx);
 	if (ret == AOK)
@@ -7161,7 +7412,7 @@ enum zebra_dplane_result dplane_fdb_read(struct zebra_ns *zns)
 
 enum zebra_dplane_result dplane_neigh_read(struct zebra_ns *zns)
 {
-	return dplane_neigh_read_enqueue(zns, 0, NULL);
+	return dplane_neigh_read_enqueue(zns, 0, NULL, NULL, 0);
 }
 
 enum zebra_dplane_result dplane_fdb_read_for_bridge(struct zebra_ns *zns,
@@ -7198,14 +7449,21 @@ enum zebra_dplane_result dplane_fdb_read_specific_mac(struct zebra_ns *zns,
 enum zebra_dplane_result dplane_neigh_read_for_vlan(struct zebra_ns *zns,
 						    const struct interface *vlan_ifp)
 {
-	return dplane_neigh_read_enqueue(zns, vlan_ifp->ifindex, NULL);
+	return dplane_neigh_read_enqueue(zns, vlan_ifp->ifindex, NULL, NULL, 0);
 }
 
 enum zebra_dplane_result dplane_neigh_read_specific_ip(struct zebra_ns *zns,
 						       const struct ipaddr *ip,
 						       const struct interface *vlan_ifp)
 {
-	return dplane_neigh_read_enqueue(zns, vlan_ifp->ifindex, ip);
+	return dplane_neigh_read_enqueue(zns, vlan_ifp->ifindex, ip, NULL, 0);
+}
+
+enum zebra_dplane_result dplane_l3mh_neigh_check(struct zebra_ns *zns, ifindex_t ifindex,
+						 const struct ipaddr *ip,
+						 const struct ethaddr *mac, uint32_t seq)
+{
+	return dplane_neigh_read_enqueue(zns, ifindex, ip, mac, seq);
 }
 
 enum zebra_dplane_result dplane_tc_qdisc_read(struct zebra_ns *zns)
@@ -7887,6 +8145,21 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 			   dplane_ctx_get_fdb_nh_grp_count(ctx));
 		break;
 
+	case DPLANE_OP_EVPN_MH_NH_UPDATE:
+		zlog_debug("ID (0x%x) Dplane evpn-mh nh ctx %p del %u",
+			   dplane_ctx_get_evpn_mh_nh_id(ctx), ctx,
+			   dplane_ctx_get_evpn_mh_is_del(ctx));
+		break;
+	case DPLANE_OP_EVPN_MH_NHG_UPDATE:
+		zlog_debug("ID (0x%x) Dplane evpn-mh nhg ctx %p del %u members %u",
+			   dplane_ctx_get_evpn_mh_nhg_id(ctx), ctx,
+			   dplane_ctx_get_evpn_mh_is_del(ctx),
+			   dplane_ctx_get_evpn_mh_member_count(ctx));
+		break;
+	case DPLANE_OP_EVPN_MH_REPLAY_DONE:
+		zlog_debug("Dplane evpn-mh replay-done ctx %p", ctx);
+		break;
+
 	case DPLANE_OP_LSP_INSTALL:
 	case DPLANE_OP_LSP_UPDATE:
 	case DPLANE_OP_LSP_DELETE:
@@ -8144,6 +8417,14 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_NH_FDB_DELETE:
 		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
 			atomic_fetch_add_explicit(&zdplane_info.dg_nh_fdb_errors, 1,
+						  memory_order_relaxed);
+		break;
+
+	case DPLANE_OP_EVPN_MH_NH_UPDATE:
+	case DPLANE_OP_EVPN_MH_NHG_UPDATE:
+	case DPLANE_OP_EVPN_MH_REPLAY_DONE:
+		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
+			atomic_fetch_add_explicit(&zdplane_info.dg_other_errors, 1,
 						  memory_order_relaxed);
 		break;
 
