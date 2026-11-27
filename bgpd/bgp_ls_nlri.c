@@ -449,6 +449,19 @@ int bgp_ls_attr_cmp(const struct bgp_ls_attr *attr1, const struct bgp_ls_attr *a
 			return ret;
 	}
 
+	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_ADJ_SID_BIT)) {
+		if (attr1->adj_sid_count != attr2->adj_sid_count)
+			return numcmp(attr1->adj_sid_count, attr2->adj_sid_count);
+		for (int i = 0; i < attr1->adj_sid_count; i++) {
+			if (attr1->adj_sid[i].sid != attr2->adj_sid[i].sid)
+				return numcmp(attr1->adj_sid[i].sid, attr2->adj_sid[i].sid);
+			if (attr1->adj_sid[i].flags != attr2->adj_sid[i].flags)
+				return numcmp(attr1->adj_sid[i].flags, attr2->adj_sid[i].flags);
+			if (attr1->adj_sid[i].weight != attr2->adj_sid[i].weight)
+				return numcmp(attr1->adj_sid[i].weight, attr2->adj_sid[i].weight);
+		}
+	}
+
 	if (CHECK_FLAG(attr1->present_tlvs, BGP_LS_ATTR_IGP_FLAGS_BIT)) {
 		if (attr1->igp_flags != attr2->igp_flags)
 			return numcmp(attr1->igp_flags, attr2->igp_flags);
@@ -1030,6 +1043,28 @@ size_t bgp_ls_nlri_size(const struct bgp_ls_nlri *nlri)
 	return size;
 }
 
+/* NLRI get protocol_id helper */
+enum bgp_ls_protocol_id bgp_ls_nlri_protocol_id(const struct bgp_ls_nlri *nlri)
+{
+	if (!nlri)
+		return BGP_LS_PROTO_RESERVED;
+
+	switch (nlri->nlri_type) {
+	case BGP_LS_NLRI_TYPE_NODE:
+		return nlri->nlri_data.node.protocol_id;
+	case BGP_LS_NLRI_TYPE_LINK:
+		return nlri->nlri_data.link.protocol_id;
+	case BGP_LS_NLRI_TYPE_IPV4_PREFIX:
+	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
+		return nlri->nlri_data.prefix.protocol_id;
+	case BGP_LS_NLRI_TYPE_SRV6_SID:
+		return nlri->nlri_data.srv6_sid.protocol_id;
+	case BGP_LS_NLRI_TYPE_RESERVED:
+		return BGP_LS_PROTO_RESERVED;
+	}
+	return BGP_LS_PROTO_RESERVED;
+}
+
 /*
  * ===========================================================================
  * String Conversion Functions
@@ -1437,6 +1472,15 @@ unsigned int bgp_ls_attr_hash_key(const struct bgp_ls_attr *attr)
 
 	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_LINK_NAME_BIT))
 		key = jhash(attr->link_name, strlen(attr->link_name), key);
+
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_ADJ_SID_BIT)) {
+		key = jhash(&attr->adj_sid_count, sizeof(attr->adj_sid_count), key);
+		for (int i = 0; i < attr->adj_sid_count; i++) {
+			key = jhash(&attr->adj_sid[i].sid, sizeof(attr->adj_sid[i].sid), key);
+			key = jhash(&attr->adj_sid[i].flags, sizeof(attr->adj_sid[i].flags), key);
+			key = jhash(&attr->adj_sid[i].weight, sizeof(attr->adj_sid[i].weight), key);
+		}
+	}
 
 	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_IGP_FLAGS_BIT))
 		key = jhash_1word(attr->igp_flags, key);
@@ -2233,7 +2277,8 @@ int bgp_ls_encode_nlri(struct stream *s, const struct bgp_ls_nlri *nlri)
  *
  * Returns number of bytes written, or -1 on error
  */
-int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr)
+int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr,
+		       enum bgp_ls_protocol_id protocol_id)
 {
 	size_t start_pos;
 
@@ -2461,6 +2506,33 @@ int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr)
 			stream_put(s, attr->link_name, len);
 		}
 	}
+
+	/* Adjacency SID (TLV 1099) */
+	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_ADJ_SID_BIT))
+		for (int i = 0; i < attr->adj_sid_count; i++) {
+			int sid_len = bgp_ls_attr_adjacency_sid_len(attr->adj_sid[i].flags,
+								    protocol_id);
+
+			if (sid_len == -1) {
+				/* Should be impossible here */
+				zlog_warn("BGP-LS: %s wrong combination of V-Flag and L-Flag for Adjacency SID",
+					  __func__);
+				continue;
+			}
+
+			if (STREAM_WRITEABLE(s) < (size_t)BGP_LS_TLV_HDR_SIZE + (size_t)sid_len + 4)
+				return -1;
+			stream_putw(s, BGP_LS_ATTR_ADJ_SID);
+			stream_putw(s, sid_len + 4);
+
+			stream_putc(s, attr->adj_sid[i].flags);
+			stream_putc(s, attr->adj_sid[i].weight);
+			stream_putw(s, 0);
+			if (sid_len == 3)
+				stream_put3(s, attr->adj_sid[i].sid);
+			else
+				stream_putl(s, attr->adj_sid[i].sid);
+		}
 
 	/* Extended Admin Group (TLV 1173) */
 	if (CHECK_FLAG(attr->present_tlvs, BGP_LS_ATTR_EXT_ADMIN_GROUP_BIT)) {
@@ -2797,12 +2869,7 @@ int bgp_ls_encode_attr(struct stream *s, const struct bgp_ls_attr *attr)
 	return stream_get_endp(s) - start_pos;
 }
 
-/*
- * Get Prefix-SID attribute SID length by flags
- *
- * @return 3 or 4 in normal case, -1 in error case
- */
-int bgp_ls_attr_prefix_sid_len(uint8_t flags)
+static int bgp_ls_attr_sid_len_by_lv_flags(uint8_t flags, uint8_t v_flag_mask, uint8_t l_flag_mask)
 {
 	/*
 	 * IS-IS: RFC 8667, 2.1.1; OSPFv2: RFC8665, 5; OSPFv3: RFC8666, 6:
@@ -2811,13 +2878,50 @@ int bgp_ls_attr_prefix_sid_len(uint8_t flags)
 	 * are invalid and any SID Advertisement received with an invalid setting
 	 * for V- and L-Flags MUST be ignored.
 	 */
-	uint8_t vl_mask = BGP_LS_PREFIX_SID_FLAG_VALUE | BGP_LS_PREFIX_SID_FLAG_LOCAL;
+	uint8_t vl_mask = v_flag_mask | l_flag_mask;
 	uint8_t vl_val = CHECK_FLAG(flags, vl_mask);
 
 	if (vl_val != 0 && vl_val != vl_mask)
 		return -1;
 
 	return vl_val ? 3 : 4;
+}
+
+/*
+ * Get Prefix-SID attribute SID length by flags
+ *
+ * @return 3 or 4 in normal case, -1 in error case
+ */
+int bgp_ls_attr_prefix_sid_len(uint8_t flags)
+{
+	return bgp_ls_attr_sid_len_by_lv_flags(flags, BGP_LS_PREFIX_SID_FLAG_VALUE,
+					       BGP_LS_PREFIX_SID_FLAG_LOCAL);
+}
+
+/*
+ * Get Adjacency SID attribute Label/Index SID length by flags
+ *
+ * @return 3 or 4 in normal case, -1 in error case
+ */
+int bgp_ls_attr_adjacency_sid_len(uint8_t flags, enum bgp_ls_protocol_id protocol_id)
+{
+	switch (protocol_id) {
+	case BGP_LS_PROTO_ISIS_L1:
+	case BGP_LS_PROTO_ISIS_L2:
+		return bgp_ls_attr_sid_len_by_lv_flags(flags, ISIS_EXT_SUBTLV_LINK_ADJ_SID_VFLG,
+						       ISIS_EXT_SUBTLV_LINK_ADJ_SID_LFLG);
+	case BGP_LS_PROTO_OSPFV2:
+	case BGP_LS_PROTO_OSPFV3:
+		return bgp_ls_attr_sid_len_by_lv_flags(flags, OSPF_EXT_SUBTLV_LINK_ADJ_SID_VFLG,
+						       OSPF_EXT_SUBTLV_LINK_ADJ_SID_LFLG);
+	default:
+	case BGP_LS_PROTO_RESERVED:
+	case BGP_LS_PROTO_DIRECT:
+	case BGP_LS_PROTO_STATIC:
+	case BGP_LS_PROTO_BGP:
+		zlog_warn("BGP-LS: %s unsupported protocol %d", __func__, protocol_id);
+		return -1;
+	}
 }
 
 /*
@@ -3870,6 +3974,75 @@ int bgp_ls_decode_srv6_sid_nlri(struct stream *s, struct bgp_ls_nlri *nlri, uint
 }
 
 /*
+ * Decode protocol id from BGP-LS NLRI UPDATE message
+ *
+ * Needed by BGP-LS attribute that is parsed before NLRI
+ *
+ * Returns: 0 on success, -1 on error
+ */
+int bgp_ls_decode_nlri_protocol_id(struct bgp_nlri *packet,
+					  enum bgp_ls_protocol_id *protocol_id)
+{
+	uint16_t nlri_type, nlri_length;
+	uint8_t *data;
+
+	if (!packet || !protocol_id)
+		return -1;
+
+	/* Read NLRI Type + Length (4 bytes total) */
+	if (packet->length < BGP_LS_NLRI_TYPE_SIZE + BGP_LS_NLRI_LENGTH_SIZE) {
+		flog_warn(EC_BGP_LS_PACKET, "BGP-LS: %s: Not enough data for NLRI type and length",
+			  __func__);
+		return -1;
+	}
+
+	/* Creating stream requires allocating/deallocating and copying memory, it
+	 * seems too much for two words parsing
+	 */
+	data = packet->nlri;
+	nlri_type = *data++ << 8;
+	nlri_type += *data++;
+	nlri_length = *data++ << 8;
+	nlri_length += *data++;
+
+	/* Check if stream has enough data for NLRI */
+	if (packet->length - (data - packet->nlri) < nlri_length) {
+		flog_warn(EC_BGP_LS_PACKET,
+			  "BGP-LS: %s: NLRI type=%u length=%u exceeds available data", __func__,
+			  nlri_type, nlri_length);
+		return -1;
+	}
+
+	/* Decode based on NLRI type */
+	switch ((enum bgp_ls_nlri_type)nlri_type) {
+	case BGP_LS_NLRI_TYPE_NODE:
+	case BGP_LS_NLRI_TYPE_LINK:
+	case BGP_LS_NLRI_TYPE_IPV4_PREFIX:
+	case BGP_LS_NLRI_TYPE_IPV6_PREFIX:
+	case BGP_LS_NLRI_TYPE_SRV6_SID:
+		/* Check minimum length */
+		if (nlri_length < BGP_LS_NLRI_MIN_LENGTH) {
+			flog_warn(EC_BGP_LS_PACKET,
+				  "BGP-LS: %s: Node NLRI length %u too short (minimum %u)",
+				  __func__, nlri_length, BGP_LS_NLRI_MIN_LENGTH);
+			return -1;
+		}
+
+		/* Read Protocol-ID (1 byte) */
+		*protocol_id = *data;
+		break;
+
+	case BGP_LS_NLRI_TYPE_RESERVED:
+	default:
+		/* Unknown NLRI type - preserve and propagate (RFC 9552 Section 5.2) */
+		zlog_warn("BGP-LS: %s: Unknown NLRI type %u", __func__, nlri_type);
+		return -1;
+	}
+
+	return 0;
+}
+
+/*
  * Decode complete BGP-LS NLRI from UPDATE message (RFC 9552 Section 5.2)
  *
  * This is the main entry point for decoding NLRIs from MP_REACH_NLRI
@@ -4385,6 +4558,59 @@ static int parse_link_name(struct stream *s, uint16_t length, struct bgp_ls_attr
 	}
 
 	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_LINK_NAME_BIT);
+
+	return 0;
+}
+
+/*
+ * Parse Adjacency SID (TLV 1099)
+ * RFC 9085 Section 2.2.1
+ */
+static int parse_adjacency_sid(struct stream *s, uint16_t length, enum bgp_ls_protocol_id protocol_id, struct bgp_ls_attr *attr)
+{
+	int flags;
+	int sid_len;
+
+	if (length != 7 && length != 8) {
+		flog_warn(EC_BGP_UPDATE_RCV, "BGP-LS: Invalid Adjacency SID length (%u bytes)",
+			  length);
+		return -1;
+	}
+
+	if (attr->adj_sid_count == BGP_LS_ADJ_MAX) {
+		flog_warn(EC_BGP_UPDATE_RCV,
+			  "BGP-LS: Ignoring Adjacency SID, maximum %d is implemented",
+			  BGP_LS_ADJ_MAX);
+		stream_forward_getp(s, length);
+		return 0;
+	}
+
+	flags = stream_getc(s);
+	sid_len = bgp_ls_attr_adjacency_sid_len(flags, protocol_id);
+	if (sid_len != length - 4) {
+		stream_forward_getp(s, length - 1);
+		if (sid_len == -1) {
+			flog_warn(EC_BGP_LS_PACKET,
+				  "BGP-LS: %s wrong combination of V-Flag and L-Flag for Adjacency SID, ignoring",
+				  __func__);
+		} else {
+			flog_warn(EC_BGP_LS_PACKET,
+				  "BGP-LS: %s L/V-Flag value contradicts length of Adjacent SID, ignoring",
+				  __func__);
+		}
+		return 0;
+	}
+
+	attr->adj_sid[attr->adj_sid_count].flags = flags;
+	attr->adj_sid[attr->adj_sid_count].weight = stream_getc(s);
+	stream_getw(s); /* Reserved, ignored */
+	if (sid_len == 3)
+		attr->adj_sid[attr->adj_sid_count].sid = stream_get3(s);
+	else
+		attr->adj_sid[attr->adj_sid_count].sid = stream_getl(s);
+	attr->adj_sid_count++;
+
+	SET_FLAG(attr->present_tlvs, BGP_LS_ATTR_ADJ_SID_BIT);
 
 	return 0;
 }
@@ -5263,7 +5489,8 @@ static int parse_srv6_endpoint_behavior(struct stream *s, uint16_t length, struc
 	return 0;
 }
 
-int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_attr *attr)
+int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, enum bgp_ls_protocol_id protocol_id,
+		      struct bgp_ls_attr *attr)
 {
 	uint16_t type, length;
 	size_t end_pos = stream_get_getp(s) + total_length;
@@ -5371,6 +5598,11 @@ int bgp_ls_parse_attr(struct stream *s, uint16_t total_length, struct bgp_ls_att
 
 		case BGP_LS_ATTR_LINK_NAME:
 			if (parse_link_name(s, length, attr) < 0)
+				return -1;
+			break;
+
+		case BGP_LS_ATTR_ADJ_SID:
+			if (parse_adjacency_sid(s, length, protocol_id, attr) < 0)
 				return -1;
 			break;
 
@@ -5628,6 +5860,22 @@ struct json_object *bgp_ls_attr_to_json(struct bgp_ls_attr *ls_attr)
 	/* Link Name */
 	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_LINK_NAME_BIT))
 		json_object_string_add(json_ls_attr, "linkName", ls_attr->link_name);
+
+	/* Adjacency SID */
+	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_ADJ_SID_BIT)) {
+		struct json_object *jadj = json_object_new_array();
+
+		json_object_object_add(json_ls_attr, "adjSids", jadj);
+		for (int i = 0; i < ls_attr->adj_sid_count; i++) {
+			json_object *jobj = json_object_new_object();
+
+			json_object_int_add(jobj, "sid", ls_attr->adj_sid[i].sid);
+			json_object_string_addf(jobj, "flags", "0x%x", ls_attr->adj_sid[i].flags);
+			json_object_int_add(jobj, "weight", ls_attr->adj_sid[i].weight);
+
+			json_object_array_add(jadj, jobj);
+		}
+	}
 
 	/* Performance Metrics - Link Delay */
 	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_DELAY_BIT))
@@ -5961,6 +6209,16 @@ void bgp_ls_attr_display(struct vty *vty, struct bgp_ls_attr *ls_attr)
 	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_LINK_NAME_BIT)) {
 		CHECK_WRAP();
 		col += vty_out(vty, "Link Name: %s", ls_attr->link_name);
+	}
+
+	/* Adjacency SID */
+	if (CHECK_FLAG(ls_attr->present_tlvs, BGP_LS_ATTR_ADJ_SID_BIT)) {
+		for (int i = 0; i < ls_attr->adj_sid_count; i++) {
+			CHECK_WRAP();
+			col += vty_out(vty, "Adjacency-SID: %u Flags: 0x%x Weight: 0x%x",
+				       ls_attr->adj_sid[i].sid, ls_attr->adj_sid[i].flags,
+				       ls_attr->adj_sid[i].weight);
+		}
 	}
 
 	/* Performance Metrics - Link Delay */
