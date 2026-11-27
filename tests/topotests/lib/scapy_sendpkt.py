@@ -6,6 +6,7 @@
 #
 # Copyright (c) 2021, LabN Consulting, L.L.C. ("LabN")
 #
+# DEPRECATED: use lib/scapy_utils.py instead
 import argparse
 import logging
 import re

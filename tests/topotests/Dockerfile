@@ -81,7 +81,8 @@ RUN apt update -y && apt upgrade -y && \
     python3 -m pip install wheel && \
     python3 -m pip install 'protobuf<4' grpcio grpcio-tools && \
     python3 -m pip install 'pytest>=6.2.4' 'pytest-xdist>=2.3.0' && \
-    python3 -m pip install 'scapy>=2.4.5' && \
+    python3 -m pip install 'scapy>=2.6.0' && \
+    python3 -m pip install 'netns>=1.0' && \
     python3 -m pip install xmltodict && \
     python3 -m pip install git+https://github.com/Exa-Networks/exabgp@0659057837cd6c6351579e9f0fa47e9fb7de7311
 
