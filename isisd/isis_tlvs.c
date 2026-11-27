@@ -5038,6 +5038,22 @@ static size_t isis_router_cap_subtlv_size(size_t *tlv_len, size_t hdr_len, size_
 	return 2 + hdr_len + subtlv_sz;
 }
 
+#ifndef FABRICD
+/*
+ * Whether a Flex-Algo definition can be encoded whatever else is configured:
+ * its sub-TLV has to fit in a Router Capability TLV that also carries an IPv6
+ * TE Router ID. One that does not (e.g. two affinities with bit positions near
+ * 1023) would wrap its own length and the TLV length.
+ */
+bool isis_flex_algo_fad_fits(const struct flex_algo *fa)
+{
+	struct isis_router_cap_fad fad = { .fad = *fa };
+
+	return 2 + isis_router_cap_fad_sub_tlv_len(&fad) <=
+	       UINT8_MAX - (ISIS_ROUTER_CAP_SIZE + ISIS_SUBTLV_HDR_SIZE + IPV6_MAX_BYTELEN);
+}
+#endif /* ifndef FABRICD */
+
 static size_t isis_router_cap_tlv_size(const struct isis_router_cap *router_cap)
 {
 	size_t hdr_len = ISIS_ROUTER_CAP_SIZE;

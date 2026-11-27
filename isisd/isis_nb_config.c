@@ -453,6 +453,9 @@ int isis_instance_purge_originator_modify(struct nb_cb_modify_args *args)
 }
 
 
+static int isis_flex_algos_validate_size(const struct lyd_node *dnode, const char *xpath,
+					 char *errmsg, size_t errmsg_len);
+
 /*
  * XPath: /frr-isisd:isis/instance/admin-group-send-zero
  */
@@ -463,6 +466,9 @@ int isis_instance_admin_group_send_zero_modify(struct nb_cb_modify_args *args)
 	struct listnode *node;
 	struct flex_algo *fa;
 
+	if (args->event == NB_EV_VALIDATE)
+		return isis_flex_algos_validate_size(args->dnode, "../flex-algos/flex-algo",
+						     args->errmsg, args->errmsg_len);
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
@@ -2920,6 +2926,92 @@ int isis_instance_flex_algo_advertise_definition_destroy(struct nb_cb_destroy_ar
 	return NB_OK;
 }
 
+static int flex_algo_affinity_set_iter(const struct lyd_node *dnode, void *arg)
+{
+	const struct lyd_node *map;
+
+	map = yang_dnode_getf(dnode,
+			      "/frr-affinity-map:lib/affinity-maps/affinity-map[name='%s']/value",
+			      yang_dnode_get_string(dnode, NULL));
+	if (map)
+		admin_group_set(arg, yang_dnode_get_uint16(map, NULL));
+
+	return YANG_ITER_CONTINUE;
+}
+
+/*
+ * A FAD sub-TLV, like the Router Capability TLV that carries it, has an 8-bit
+ * length, so refuse a Flex-Algo definition (in the candidate configuration)
+ * whose affinities are too large to advertise.
+ */
+static int isis_flex_algo_validate_size(const struct lyd_node *fa_dnode, char *errmsg,
+					size_t errmsg_len)
+{
+	struct flex_algo fa = {};
+	bool fits;
+
+	admin_group_init(&fa.admin_group_exclude_any);
+	admin_group_init(&fa.admin_group_include_any);
+	admin_group_init(&fa.admin_group_include_all);
+
+	yang_dnode_iterate(flex_algo_affinity_set_iter, &fa.admin_group_exclude_any, fa_dnode,
+			   "affinity-exclude-anies/affinity-exclude-any");
+	yang_dnode_iterate(flex_algo_affinity_set_iter, &fa.admin_group_include_any, fa_dnode,
+			   "affinity-include-anies/affinity-include-any");
+	yang_dnode_iterate(flex_algo_affinity_set_iter, &fa.admin_group_include_all, fa_dnode,
+			   "affinity-include-alls/affinity-include-all");
+	if (yang_dnode_get_bool(fa_dnode, "../../admin-group-send-zero")) {
+		admin_group_allow_explicit_zero(&fa.admin_group_exclude_any);
+		admin_group_allow_explicit_zero(&fa.admin_group_include_any);
+		admin_group_allow_explicit_zero(&fa.admin_group_include_all);
+	}
+	if (yang_dnode_exists(fa_dnode, "prefix-metric"))
+		SET_FLAG(fa.flags, FAD_FLAG_M);
+
+	fits = isis_flex_algo_fad_fits(&fa);
+
+	admin_group_term(&fa.admin_group_exclude_any);
+	admin_group_term(&fa.admin_group_include_any);
+	admin_group_term(&fa.admin_group_include_all);
+
+	if (!fits) {
+		snprintfrr(errmsg, errmsg_len,
+			   "flex-algo %u definition too large to advertise, use affinity-maps with lower bit-positions",
+			   yang_dnode_get_uint32(fa_dnode, "flex-algo"));
+		return NB_ERR_VALIDATION;
+	}
+
+	return NB_OK;
+}
+
+struct flex_algo_validate_arg {
+	char *errmsg;
+	size_t errmsg_len;
+	int ret;
+};
+
+static int flex_algo_validate_size_iter(const struct lyd_node *dnode, void *arg)
+{
+	struct flex_algo_validate_arg *va = arg;
+
+	va->ret = isis_flex_algo_validate_size(dnode, va->errmsg, va->errmsg_len);
+	return va->ret == NB_OK ? YANG_ITER_CONTINUE : YANG_ITER_STOP;
+}
+
+/* Validate the size of every Flex-Algo definition matching xpath */
+static int isis_flex_algos_validate_size(const struct lyd_node *dnode, const char *xpath,
+					 char *errmsg, size_t errmsg_len)
+{
+	struct flex_algo_validate_arg va = {
+		.errmsg = errmsg,
+		.errmsg_len = errmsg_len,
+		.ret = NB_OK,
+	};
+
+	yang_dnode_iterate(flex_algo_validate_size_iter, &va, dnode, "%s", xpath);
+	return va.ret;
+}
+
 static int isis_instance_flex_algo_affinity_set(struct nb_cb_create_args *args, int type)
 {
 	char xpathr[XPATH_MAXLEN];
@@ -2942,7 +3034,8 @@ static int isis_instance_flex_algo_affinity_set(struct nb_cb_create_args *args, 
 				 val);
 			return NB_ERR_VALIDATION;
 		}
-		break;
+		return isis_flex_algo_validate_size(yang_dnode_get_parent(args->dnode, "flex-algo"),
+						    args->errmsg, args->errmsg_len);
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
@@ -3104,6 +3197,8 @@ int isis_instance_flex_algo_prefix_metric_create(struct nb_cb_create_args *args)
 		lsp_regenerate_schedule(area, area->is_type, 0);
 		break;
 	case NB_EV_VALIDATE:
+		return isis_flex_algo_validate_size(yang_dnode_get_parent(args->dnode, "flex-algo"),
+						    args->errmsg, args->errmsg_len);
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
