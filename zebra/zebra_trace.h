@@ -459,12 +459,13 @@ TRACEPOINT_EVENT(
 TRACEPOINT_LOGLEVEL(frr_zebra, zebra_nhg_dplane_result, TRACE_INFO)
 
 /*
- * Route dataplane context init aborted: kernel nexthop group not yet installed
- * or queued. Scalar fields only for lightweight tracing.
+ * rib_install_kernel() skipped the dataplane enqueue of a route because the
+ * kernel nexthop group it uses is neither installed nor queued. Scalar fields
+ * only for lightweight tracing.
  */
 TRACEPOINT_EVENT(
 	frr_zebra,
-	dplane_ctx_route_kernel_nhg_not_ready,
+	rib_install_kernel_nhg_not_ready,
 	TP_ARGS(
 		enum dplane_op_e, op,
 		uint32_t, nhe_id,
@@ -478,7 +479,7 @@ TRACEPOINT_EVENT(
 	)
 )
 
-TRACEPOINT_LOGLEVEL(frr_zebra, dplane_ctx_route_kernel_nhg_not_ready, TRACE_INFO)
+TRACEPOINT_LOGLEVEL(frr_zebra, rib_install_kernel_nhg_not_ready, TRACE_INFO)
 
 TRACEPOINT_EVENT(
 	frr_zebra,

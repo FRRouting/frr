@@ -4567,27 +4567,6 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 
 		ctx->u.rinfo.nhe.id = nhe->id;
 		ctx->u.rinfo.nhe.old_id = 0;
-		/*
-		 * Check if the nhe is installed/queued before doing anything
-		 * with this route.
-		 *
-		 * If its a delete we only use the prefix anyway, so this only
-		 * matters for INSTALL/UPDATE.
-		 */
-		if (zebra_nhg_kernel_nexthops_enabled() &&
-		    (((op == DPLANE_OP_ROUTE_INSTALL) || (op == DPLANE_OP_ROUTE_UPDATE)) &&
-		     !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED) &&
-		     !CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_QUEUED))) {
-			frrtrace(4, frr_zebra, dplane_ctx_route_kernel_nhg_not_ready, op, nhe->id,
-				 nhe->flags, re->vrf_id);
-			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL || IS_ZEBRA_DEBUG_RIB_DETAILED)
-				zlog_debug("%s (%s:%u:%u)%pRN op %s nhg id %u flags 0x%x nh %pNHs not installed nor queued",
-					   __func__, zvrf_name(zvrf), re->vrf_id, re->table, rn,
-					   dplane_op2str(op), nhe->id, nhe->flags,
-					   nhe->nhg.nexthop);
-
-			return ENOENT;
-		}
 	}
 #endif /* HAVE_NETLINK */
 
@@ -5268,7 +5247,11 @@ static int dplane_update_enqueue(struct zebra_dplane_ctx *ctx)
 }
 
 /*
- * Utility that prepares a route update and enqueues it for processing
+ * Utility that prepares a route update and enqueues it for processing.
+ *
+ * This does not check that the kernel NHG used by the route is installed or
+ * queued. rib_install_kernel() does that before calling dplane_route_add() or
+ * dplane_route_update(), so a new caller of those must do the same.
  */
 static enum zebra_dplane_result
 dplane_route_update_internal(struct route_node *rn,
