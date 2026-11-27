@@ -252,6 +252,10 @@ struct rip_info {
 /* Flags of RIP route. */
 #define RIP_RTF_FIB      1
 #define RIP_RTF_CHANGED  2
+/* Route was permitted by its redistribute route-map at the last update, i.e.
+ * it has been advertised to neighbors under the current policy.
+ */
+#define RIP_RTF_POLICY_ADVERTISED 4
 	uint8_t flags;
 
 	/* Garbage collect timer - not copied by rip_info_cpy() */
