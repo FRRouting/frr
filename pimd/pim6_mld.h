@@ -373,5 +373,6 @@ extern void gm_group_delete(struct interface *ifp);
 
 extern void gm_cli_init(void);
 bool in6_multicast_nofwd(const pim_addr *addr);
+bool gm_sg_has_interest(const struct gm_sg *sg);
 
 #endif /* PIM6_MLD_H */

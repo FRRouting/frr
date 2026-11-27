@@ -29,4 +29,24 @@ extern void tib_sg_downstream_ifaces_foreach(struct pim_instance *pim, pim_sgadd
 					     void (*cb)(struct interface *ifp, void *arg),
 					     void *arg);
 
+struct interface;
+
+/* Does ifp have IGMP/MLD membership, a static group or a local join for sg? */
+extern bool tib_sg_ifp_has_downstream_interest(struct interface *ifp, pim_sgaddr sg);
+
+/*
+ * Recompute proxy joins on proxy_ifp from current downstream interest and
+ * its proxy route-map. Used when the route-map is attached, detached, or
+ * its contents change, which is not a membership event.
+ */
+extern void tib_sg_proxy_filter_reeval(struct pim_instance *pim, struct interface *proxy_ifp);
+
+/*
+ * Route-map rmap_name changed: re-evaluate every proxy interface that has a
+ * proxy route-map, after a short delay, since rmap_name may be called from
+ * any of them.
+ */
+extern void pim_gm_proxy_filter_update(const char *rmap_name);
+extern void pim_gm_proxy_filter_terminate(void);
+
 #endif /* _FRR_PIM_GLUE_H */

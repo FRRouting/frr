@@ -108,7 +108,8 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim, struct pim_upstream
 		neigh_needed = false;
 
 	pim_nht_find_or_track(pim, up->upstream_addr, up, NULL, NULL);
-	if (!pim_nht_lookup_ecmp(pim, &rpf->source_nexthop, src, &grp, neigh_needed, ingress_ifp)) {
+	if (!pim_nht_lookup_ecmp(pim, &rpf->source_nexthop, src, &grp, neigh_needed, ingress_ifp,
+				 up->sg.src)) {
 		/* Route is Deleted in Zebra, reset the stored NH data */
 		pim_upstream_rpf_clear(pim, up);
 		pim_rpf_cost_change(pim, up, saved_mrib_route_metric);

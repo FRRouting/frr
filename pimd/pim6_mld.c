@@ -293,6 +293,21 @@ static bool gm_sg_filter_match(const struct gm_if *gm_if, const pim_addr source,
 }
 
 /*
+ * Does this (S,G) hold membership we would forward for?  Same test
+ * gm_sg_update() uses to join the TIB, but independent of whether that join
+ * succeeded (tib_joined stays false on a non-DR).
+ */
+bool gm_sg_has_interest(const struct gm_sg *sg)
+{
+	if (sg->iface->stopping || in6_multicast_nofwd(&sg->sgaddr.grp))
+		return false;
+	if (!gm_sg_state_want_join(sg->state))
+		return false;
+
+	return !gm_sg_filter_match(sg->iface, sg->sgaddr.src, sg->sgaddr.grp);
+}
+
+/*
  * interface -> packets, sorted by expiry (because add_tail insert order)
  */
 

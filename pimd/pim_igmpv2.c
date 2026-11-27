@@ -84,6 +84,7 @@ int igmp_v2_recv_report(struct gm_sock *igmp, struct in_addr from, struct in_add
 	struct interface *ifp = igmp->interface;
 	struct in_addr group_addr;
 	struct pim_interface *pim_ifp;
+	struct igmp_self_joins sj;
 
 	on_trace(__func__, igmp->interface, from);
 
@@ -124,6 +125,18 @@ int igmp_v2_recv_report(struct gm_sock *igmp, struct in_addr from, struct in_add
 
 	if (pim_is_group_filtered(pim_ifp, &group_addr, NULL))
 		return -1;
+
+	/*
+	 * Our own report for a group we proxy here: not a receiver unless a
+	 * local (*,G) join wants the whole group.  A v2 report cannot carry a
+	 * local (S,G) join's source, and it must not become (*,G) membership.
+	 */
+	if (igmp_self_report_joins(ifp, from, group_addr, &sj) && !sj.local_any) {
+		if (PIM_DEBUG_GM_PACKETS)
+			zlog_debug("Ignoring IGMPv2 report for proxied group %pI4 from ourselves on %s",
+				   &group_addr, ifp->name);
+		return 0;
+	}
 
 	/*
 	 * RFC 4604

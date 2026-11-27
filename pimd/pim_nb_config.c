@@ -30,6 +30,7 @@
 #include "pim6_mld.h"
 #include "pim_autorp.h"
 #include "pim_igmp.h"
+#include "pim_tib.h"
 
 #if PIM_IPV == 6
 #define pim6_msdp_err(funcname, argtype)                                       \
@@ -407,6 +408,10 @@ static int pim_cmd_gm_start(struct interface *ifp)
 	if (need_startup) {
 		pim_if_addr_add_all(ifp);
 		pim_if_membership_refresh(ifp);
+
+		/* A configured proxy becomes active again: rejoin, redo RPF. */
+		if (pim_ifp->gm_proxy)
+			tib_sg_proxy_filter_reeval(pim_ifp->pim, ifp);
 	}
 
 	return NB_OK;
@@ -2408,6 +2413,10 @@ int lib_interface_pim_address_family_pim_enable_modify(struct nb_cb_modify_args 
 
 			pim_pim_interface_delete(ifp);
 		}
+
+		/* A proxy interface can be the RPF interface only with PIM on it */
+		if (pim_if_is_gm_proxy(ifp))
+			pim_nht_upstream_if_update(ifp->vrf->info, ifp);
 		break;
 	}
 
@@ -5315,6 +5324,8 @@ int lib_interface_gm_proxy_rmap_modify(struct nb_cb_modify_args *args)
 
 		rmap = yang_dnode_get_string(args->dnode, NULL);
 		pim_filter_ref_set_rmap(&pim_ifp->gm_proxy_filter, rmap);
+		if (pim_ifp->pim)
+			tib_sg_proxy_filter_reeval(pim_ifp->pim, ifp);
 		break;
 	}
 
@@ -5338,6 +5349,8 @@ int lib_interface_gm_proxy_rmap_destroy(struct nb_cb_destroy_args *args)
 			return NB_ERR_INCONSISTENCY;
 
 		pim_filter_ref_set_rmap(&pim_ifp->gm_proxy_filter, NULL);
+		if (pim_ifp->pim)
+			tib_sg_proxy_filter_reeval(pim_ifp->pim, ifp);
 		break;
 	}
 
@@ -5451,6 +5464,12 @@ int lib_interface_gmp_address_family_proxy_modify(struct nb_cb_modify_args *args
 				pim_if_gm_proxy_init(pim_ifp->pim, ifp);
 			else
 				pim_if_gm_proxy_finis(pim_ifp->pim, ifp);
+
+			/*
+			 * Nexthop selection waives the PIM neighbor on a proxy
+			 * interface: re-run RPF for upstreams using ifp.
+			 */
+			pim_nht_upstream_if_update(pim_ifp->pim, ifp);
 		}
 	}
 	return NB_OK;
