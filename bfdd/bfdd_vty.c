@@ -1108,7 +1108,7 @@ _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 void _display_rtt(uint32_t *min, uint32_t *avg, uint32_t *max,
 		  struct bfd_session *bs)
 {
-#ifdef BFD_LINUX
+#if defined(BFD_LINUX) || defined(BFD_BSD)
 	uint8_t i;
 	uint32_t average = 0;
 
@@ -1116,7 +1116,7 @@ void _display_rtt(uint32_t *min, uint32_t *avg, uint32_t *max,
 		return;
 
 	*max = bs->rtt[0];
-	*min = 1000;
+	*min = bs->rtt[0];
 	*avg = 0;
 
 	for (i = 0; i < bs->rtt_valid; i++) {
