@@ -168,7 +168,7 @@ static int zebra_ns_delete(char *name)
 
 		if (if_is_no_ptm_operative(ifp)) {
 			UNSET_FLAG(ifp->flags, IFF_RUNNING);
-			if_down(ifp);
+			if_down(ifp, true);
 		}
 
 		if (IS_ZEBRA_IF_BOND(ifp))

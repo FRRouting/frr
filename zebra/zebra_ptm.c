@@ -289,7 +289,7 @@ void zebra_if_ptm_enable(struct interface *ifp)
 			if (IS_ZEBRA_DEBUG_EVENT)
 				zlog_debug("%s: Bringing down interface %s",
 					   __func__, ifp->name);
-			if_down(ifp);
+			if_down(ifp, true);
 		}
 	}
 }
@@ -308,7 +308,7 @@ void zebra_if_ptm_disable(struct interface *ifp)
 			if (IS_ZEBRA_DEBUG_EVENT)
 				zlog_debug("%s: Bringing up interface %s",
 					   __func__, ifp->name);
-			if_up(ifp, true);
+			if_up(ifp, true, false);
 		}
 	}
 
@@ -492,12 +492,12 @@ static int zebra_ptm_handle_cbl_msg(void *arg, void *in_ctxt,
 		ifp->ptm_status = ZEBRA_PTM_STATUS_UP;
 		if (ifp->ptm_enable && if_is_no_ptm_operative(ifp)
 		    && send_linkup)
-			if_up(ifp, true);
+			if_up(ifp, true, false);
 	} else if (!strcmp(cbl_str, ZEBRA_PTM_FAIL_STR)
 		   && (ifp->ptm_status != ZEBRA_PTM_STATUS_DOWN)) {
 		ifp->ptm_status = ZEBRA_PTM_STATUS_DOWN;
 		if (ifp->ptm_enable && if_is_no_ptm_operative(ifp))
-			if_down(ifp);
+			if_down(ifp, true);
 	}
 
 	return 0;
@@ -1100,7 +1100,7 @@ void zebra_ptm_reset_status(int ptm_disable)
 						zlog_debug(
 							"%s: Bringing up interface %s",
 							__func__, ifp->name);
-					if_up(ifp, true);
+					if_up(ifp, true, false);
 				}
 			}
 		}
