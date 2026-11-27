@@ -641,22 +641,35 @@ static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-struct interface *if_lookup_by_ipv4(struct in_addr *addr, vrf_id_t vrf_id)
+struct interface *if_lookup_by_ipv4(struct bgp *bgp, struct in_addr *addr)
 {
-	struct vrf *vrf;
-	struct interface *ifp;
-	struct connected *connected;
+	struct bgp_dest *dest;
+	struct bgp_connected_ref *bc;
+	struct interface *ifp = NULL;
 	struct prefix_ipv4 p;
+	struct vrf *vrf;
+	struct connected *connected;
 	struct prefix *cp;
-
-	vrf = vrf_lookup_by_id(vrf_id);
-	if (!vrf)
-		return NULL;
 
 	p.family = AF_INET;
 	p.prefix = *addr;
 	p.prefixlen = IPV4_MAX_BITLEN;
 
+	if (bgp->inst_type != BGP_INSTANCE_TYPE_VIEW) {
+		dest = bgp_node_match(bgp->connected_table[AFI_IP], (struct prefix *)&p);
+		if (dest) {
+			bc = bgp_dest_get_bgp_connected_ref_info(dest);
+			if (bc)
+				ifp = bc->ifp;
+			bgp_dest_unlock_node(dest);
+		}
+		return ifp;
+	}
+
+	/* Views have no connected_table entries; scan the VRF interfaces directly. */
+	vrf = vrf_lookup_by_id(bgp->vrf_id);
+	if (!vrf)
+		return NULL;
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		frr_each (if_connected, ifp->connected, connected) {
 			cp = connected->address;
@@ -692,36 +705,58 @@ struct interface *if_lookup_by_ipv4_exact(struct in_addr *addr, vrf_id_t vrf_id)
 	return NULL;
 }
 
-struct interface *if_lookup_by_ipv6(struct in6_addr *addr, ifindex_t ifindex,
-				    vrf_id_t vrf_id)
+struct interface *if_lookup_by_ipv6(struct bgp *bgp, struct in6_addr *addr, ifindex_t ifindex)
 {
-	struct vrf *vrf;
 	struct interface *ifp;
 	struct connected *connected;
 	struct prefix_ipv6 p;
 	struct prefix *cp;
-
-	vrf = vrf_lookup_by_id(vrf_id);
-	if (!vrf)
-		return NULL;
+	struct bgp_dest *dest;
+	struct bgp_connected_ref *bc;
+	struct vrf *vrf;
 
 	p.family = AF_INET6;
 	p.prefix = *addr;
 	p.prefixlen = IPV6_MAX_BITLEN;
 
-	FOR_ALL_INTERFACES (vrf, ifp) {
+	/* Link-local address: look up by ifindex in the VRF. */
+	if (IN6_IS_ADDR_LINKLOCAL(addr)) {
+		ifp = if_lookup_by_index(ifindex, bgp->vrf_id);
+		if (!ifp)
+			return NULL;
+
 		frr_each (if_connected, ifp->connected, connected) {
 			cp = connected->address;
 
-			if (cp->family == AF_INET6)
-				if (prefix_match(cp, (struct prefix *)&p)) {
-					if (IN6_IS_ADDR_LINKLOCAL(
-						    &cp->u.prefix6)) {
-						if (ifindex == ifp->ifindex)
-							return ifp;
-					} else
-						return ifp;
-				}
+			if (cp->family == AF_INET6 && prefix_match(cp, (struct prefix *)&p))
+				return ifp;
+		}
+		return NULL;
+	}
+
+	/* Global address */
+	if (bgp->inst_type != BGP_INSTANCE_TYPE_VIEW) {
+		ifp = NULL;
+		dest = bgp_node_match(bgp->connected_table[AFI_IP6], (struct prefix *)&p);
+		if (dest) {
+			bc = bgp_dest_get_bgp_connected_ref_info(dest);
+			if (bc)
+				ifp = bc->ifp;
+			bgp_dest_unlock_node(dest);
+		}
+		return ifp;
+	}
+
+	/* Views have no connected_table entries; scan the VRF interfaces directly. */
+	vrf = vrf_lookup_by_id(bgp->vrf_id);
+	if (!vrf)
+		return NULL;
+	FOR_ALL_INTERFACES (vrf, ifp) {
+		frr_each (if_connected, ifp->connected, connected) {
+			cp = connected->address;
+			if (cp->family == AF_INET6 && !IN6_IS_ADDR_LINKLOCAL(&cp->u.prefix6) &&
+			    prefix_match(cp, (struct prefix *)&p))
+				return ifp;
 		}
 	}
 	return NULL;
@@ -922,13 +957,13 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 			}
 
 			/* Check if peer is directly connected */
-			direct = if_lookup_by_ipv4(&remote->sin.sin_addr, peer->bgp->vrf_id);
+			direct = if_lookup_by_ipv4(peer->bgp, &remote->sin.sin_addr);
 
 			/* Allow bypass if IPv6 AF is NOT configured or connection is NOT direct */
 			if (!peer_has_ipv6_configured || !direct)
 				v6_ll_avail = true;
 		}
-		if (if_lookup_by_ipv4(&remote->sin.sin_addr, peer->bgp->vrf_id))
+		if (if_lookup_by_ipv4(peer->bgp, &remote->sin.sin_addr))
 			peer->shared_network = true;
 		else
 			peer->shared_network = false;
@@ -949,9 +984,8 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 			       IPV6_MAX_BYTELEN);
 
 			/* If directly connected set link-local address. */
-			direct = if_lookup_by_ipv6(&remote->sin6.sin6_addr,
-						   remote->sin6.sin6_scope_id,
-						   peer->bgp->vrf_id);
+			direct = if_lookup_by_ipv6(peer->bgp, &remote->sin6.sin6_addr,
+						   remote->sin6.sin6_scope_id);
 			if (direct)
 				v6_ll_avail = if_get_ipv6_local(
 					ifp, &nexthop->v6_local);
@@ -990,10 +1024,9 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 			       IPV6_MAX_BYTELEN);
 		}
 
-		if (IN6_IS_ADDR_LINKLOCAL(&local->sin6.sin6_addr)
-		    || if_lookup_by_ipv6(&remote->sin6.sin6_addr,
-					 remote->sin6.sin6_scope_id,
-					 peer->bgp->vrf_id))
+		if (IN6_IS_ADDR_LINKLOCAL(&local->sin6.sin6_addr) ||
+		    if_lookup_by_ipv6(peer->bgp, &remote->sin6.sin6_addr,
+				      remote->sin6.sin6_scope_id))
 			peer->shared_network = true;
 		else
 			peer->shared_network = false;
@@ -3402,6 +3435,14 @@ static void bgp_zebra_connected(struct zclient *zclient)
 
 	/* Send the client registration */
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);
+
+	/* Zebra replays all interface addresses on reconnect.  Reset the
+	 * connected_table so the replay rebuilds it from scratch rather than
+	 * inflating refcounts, which would leave deleted subnets appearing
+	 * connected.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, bnode, bgp))
+		bgp_connected_table_reset(bgp);
 
 	/* A restarted zebra has lost any previously installed BGP routes, and a
 	 * stable BGP RIB will not re-select unchanged best paths on its own.
