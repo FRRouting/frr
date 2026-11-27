@@ -110,6 +110,7 @@ static int ospf_interface_address_delete(ZAPI_CALLBACK_ARGS)
 	struct ospf_interface *oi;
 	struct route_node *rn;
 	struct prefix p;
+	struct ospf *ospf;
 
 	c = zebra_interface_address_read(cmd, zclient->ibuf, vrf_id);
 
@@ -134,8 +135,29 @@ static int ospf_interface_address_delete(ZAPI_CALLBACK_ARGS)
 	oi = rn->info;
 	route_unlock_node(rn);
 
+	/*
+	 * The oi table is keyed by the host address only. If the same
+	 * address is configured more than once with different prefix
+	 * lengths, only tear down the oi when the deleted address is the
+	 * one it is bound to.
+	 */
+	if (!prefix_same(oi->address, c->address)) {
+		connected_free(&c);
+		return 0;
+	}
+
 	/* Call interface hook functions to clean up */
 	ospf_if_free(oi);
+
+	/*
+	 * Another connected address with the same host address (but a
+	 * different prefix length) may still be present and match the
+	 * interface configuration, e.g. "ip ospf area A.B.C.D <addr>".
+	 * Re-run the interface update so it gets an oi.
+	 */
+	ospf = ospf_lookup_by_vrf_id(vrf_id);
+	if (ospf)
+		ospf_if_update(ospf, ifp);
 
 	ospf_if_interface(c->ifp);
 
