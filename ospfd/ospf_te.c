@@ -2067,6 +2067,10 @@ static void ospf_te_update_remote_asbr(struct ls_ted *ted, struct ls_edge *edge)
 		snprintfrr(lnode->name, MAX_NAME_LENGTH, "%pI4",
 			   &lnid.id.ip.addr);
 		vertex = ls_vertex_add(ted, lnode);
+		if (!vertex) {
+			ls_node_del(lnode);
+			return;
+		}
 	}
 
 	/* Update Node information */
