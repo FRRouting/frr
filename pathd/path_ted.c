@@ -202,11 +202,43 @@ uint32_t path_ted_rcvd_message(struct ls_message *msg)
 	return 0;
 }
 
-uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
+/* V-Flag of the Adj-SID: RFC 8665 section 6.1, RFC 8667 section 2.2.1 */
+#define PATH_TED_OSPF_ADJ_SID_VFLG 0x40
+#define PATH_TED_ISIS_ADJ_SID_VFLG 0x20
+
+/* Primary Adj-SID of an edge, if it is a label: an index is not supported */
+static uint32_t path_ted_adj_sid_label(struct ls_attributes *attr, int idx)
+{
+	uint8_t vflag = 0;
+
+	switch (attr->adv.origin) {
+	case ISIS_L1:
+	case ISIS_L2:
+		vflag = PATH_TED_ISIS_ADJ_SID_VFLG;
+		break;
+	case OSPFv2:
+		vflag = PATH_TED_OSPF_ADJ_SID_VFLG;
+		break;
+	case UNKNOWN:
+	case DIRECT:
+	case STATIC:
+		return attr->adj_sid[idx].sid;
+	}
+
+	if (!CHECK_FLAG(attr->adj_sid[idx].flags, vflag)) {
+		PATH_TED_DEBUG("%s: PATHD-TED: Adj-SID index %u not supported", __func__,
+			       attr->adj_sid[idx].sid);
+		return MPLS_LABEL_NONE;
+	}
+
+	return attr->adj_sid[idx].sid;
+}
+
+uint32_t path_ted_query_adj_sid(struct ipaddr *local, struct ipaddr *remote)
 {
 	uint32_t sid = MPLS_LABEL_NONE;
 	struct ls_edge *edge;
-	struct ls_edge_key key;
+	struct ls_edge_key key = {};
 
 	if (!path_ted_is_initialized())
 		return MPLS_LABEL_NONE;
@@ -226,8 +258,7 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 				    == remote->ip._v4_addr.s_addr
 			    && CHECK_FLAG(edge->attributes->flags,
 					  LS_ATTR_ADJ_SID)) {
-				sid = edge->attributes->adj_sid[0]
-					      .sid; /* from primary */
+				sid = path_ted_adj_sid_label(edge->attributes, ADJ_PRI_IPV4);
 				break;
 			}
 		}
@@ -242,8 +273,7 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 					 sizeof(remote->ip._v6_addr)) &&
 			     CHECK_FLAG(edge->attributes->flags,
 					LS_ATTR_ADJ_SID6))) {
-				sid = edge->attributes->adj_sid[ADJ_PRI_IPV6]
-					      .sid; /* from primary */
+				sid = path_ted_adj_sid_label(edge->attributes, ADJ_PRI_IPV6);
 				break;
 			}
 		}
@@ -255,7 +285,59 @@ uint32_t path_ted_query_type_f(struct ipaddr *local, struct ipaddr *remote)
 	return sid;
 }
 
-uint32_t path_ted_query_type_c(struct prefix *prefix, uint8_t algo)
+/* V-Flag of the Prefix-SID: RFC 8665 section 5, RFC 8667 section 2.1.1 */
+#define PATH_TED_PREFIX_SID_VFLG 0x08
+
+/*
+ * Label of a Prefix-SID. An index is converted with the SRGB of the node that
+ * looks the label up: the head-end for the first segment, the node reached by
+ * the previous segment for the others. The TED of pathd knows neither, so the
+ * index is converted only when all the SR nodes give the same label.
+ */
+static uint32_t path_ted_prefix_sid_label(struct ls_subnet *subnet)
+{
+	struct ls_prefix *pref = subnet->ls_pref;
+	struct ls_vertex *vertex;
+	struct ls_node *node;
+
+	switch (pref->adv.origin) {
+	case ISIS_L1:
+	case ISIS_L2:
+	case OSPFv2:
+		break;
+	case UNKNOWN:
+	case DIRECT:
+	case STATIC:
+		return pref->sr.sid;
+	}
+
+	if (CHECK_FLAG(pref->sr.sid_flag, PATH_TED_PREFIX_SID_VFLG))
+		return pref->sr.sid;
+
+	node = subnet->vertex ? subnet->vertex->node : NULL;
+	if (!node || !CHECK_FLAG(node->flags, LS_NODE_SR) ||
+	    pref->sr.sid >= node->srgb.range_size) {
+		PATH_TED_DEBUG("%s: PATHD-TED: Prefix-SID index %u of %pFX out of the SRGB",
+			       __func__, pref->sr.sid, &pref->pref);
+		return MPLS_LABEL_NONE;
+	}
+
+	frr_each (vertices, &ted_state_g.ted->vertices, vertex) {
+		if (!vertex->node || !CHECK_FLAG(vertex->node->flags, LS_NODE_SR))
+			continue;
+		if (vertex->node->srgb.lower_bound != node->srgb.lower_bound ||
+		    pref->sr.sid >= vertex->node->srgb.range_size) {
+			PATH_TED_DEBUG("%s: PATHD-TED: Prefix-SID index %u of %pFX not converted, the SRGB of %pI4 differs",
+				       __func__, pref->sr.sid, &pref->pref,
+				       &vertex->node->router_id);
+			return MPLS_LABEL_NONE;
+		}
+	}
+
+	return node->srgb.lower_bound + pref->sr.sid;
+}
+
+uint32_t path_ted_query_prefix_sid(struct prefix *prefix, uint8_t algo)
 {
 	uint32_t sid = MPLS_LABEL_NONE;
 	struct ls_subnet *subnet;
@@ -273,7 +355,7 @@ uint32_t path_ted_query_type_c(struct prefix *prefix, uint8_t algo)
 		if (subnet) {
 			if ((CHECK_FLAG(subnet->ls_pref->flags, LS_PREF_SR))
 			    && (subnet->ls_pref->sr.algo == algo))
-				sid = subnet->ls_pref->sr.sid;
+				sid = path_ted_prefix_sid_label(subnet);
 		}
 		break;
 	default:
@@ -283,9 +365,11 @@ uint32_t path_ted_query_type_c(struct prefix *prefix, uint8_t algo)
 	return sid;
 }
 
-uint32_t path_ted_query_type_e(struct prefix *prefix, uint32_t iface_id)
+uint32_t path_ted_query_prefix_iface_adj_sid(struct prefix *prefix, uint32_t iface_id)
 {
 	uint32_t sid = MPLS_LABEL_NONE;
+	uint32_t other_sid = MPLS_LABEL_NONE;
+	uint32_t label;
 	struct ls_subnet *subnet;
 	struct listnode *lst_node;
 	struct ls_edge *edge;
@@ -308,13 +392,41 @@ uint32_t path_ted_query_type_e(struct prefix *prefix, uint32_t iface_id)
 				     subnet->vertex->outgoing_edges, lst_node,
 				     edge)) {
 				/* and look for ifaceid */
-				/* so get sid of attribute */
-				if (CHECK_FLAG(edge->attributes->flags,
-					       LS_ATTR_LOCAL_ID)
-				    && edge->attributes->standard.local_id
-					       == iface_id) {
-					sid = subnet->ls_pref->sr.sid;
-					break;
+				/* so get the Adj-SID of the matching edge */
+				if (!CHECK_FLAG(edge->attributes->flags, LS_ATTR_LOCAL_ID) ||
+				    edge->attributes->standard.local_id != iface_id)
+					continue;
+
+				/*
+				 * The link may have one edge per topology with the
+				 * same interface ID: take the one with an Adj-SID of
+				 * the prefix family, or else, as on an unnumbered
+				 * link, an Adj-SID of the other family
+				 */
+				label = MPLS_LABEL_NONE;
+				if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_ADJ_SID))
+					label = path_ted_adj_sid_label(edge->attributes,
+								       ADJ_PRI_IPV4);
+				if (label != MPLS_LABEL_NONE) {
+					if (prefix->family == AF_INET) {
+						sid = label;
+						break;
+					}
+					if (other_sid == MPLS_LABEL_NONE)
+						other_sid = label;
+				}
+
+				label = MPLS_LABEL_NONE;
+				if (CHECK_FLAG(edge->attributes->flags, LS_ATTR_ADJ_SID6))
+					label = path_ted_adj_sid_label(edge->attributes,
+								       ADJ_PRI_IPV6);
+				if (label != MPLS_LABEL_NONE) {
+					if (prefix->family == AF_INET6) {
+						sid = label;
+						break;
+					}
+					if (other_sid == MPLS_LABEL_NONE)
+						other_sid = label;
 				}
 			}
 		}
@@ -322,6 +434,9 @@ uint32_t path_ted_query_type_e(struct prefix *prefix, uint32_t iface_id)
 	default:
 		break;
 	}
+
+	if (sid == MPLS_LABEL_NONE)
+		sid = other_sid;
 
 	return sid;
 }

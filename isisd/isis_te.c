@@ -484,8 +484,59 @@ void isis_link_params_update(struct isis_circuit *circuit, struct interface *ifp
 	}
 
 	isis_link_params_update_asla(circuit, ifp);
+	isis_mpls_te_circuit_llri_update(circuit);
 
 	return;
+}
+
+/*
+ * Link Local/Remote Identifiers (RFC 5307 section 1.1) of a point-to-point
+ * circuit: the Extended Local Circuit IDs of both ends, as exchanged by the
+ * three-way handshake (RFC 5303). The remote one is 0 when unknown.
+ */
+void isis_mpls_te_circuit_llri_update(struct isis_circuit *circuit)
+{
+	struct isis_ext_subtlvs *ext = circuit->ext;
+	struct isis_adjacency *adj = NULL;
+	uint32_t local_llri, remote_llri;
+	bool was_set;
+
+	if (!ext || !circuit->area)
+		return;
+
+	was_set = !!IS_SUBTLV(ext, EXT_LLRI);
+	local_llri = ext->local_llri;
+	remote_llri = ext->remote_llri;
+
+	if (circuit->circ_type == CIRCUIT_T_P2P)
+		adj = circuit->u.p2p.neighbor;
+
+	if (IS_MPLS_TE(circuit->area->mta) && circuit->te_link_identifiers && adj &&
+	    adj->adj_state == ISIS_ADJ_UP) {
+		ext->local_llri = isis_circuit_ext_id(circuit);
+		ext->remote_llri = adj->ext_circuit_id;
+		SET_SUBTLV(ext, EXT_LLRI);
+	} else
+		UNSET_SUBTLV(ext, EXT_LLRI);
+
+	if (was_set == !!IS_SUBTLV(ext, EXT_LLRI) &&
+	    (!was_set || (local_llri == ext->local_llri && remote_llri == ext->remote_llri)))
+		return;
+
+	te_debug("ISIS-TE(%s): %s Link Local/Remote Identifiers %u/%u on %s",
+		 circuit->area->area_tag, IS_SUBTLV(ext, EXT_LLRI) ? "Set" : "Unset",
+		 ext->local_llri, ext->remote_llri,
+		 circuit->interface ? circuit->interface->name : "?");
+
+	lsp_regenerate_schedule(circuit->area, circuit->is_type, 0);
+}
+
+static int isis_mpls_te_adj_state_change(struct isis_adjacency *adj)
+{
+	if (adj->circuit)
+		isis_mpls_te_circuit_llri_update(adj->circuit);
+
+	return 0;
 }
 
 static int _isis_mpls_te_adj_ip_enabled(struct isis_adjacency *adj, int family, bool global)
@@ -842,36 +893,13 @@ static struct ls_vertex *lsp_to_vertex(struct ls_ted *ted, struct isis_lsp *lsp)
 static struct ls_edge *get_edge(struct ls_ted *ted, struct ls_attributes *attr)
 {
 	struct ls_edge *edge;
-	struct ls_standard *std;
-	struct ls_edge_key key;
 
 	/* Check parameters */
 	if (!ted || !attr)
 		return NULL;
 
-	std = &attr->standard;
-
-	/* Compute keys in function of local address (IPv4/v6) or identifier */
-	if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR)) {
-		key.family = AF_INET;
-		IPV4_ADDR_COPY(&key.k.addr, &std->local);
-	} else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR6)) {
-		key.family = AF_INET6;
-		IPV6_ADDR_COPY(&key.k.addr6, &std->local6);
-	} else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ID)) {
-		key.family = AF_LOCAL;
-		key.k.link_id = (((uint64_t)std->local_id) & 0xffffffff) |
-				((uint64_t)std->remote_id << 32);
-	} else {
-		key.family = AF_UNSPEC;
-	}
-
-	/* Stop here if we don't got a valid key */
-	if (key.family == AF_UNSPEC)
-		return NULL;
-
-	/* Get corresponding Edge by key from Link State Data Base */
-	edge = ls_find_edge_by_key(ted, key);
+	/* Get corresponding Edge from Link State Data Base */
+	edge = ls_find_edge_by_source(ted, attr);
 
 	/* and create new one if not exist */
 	if (!edge) {
@@ -1163,6 +1191,11 @@ static int lsp_to_edge_cb(const uint8_t *id, uint32_t metric, bool old_metric,
 
 	attr->mt_id = args->mt_id;
 	SET_FLAG(attr->flags, LS_ATTR_MT_ID);
+
+	if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ID) && !LSP_PSEUDO_ID(id)) {
+		attr->neighbor = attr->adv;
+		memcpy(attr->neighbor.id.iso.sys_id, id, ISO_SYS_ID_LEN);
+	}
 
 	/* Get corresponding Edge from Link State Data Base */
 	edge = get_edge(args->ted, attr);
@@ -2021,7 +2054,7 @@ static int show_ted(struct vty *vty, struct cmd_token *argv[], int argc, struct 
 	struct ls_vertex *vertex;
 	struct ls_edge *edge;
 	struct ls_subnet *subnet;
-	struct ls_edge_key key;
+	struct ls_edge_key key = {};
 	bool detail = false;
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;
@@ -2215,6 +2248,7 @@ void isis_mpls_te_init(void)
 	hook_register(isis_if_new_hook, isis_mpls_te_update);
 	hook_register(isis_adj_ip_enabled_hook, isis_mpls_te_adj_ip_enabled);
 	hook_register(isis_adj_ip_disabled_hook, isis_mpls_te_adj_ip_disabled);
+	hook_register(isis_adj_state_change_hook, isis_mpls_te_adj_state_change);
 
 #ifndef FABRICD
 	/* Register new VTY commands */

@@ -191,6 +191,7 @@ struct ls_node {
 struct ls_attributes {
 	uint32_t flags;			/* Flag for parameters validity */
 	struct ls_node_id adv;		/* Adv. Router of this Link State */
+	struct ls_node_id neighbor;	/* Remote Router of the Remote ID */
 	char name[MAX_NAME_LENGTH];	/* Name of the Edge. Could be null */
 	uint32_t metric;		/* IGP standard metric */
 	struct ls_standard {		/* Standard TE metrics */
@@ -451,6 +452,9 @@ struct ls_edge_key {
 		struct in6_addr addr6;
 		uint64_t link_id;
 	} k;
+	/* AF_LOCAL only: the link identifiers are local to a node and topology */
+	uint64_t node;
+	uint16_t mt_id;
 };
 
 /* Link State Edge structure */
@@ -496,6 +500,10 @@ macro_inline int edge_cmp(const struct ls_edge *edge1,
 	case AF_INET6:
 		return memcmp(&edge1->key.k.addr6, &edge2->key.k.addr6, 16);
 	case AF_LOCAL:
+		if (edge1->key.node != edge2->key.node)
+			return numcmp(edge1->key.node, edge2->key.node);
+		if (edge1->key.mt_id != edge2->key.mt_id)
+			return numcmp(edge1->key.mt_id, edge2->key.mt_id);
 		return numcmp(edge1->key.k.link_id, edge2->key.k.link_id);
 	default:
 		return 0;

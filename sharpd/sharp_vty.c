@@ -1255,7 +1255,7 @@ DEFUN (show_sharp_ted,
 	struct ls_edge *edge;
 	struct ls_subnet *subnet;
 	uint64_t key;
-	struct ls_edge_key ekey;
+	struct ls_edge_key ekey = {};
 	bool verbose = false;
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;

@@ -607,6 +607,15 @@ Traffic Engineering
    Export Traffic Engineering DataBase to other daemons through the ZAPI
    Opaque Link State messages.
 
+.. clicmd:: isis mpls-te link-identifiers
+
+   Advertise the Link Local/Remote Identifiers sub-TLV (:rfc:`5307`) on a
+   point-to-point interface, with ``mpls-te on``. The identifiers are the
+   Extended Local Circuit IDs exchanged by the Three-Way Handshake
+   (:rfc:`5303`); the remote one is 0 if the neighbor does not send it. They
+   identify the link in the Traffic Engineering Database, e.g. for a pathd
+   segment ``nai prefix A.B.C.D/M iface ID``. Disabled by default.
+
 .. clicmd:: show isis mpls-te interface
 
 .. clicmd:: show isis mpls-te interface INTERFACE

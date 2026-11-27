@@ -36,12 +36,13 @@ static int segment_list_has_src_dst(
 	struct in6_addr adj_src_ipv6, struct in6_addr adj_dst_ipv6,
 	const char *adj_src_ipv4_str, const char *adj_dst_ipv4_str,
 	const char *adj_src_ipv6_str, const char *adj_dst_ipv6_str);
-static int segment_list_has_prefix(
-	struct vty *vty, char *xpath, long index, const char *index_str,
-	const struct prefix_ipv4 *prefix_ipv4, const char *prefix_ipv4_str,
-	const struct prefix_ipv6 *prefix_ipv6, const char *prefix_ipv6_str,
-	const char *has_algo, long algo, const char *algo_str,
-	const char *has_iface_id, long iface_id, const char *iface_id_str);
+static int segment_list_has_prefix(struct vty *vty, char *xpath, char *buf_prefix, long index,
+				   const char *index_str, const struct prefix_ipv4 *prefix_ipv4,
+				   const char *prefix_ipv4_str,
+				   const struct prefix_ipv6 *prefix_ipv6,
+				   const char *prefix_ipv6_str, const char *has_algo, long algo,
+				   const char *algo_str, const char *has_iface_id, long iface_id,
+				   const char *iface_id_str);
 
 DEFINE_MTYPE_STATIC(PATHD, PATH_CLI, "Client");
 
@@ -343,11 +344,10 @@ static int segment_list_has_src_dst(
 	} else {
 		return CMD_ERR_NO_MATCH;
 	}
-	ted_sid = path_ted_query_type_f(&ip_src, &ip_dst);
+	ted_sid = path_ted_query_adj_sid(&ip_src, &ip_dst);
 	if (ted_sid == MPLS_LABEL_NONE) {
-		zlog_warn(
-			"%s: [rcv ted] CLI NOT FOUND Continue query_type_f SRC (%pIA) DST (%pIA)!",
-			__func__, &ip_src, &ip_dst);
+		zlog_warn("%s: [rcv ted] CLI NOT FOUND Continue Adj-SID query SRC (%pIA) DST (%pIA)!",
+			  __func__, &ip_src, &ip_dst);
 	}
 	/* type */
 	snprintf(xpath, XPATH_MAXLEN, "./segment[index='%s']/nai/type",
@@ -381,15 +381,17 @@ static int segment_list_has_src_dst(
 					       : adj_dst_ipv6_str);
 	return CMD_SUCCESS;
 }
-int segment_list_has_prefix(
-	struct vty *vty, char *xpath, long index, const char *index_str,
-	const struct prefix_ipv4 *prefix_ipv4, const char *prefix_ipv4_str,
-	const struct prefix_ipv6 *prefix_ipv6, const char *prefix_ipv6_str,
-	const char *has_algo, long algo, const char *algo_str,
-	const char *has_iface_id, long iface_id, const char *iface_id_str)
+/*
+ * buf_prefix (INET6_ADDRSTRLEN) holds the address of the queued change: it
+ * must live until the caller applies the changes.
+ */
+int segment_list_has_prefix(struct vty *vty, char *xpath, char *buf_prefix, long index,
+			    const char *index_str, const struct prefix_ipv4 *prefix_ipv4,
+			    const char *prefix_ipv4_str, const struct prefix_ipv6 *prefix_ipv6,
+			    const char *prefix_ipv6_str, const char *has_algo, long algo,
+			    const char *algo_str, const char *has_iface_id, long iface_id,
+			    const char *iface_id_str)
 {
-	char buf_prefix[INET6_ADDRSTRLEN];
-
 	uint32_t ted_sid = MPLS_LABEL_NONE;
 	struct prefix prefix_cli = {};
 	struct ipaddr pre_ipaddr = {};
@@ -424,8 +426,7 @@ int segment_list_has_prefix(
 			vty_out(vty, "%% Malformed prefix\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		inet_ntop(AF_INET, &prefix_cli.u.prefix4, buf_prefix,
-			  sizeof(buf_prefix));
+		inet_ntop(AF_INET, &prefix_cli.u.prefix4, buf_prefix, INET6_ADDRSTRLEN);
 		pre_ipaddr.ipa_type = IPADDR_V4;
 		pre_ipaddr.ip._v4_addr = prefix_cli.u.prefix4;
 	} else if (prefix_ipv6_str != NULL) {
@@ -433,8 +434,7 @@ int segment_list_has_prefix(
 			vty_out(vty, "%% Malformed prefix\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		inet_ntop(AF_INET6, &prefix_cli.u.prefix6, buf_prefix,
-			  sizeof(buf_prefix));
+		inet_ntop(AF_INET6, &prefix_cli.u.prefix6, buf_prefix, INET6_ADDRSTRLEN);
 		pre_ipaddr.ipa_type = IPADDR_V6;
 		pre_ipaddr.ip._v6_addr = prefix_cli.u.prefix6;
 	}
@@ -462,21 +462,17 @@ int segment_list_has_prefix(
 		}
 	}
 	if (has_algo != NULL) {
-		ted_sid = path_ted_query_type_c(&prefix_cli, algo);
+		ted_sid = path_ted_query_prefix_sid(&prefix_cli, algo);
 		if (ted_sid == MPLS_LABEL_NONE) {
-			zlog_err(
-				"%s: [rcv ted] CLI NOT FOUND Continue query_type_c PREFIX (%pIA/%d) ALGO (%ld) sid:(%d)!",
-				__func__, &pre_ipaddr, prefix_cli.prefixlen,
-				algo, ted_sid);
+			zlog_err("%s: [rcv ted] CLI NOT FOUND Continue prefix SID query PREFIX (%pIA/%d) ALGO (%ld) sid:(%d)!",
+				 __func__, &pre_ipaddr, prefix_cli.prefixlen, algo, ted_sid);
 		}
 	}
 	if (has_iface_id != NULL) {
-		ted_sid = path_ted_query_type_e(&prefix_cli, iface_id);
+		ted_sid = path_ted_query_prefix_iface_adj_sid(&prefix_cli, iface_id);
 		if (ted_sid == MPLS_LABEL_NONE) {
-			zlog_err(
-				"%s: [rcv ted] CLI NOT FOUND Continue query_type_e PREFIX (%pIA/%d) IFACE (%ld) sid:(%d)!",
-				__func__, &pre_ipaddr, prefix_cli.prefixlen,
-				iface_id, ted_sid);
+			zlog_err("%s: [rcv ted] CLI NOT FOUND Continue prefix and interface Adj-SID query PREFIX (%pIA/%d) IFACE (%ld) sid:(%d)!",
+				 __func__, &pre_ipaddr, prefix_cli.prefixlen, iface_id, ted_sid);
 		}
 	}
 	return CMD_SUCCESS;
@@ -517,6 +513,8 @@ DEFPY_YANG(srte_segment_list_segment, srte_segment_list_segment_cmd,
 /* clang-format on */
 {
 	char xpath[XPATH_MAXLEN];
+	/* the queued NAI address points here until the changes are applied */
+	char buf_prefix[INET6_ADDRSTRLEN];
 	int status = CMD_SUCCESS;
 
 	snprintf(xpath, sizeof(xpath), "./segment[index='%s']", index_str);
@@ -544,10 +542,10 @@ DEFPY_YANG(srte_segment_list_segment, srte_segment_list_segment_cmd,
 		if (status != CMD_SUCCESS)
 			return status;
 	} else {
-		status = segment_list_has_prefix(
-			vty, xpath, index, index_str, prefix_ipv4,
-			prefix_ipv4_str, prefix_ipv6, prefix_ipv6_str, has_algo,
-			algo, algo_str, has_iface_id, iface_id, iface_id_str);
+		status = segment_list_has_prefix(vty, xpath, buf_prefix, index, index_str,
+						 prefix_ipv4, prefix_ipv4_str, prefix_ipv6,
+						 prefix_ipv6_str, has_algo, algo, algo_str,
+						 has_iface_id, iface_id, iface_id_str);
 		if (status != CMD_SUCCESS)
 			return status;
 	}
