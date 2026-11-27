@@ -1373,6 +1373,29 @@ static void rip_response_process(struct rip_packet *packet, int size,
 			continue;
 		}
 
+		/* In case of RIPv2, the netmask must be contiguous.
+		 * ip_masklen() counts leading ones only, so a non-contiguous
+		 * mask would silently fold this entry into a different
+		 * prefix.  FRR does not support non-sequential netmasks
+		 * (see doc/user/ripd.rst); ignore the entry instead.  The
+		 * default route's netmask is normalized below, so it is
+		 * excluded here.
+		 */
+		if ((packet->version == RIPv2)
+		    && (rte->mask.s_addr != INADDR_ANY)
+		    && (rte->prefix.s_addr != INADDR_ANY)) {
+			struct in_addr contiguous;
+
+			masklen2ip(ip_masklen(rte->mask), &contiguous);
+			if (contiguous.s_addr != rte->mask.s_addr) {
+				zlog_warn(
+					"RIPv2 address %pI4 has non-contiguous netmask %pI4, ignore the entry",
+					&rte->prefix, &rte->mask);
+				rip_peer_bad_route(rip, ri, from);
+				continue;
+			}
+		}
+
 		/* Default route's netmask is ignored. */
 		if (packet->version == RIPv2
 		    && (rte->prefix.s_addr == INADDR_ANY)
