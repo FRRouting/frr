@@ -483,3 +483,12 @@ tests_lib_test_bfd_timer_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_bfd_timer_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_bfd_timer_SOURCES = tests/lib/test_bfd_timer.c
 EXTRA_DIST += tests/lib/test_bfd_timer.py
+
+if BFDD
+check_PROGRAMS += tests/lib/test_bfd_session
+endif
+tests_lib_test_bfd_session_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_bfd_session_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_bfd_session_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_bfd_session_SOURCES = tests/lib/test_bfd_session.c
+EXTRA_DIST += tests/lib/test_bfd_session.py

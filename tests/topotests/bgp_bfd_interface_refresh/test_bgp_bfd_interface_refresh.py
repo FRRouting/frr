@@ -125,8 +125,8 @@ def test_numbered_ipv6_peer_follows_connected_interface():
     wait_for_neighbor_local(r1, INITIAL_LOCAL)
     wait_for_bfd_peer(r1, PEER, INITIAL_INTERFACE, status="up")
 
-    # Move the same numbered subnet to link B, then reconnect BGP. The
-    # existing BFD session must replace its non-NULL link A interface.
+    # Move the numbered subnet to link B and reconnect both BGP peers.
+    # Each BFD session must replace its non-NULL link A interface.
     r1.run("ip -6 address del 2001:db8:b::1/64 dev r1-eth0")
     r2.run("ip -6 address del 2001:db8:b::2/64 dev r2-eth0")
     r1.run("ip -6 address replace 2001:db8:b::1/64 dev r1-eth1")
@@ -151,9 +151,11 @@ def test_numbered_ipv6_peer_follows_connected_interface():
     _, result = topotest.run_and_expect(test_func, None, count=15, wait=1)
     assert result is None, result
 
+    r2.vtysh_cmd("clear bgp ipv6 {}".format(INITIAL_LOCAL))
     r1.vtysh_cmd("clear bgp ipv6 {}".format(PEER))
     wait_for_neighbor_local(r1, CORRECT_LOCAL)
     wait_for_bfd_peer(r1, PEER, CORRECT_INTERFACE, status="up")
+    wait_for_bfd_peer(r2, INITIAL_LOCAL, "r2-eth1", status="up")
 
 
 if __name__ == "__main__":
