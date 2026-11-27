@@ -164,6 +164,16 @@ struct zebra_if {
 	/* Additional L2 info, depends on zif_type */
 	union zebra_l2if_info l2info;
 
+	/*
+	 * SRv6 L2 tunnel ("sr6") netdevs are operator-owned; FRR mirrors, and
+	 * never overrides, their kernel-configured encap mode.  Caches the mode
+	 * last reported by the kernel (IFLA_SR6_ENCAP_MODE); value space =
+	 * enum zebra_sr6_encap_mode (FULL=0, REDUCED=1).  Only meaningful when
+	 * sr6_kernel_mode_present is set (i.e. this is an sr6 netdev).
+	 */
+	bool sr6_kernel_mode_present;
+	uint8_t sr6_kernel_mode;
+
 	/* For members of a bridge, link to bridge. */
 	/* Note: If additional fields become necessary, this can be modified to
 	 * be a pointer to a dynamically allocd struct.

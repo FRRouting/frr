@@ -50,6 +50,8 @@
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_srv6.h"
 #include "zebra/zebra_srv6_vty.h"
+#include "zebra/zebra_sr6.h"
+#include "zebra/zebra_srv6_vpws.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -248,6 +250,9 @@ void zebra_finalize(struct event *dummy)
 	zebra_pw_terminate();
 
 	zebra_srv6_terminate();
+
+	zebra_sr6_terminate();
+	zebra_srv6_vpws_fini();
 
 	label_manager_terminate();
 
@@ -537,6 +542,7 @@ int main(int argc, char **argv)
 	zebra_srte_init();
 	zebra_srv6_init();
 	zebra_srv6_vty_init();
+	zebra_sr6_init();
 
 	/* For debug purpose. */
 	/* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */
@@ -573,6 +579,9 @@ int main(int argc, char **argv)
 
 	/* Config handler Init */
 	zebra_evpn_init();
+
+	/* EVPN-VPWS dataplane init */
+	zebra_srv6_vpws_init();
 
 	/* Error init */
 	zebra_error_init();
