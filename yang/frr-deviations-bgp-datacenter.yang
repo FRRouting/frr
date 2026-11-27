@@ -46,9 +46,11 @@ module frr-deviations-bgp-datacenter {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
-  revision 2019-12-03 {
+  revision 2024-05-01 {
     description
-      "Initial revision.";
+      "Initial revision of BGP datacenter deviations.";
+    reference
+      "FRR BGP datacenter deviations; see RFC 7938 (Use of BGP for Routing in Large-Scale Data Centers).";
   }
 
   deviation "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/frr-bgp:bgp/frr-bgp:global/frr-bgp:global-config-timers/frr-bgp:connect-retry-interval" {
