@@ -101,6 +101,14 @@ netlink_put_lsp_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
 extern enum netlink_msg_status
 netlink_put_pw_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
 
+/*
+ * SRH builder shared between the route-encap path (fill_seg6ipt_encap, defined
+ * here in rt_netlink.c) and the SRv6 SR-L2 interface helpers (now in
+ * if_netlink.c).  Hence no longer static.
+ */
+struct ipv6_sr_hdr;
+extern size_t fill_srh(struct ipv6_sr_hdr *srh, const struct in6_addr *segs, int num);
+
 #ifdef NETLINK_DEBUG
 const char *nlmsg_type2str(uint16_t type);
 const char *af_type2str(int type);
@@ -128,7 +136,6 @@ const char *nh_flags2str(uint32_t flags, char *buf, size_t buflen);
 void nl_dump(const struct nlsock *nl, void *msg, size_t msglen);
 
 extern int zebra2proto(int proto);
-
 #endif /* NETLINK_DEBUG */
 
 #ifdef __cplusplus
