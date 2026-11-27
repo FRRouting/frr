@@ -1040,7 +1040,7 @@ void zsend_neighbor_notify(int cmd, struct interface *ifp,
 }
 
 void zsend_srv6_sid_notify(struct zserv *client, const struct srv6_sid_ctx *ctx,
-			   struct in6_addr *sid_value, uint32_t func,
+			   uint32_t request_id, struct in6_addr *sid_value, uint32_t func,
 			   uint32_t wide_func, const char *locator_name,
 			   enum zapi_srv6_sid_notify note)
 
@@ -1050,11 +1050,11 @@ void zsend_srv6_sid_notify(struct zserv *client, const struct srv6_sid_ctx *ctx,
 	char buf[256];
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: notifying %s ctx %s sid %pI6 note %s (proto=%u, instance=%u, sessionId=%u)",
+		zlog_debug("%s: notifying %s ctx %s sid %pI6 note %s (proto=%u, instance=%u, sessionId=%u, requestId=%u)",
 			   __func__, zserv_command_string(cmd),
 			   srv6_sid_ctx2str(buf, sizeof(buf), ctx), sid_value,
-			   zapi_srv6_sid_notify2str(note), client->proto,
-			   client->instance, client->session_id);
+			   zapi_srv6_sid_notify2str(note), client->proto, client->instance,
+			   client->session_id, request_id);
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
@@ -1063,6 +1063,8 @@ void zsend_srv6_sid_notify(struct zserv *client, const struct srv6_sid_ctx *ctx,
 	stream_put(s, &note, sizeof(note));
 	/* Context associated with the SRv6 SID */
 	stream_put(s, ctx, sizeof(struct srv6_sid_ctx));
+	/* Identifier of the requester of the SID in the client */
+	stream_putl(s, request_id);
 	/* SRv6 SID value (i.e. IPv6 address) */
 	stream_put(s, sid_value, sizeof(struct in6_addr));
 	/* SRv6 SID function */
@@ -3075,6 +3077,7 @@ static void zread_srv6_manager_get_srv6_sid(struct zserv *client,
 	struct in6_addr *sid_value_ptr = NULL;
 	char locator[SRV6_LOCNAME_SIZE] = { 0 };
 	struct zebra_srv6_sid *sid = NULL;
+	uint32_t request_id;
 	uint8_t flags = 0;
 	bool is_localonly = false;
 
@@ -3083,6 +3086,7 @@ static void zread_srv6_manager_get_srv6_sid(struct zserv *client,
 
 	/* Get data */
 	STREAM_GET(&ctx, s, sizeof(struct srv6_sid_ctx));
+	STREAM_GETL(s, request_id);
 	STREAM_GETC(s, flags);
 	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_SID_VALUE)) {
 		STREAM_GET(&sid_value, s, sizeof(struct in6_addr));
@@ -3095,7 +3099,8 @@ static void zread_srv6_manager_get_srv6_sid(struct zserv *client,
 
 
 	/* Call hook to get a SID using wrapper */
-	srv6_manager_get_sid_call(&sid, client, &ctx, sid_value_ptr, locator, is_localonly);
+	srv6_manager_get_sid_call(&sid, client, &ctx, request_id, sid_value_ptr, locator,
+				  is_localonly);
 
 stream_failure:
 	return;
@@ -3113,6 +3118,7 @@ static void zread_srv6_manager_release_srv6_sid(struct zserv *client,
 	struct stream *s;
 	struct srv6_sid_ctx ctx = {};
 	char locator[SRV6_LOCNAME_SIZE] = { 0 };
+	uint32_t request_id;
 	uint8_t flags;
 	bool is_localonly = false;
 
@@ -3121,6 +3127,7 @@ static void zread_srv6_manager_release_srv6_sid(struct zserv *client,
 
 	/* Get data */
 	STREAM_GET(&ctx, s, sizeof(struct srv6_sid_ctx));
+	STREAM_GETL(s, request_id);
 	STREAM_GETC(s, flags);
 	if (CHECK_FLAG(flags, ZAPI_SRV6_MANAGER_SID_FLAG_HAS_LOCATOR))
 		ZAPI_GET_SRV6_LOCNAME(locator, s);
@@ -3128,7 +3135,7 @@ static void zread_srv6_manager_release_srv6_sid(struct zserv *client,
 		is_localonly = true;
 
 	/* Call hook to release a SID using wrapper */
-	srv6_manager_release_sid_call(client, &ctx, locator, is_localonly);
+	srv6_manager_release_sid_call(client, &ctx, request_id, locator, is_localonly);
 
 stream_failure:
 	return;
