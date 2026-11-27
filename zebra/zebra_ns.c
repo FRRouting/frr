@@ -37,6 +37,11 @@ DECLARE_RBTREE_UNIQ(ifp_tree, struct ifp_tree_link, link, ifp_tree_cmp);
 
 static struct zebra_ns *dzns;
 
+void zebra_ns_free(struct zebra_ns *zns)
+{
+	XFREE(MTYPE_ZEBRA_NS, zns);
+}
+
 static int ifp_tree_cmp(const struct ifp_tree_link *a, const struct ifp_tree_link *b)
 {
 	return (a->ifindex - b->ifindex);
@@ -214,7 +219,7 @@ done:
 	return ret;
 }
 
-static int zebra_ns_disable_internal(struct zebra_ns *zns, bool complete);
+static int zebra_ns_disable_internal(struct zebra_ns *zns);
 
 struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id)
 {
@@ -265,7 +270,14 @@ static int zebra_ns_delete(struct ns *ns)
 		XFREE(MTYPE_ZNS_IFP, link);
 	}
 
-	XFREE(MTYPE_ZEBRA_NS, ns->info);
+	ns->info = NULL;
+	zns->ns = NULL;
+	if (zns == dzns)
+		dzns = NULL;
+	if (zns->dplane_info)
+		zebra_dplane_ns_delete(zns);
+	else
+		zebra_ns_free(zns);
 	return 0;
 }
 
@@ -288,7 +300,7 @@ int zebra_ns_disabled(struct ns *ns)
 		zlog_info("ZNS %s with id %u (disabled)", ns->name, ns->ns_id);
 	if (!zns)
 		return 0;
-	return zebra_ns_disable_internal(zns, true);
+	return zebra_ns_disable_internal(zns);
 }
 
 void zebra_ns_startup_continue(struct zebra_dplane_ctx *ctx)
@@ -361,11 +373,11 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 /* Common handler for ns disable - this can be called during ns config,
  * or during zebra shutdown.
  */
-static int zebra_ns_disable_internal(struct zebra_ns *zns, bool complete)
+static int zebra_ns_disable_internal(struct zebra_ns *zns)
 {
 	zebra_dplane_ns_enable(zns, false /*Disable*/);
 
-	kernel_terminate(zns, complete);
+	kernel_terminate(zns);
 
 	zns->ns_id = NS_DEFAULT;
 
@@ -384,7 +396,7 @@ int zebra_ns_early_shutdown(struct ns *ns,
 	if (zns == NULL)
 		return 0;
 
-	zebra_ns_disable_internal(zns, false);
+	zebra_ns_disable_internal(zns);
 	return NS_WALK_CONTINUE;
 }
 
@@ -399,7 +411,7 @@ int zebra_ns_kernel_shutdown(struct ns *ns, void *param_in __attribute__((unused
 	if (zns == NULL)
 		return NS_WALK_CONTINUE;
 
-	kernel_terminate(zns, true);
+	kernel_terminate(zns);
 
 	return NS_WALK_CONTINUE;
 }
