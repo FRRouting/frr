@@ -4096,6 +4096,7 @@ DEFUN (zebra_show_routing_tables_summary,
 	return CMD_SUCCESS;
 }
 
+#ifdef DEV_BUILD
 DEFPY_HIDDEN(zebra_test_metaq_plug,
 	     zebra_test_metaq_plug_cmd,
 	     "[no] zebra test metaq disable",
@@ -4116,7 +4117,6 @@ DEFPY_HIDDEN(zebra_test_metaq_plug,
 	return CMD_SUCCESS;
 }
 
-#ifdef DEV_BUILD
 DEFPY_HIDDEN(zebra_test_dplane_results_plug,
 	     zebra_test_dplane_results_plug_cmd,
 	     "[no] zebra test dplane disable results",
@@ -4425,8 +4425,8 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_dataplane_cmd);
 	install_element(VIEW_NODE, &show_dataplane_providers_cmd);
 	install_element(VIEW_NODE, &show_zebra_metaq_counters_cmd);
-	install_element(VIEW_NODE, &zebra_test_metaq_plug_cmd);
 #ifdef DEV_BUILD
+	install_element(VIEW_NODE, &zebra_test_metaq_plug_cmd);
 	install_element(VIEW_NODE, &zebra_test_dplane_results_plug_cmd);
 	install_element(VIEW_NODE, &zebra_test_dplane_install_plug_cmd);
 #endif
