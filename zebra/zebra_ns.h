@@ -52,6 +52,12 @@ struct ifp_tree_link {
 	struct zebra_ns *zns;
 };
 
+/*
+ * Largest number of bridge ports the kernel fdb event filter compares;
+ * above it the filter passes the fdb events of all ports.
+ */
+#define ZEBRA_FDB_FILTER_MAX_PORTS 128
+
 struct zebra_ns {
 	/* net-ns name.  */
 	char name[VRF_NAMSIZ];
@@ -73,6 +79,14 @@ struct zebra_ns {
 
 	/* Tree of interfaces in this ns */
 	struct ifp_tree_head ifp_tree;
+
+	/*
+	 * Bridge ports whose kernel fdb events the netlink_dplane_in filter
+	 * passes (EVPN, zebra_vxlan_fdb_filter_refresh()); a negative count
+	 * means it passes all of them.
+	 */
+	int fdb_filter_nports;
+	ifindex_t fdb_filter_ports[ZEBRA_FDB_FILTER_MAX_PORTS];
 
 	/* Back pointer */
 	struct ns *ns;

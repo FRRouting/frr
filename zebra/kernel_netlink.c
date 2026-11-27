@@ -473,8 +473,18 @@ int kernel_dplane_read(struct zebra_dplane_info *info)
  * ( I'm looking at you Interface based netlink messages )
  * so that we only have to write one way to handle incoming
  * address add/delete and xxxNETCONF changes.
+ *
+ * With fdb_nports >= 0 the filter also drops the bridge fdb events
+ * (RTM_NEWNEIGH/RTM_DELNEIGH with ndm_family AF_BRIDGE) of every port
+ * that is not in fdb_ports.  zebra needs fdb events only for EVPN, and a
+ * busy bridge without EVPN otherwise costs zebra a dataplane context and
+ * a main pthread pass for every learned or aged out MAC.
  */
-static void netlink_install_filter(int sock, uint32_t pid, uint32_t dplane_pid)
+/* Statements of the own-message part of the filter; the fdb part follows */
+#define NL_FILTER_FDB_BASE 10
+
+static int netlink_install_filter(int sock, uint32_t pid, uint32_t dplane_pid,
+				  const ifindex_t *fdb_ports, int fdb_nports)
 {
 	/*
 	 * BPF_JUMP instructions and where you jump to are based upon
@@ -482,7 +492,7 @@ static void netlink_install_filter(int sock, uint32_t pid, uint32_t dplane_pid)
 	 * this down because every time I look at this I have to
 	 * re-remember it.
 	 */
-	struct sock_filter filter[] = {
+	struct sock_filter filter[NL_FILTER_FDB_BASE + 8 + ZEBRA_FDB_FILTER_MAX_PORTS] = {
 		/*
 		 * Logic:
 		 *   if (nlmsg_pid == pid ||
@@ -493,27 +503,33 @@ static void netlink_install_filter(int sock, uint32_t pid, uint32_t dplane_pid)
 		 *           keep this message
 		 *       else
 		 *           skip this message
+		 *   } else if (fdb filter is on &&
+		 *              nlmsg_type == RTM_NEWNEIGH || RTM_DELNEIGH &&
+		 *              ndm_family == AF_BRIDGE) {
+		 *       if (ndm_ifindex is one of fdb_ports)
+		 *           keep this message
+		 *       else
+		 *           skip this message
 		 *   } else
 		 *       keep this netlink message
 		 */
 		/*
 		 * 0: Load the nlmsg_pid into the BPF register
 		 */
-		BPF_STMT(BPF_LD | BPF_ABS | BPF_W,
-			 offsetof(struct nlmsghdr, nlmsg_pid)),
+		BPF_STMT(BPF_LD | BPF_ABS | BPF_W, offsetof(struct nlmsghdr, nlmsg_pid)),
 		/*
 		 * 1: Compare to pid
 		 */
 		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htonl(pid), 1, 0),
 		/*
-		 * 2: Compare to dplane pid
+		 * 2: Compare to dplane pid; not ours: jump to 9 (keep), or
+		 *    to the fdb part at 10 (set below)
 		 */
 		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htonl(dplane_pid), 0, 6),
 		/*
 		 * 3: Load the nlmsg_type into BPF register
 		 */
-		BPF_STMT(BPF_LD | BPF_ABS | BPF_H,
-			 offsetof(struct nlmsghdr, nlmsg_type)),
+		BPF_STMT(BPF_LD | BPF_ABS | BPF_H, offsetof(struct nlmsghdr, nlmsg_type)),
 		/*
 		 * 4: Compare to RTM_NEWADDR
 		 */
@@ -525,13 +541,11 @@ static void netlink_install_filter(int sock, uint32_t pid, uint32_t dplane_pid)
 		/*
 		 * 6: Compare to RTM_NEWNETCONF
 		 */
-		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_NEWNETCONF), 2,
-			 0),
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_NEWNETCONF), 2, 0),
 		/*
 		 * 7: Compare to RTM_DELNETCONF
 		 */
-		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_DELNETCONF), 1,
-			 0),
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_DELNETCONF), 1, 0),
 		/*
 		 * 8: This is the end state of we want to skip the
 		 *    message
@@ -542,15 +556,66 @@ static void netlink_install_filter(int sock, uint32_t pid, uint32_t dplane_pid)
 		 */
 		BPF_STMT(BPF_RET | BPF_K, 0xffff),
 	};
-
 	struct sock_fprog prog = {
-		.len = array_size(filter), .filter = filter,
+		.len = NL_FILTER_FDB_BASE,
+		.filter = filter,
 	};
+	uint8_t keep;
+	int i, n;
 
-	if (setsockopt(sock, SOL_SOCKET, SO_ATTACH_FILTER, &prog, sizeof(prog))
-	    < 0)
+	if (fdb_nports >= 0 && fdb_nports <= ZEBRA_FDB_FILTER_MAX_PORTS) {
+		/*
+		 * The fdb part, from 10 on, for messages not from us.
+		 * keep: offset of its keep statement from statement 10.
+		 */
+		n = NL_FILTER_FDB_BASE;
+		keep = 7 + fdb_nports;
+		filter[2].jf = n - 2 - 1;
+		/* 10: Load the nlmsg_type */
+		filter[n++] = (struct sock_filter)BPF_STMT(BPF_LD | BPF_ABS | BPF_H,
+							   offsetof(struct nlmsghdr, nlmsg_type));
+		/* 11, 12: RTM_NEWNEIGH or RTM_DELNEIGH, else keep */
+		filter[n++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
+							   htons(RTM_NEWNEIGH), 1, 0);
+		filter[n++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
+							   htons(RTM_DELNEIGH), 0, keep - 2 - 1);
+		/* 13, 14: ndm_family AF_BRIDGE, else keep */
+		filter[n++] = (struct sock_filter)BPF_STMT(BPF_LD | BPF_ABS | BPF_B,
+							   NLMSG_HDRLEN + offsetof(struct ndmsg,
+										   ndm_family));
+		filter[n++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, AF_BRIDGE, 0,
+							   keep - 4 - 1);
+		/* 15: Load ndm_ifindex */
+		filter[n++] = (struct sock_filter)BPF_STMT(BPF_LD | BPF_ABS | BPF_W,
+							   NLMSG_HDRLEN + offsetof(struct ndmsg,
+										   ndm_ifindex));
+		/* 16 ...: one of the ports: keep */
+		for (i = 0; i < fdb_nports; i++)
+			filter[n++] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K,
+								   htonl((uint32_t)fdb_ports[i]),
+								   keep - (6 + i) - 1, 0);
+		/* any other port: skip */
+		filter[n++] = (struct sock_filter)BPF_STMT(BPF_RET | BPF_K, 0);
+		/* keep */
+		filter[n++] = (struct sock_filter)BPF_STMT(BPF_RET | BPF_K, 0xffff);
+		prog.len = n;
+	}
+
+	if (setsockopt(sock, SOL_SOCKET, SO_ATTACH_FILTER, &prog, sizeof(prog)) < 0) {
 		flog_err_sys(EC_LIB_SOCKET, "Can't install socket filter: %s",
 			     safe_strerror(errno));
+		return -1;
+	}
+	return 0;
+}
+
+int kernel_fdb_filter_set(struct zebra_ns *zns, const ifindex_t *ports, int nports)
+{
+	if (zns->netlink_dplane_in.sock < 0)
+		return -1;
+
+	return netlink_install_filter(zns->netlink_dplane_in.sock, zns->netlink_cmd.snl.nl_pid,
+				      zns->netlink_dplane_out.snl.nl_pid, ports, nports);
 }
 
 /*
@@ -1905,9 +1970,13 @@ void kernel_init(struct zebra_ns *zns)
 	 * regardless of origin to keep state in sync).
 	 * ----------------------------------------------------------------
 	 */
-	netlink_install_filter(zns->netlink_dplane_in.sock,
-			       zns->netlink_cmd.snl.nl_pid,
-			       zns->netlink_dplane_out.snl.nl_pid);
+	/*
+	 * The dplane socket gets the bridge fdb events: none of them until
+	 * EVPN is enabled (zebra_vxlan_fdb_filter_refresh()).
+	 */
+	zns->fdb_filter_nports = 0;
+	netlink_install_filter(zns->netlink_dplane_in.sock, zns->netlink_cmd.snl.nl_pid,
+			       zns->netlink_dplane_out.snl.nl_pid, NULL, 0);
 
 	/* Initialize route and generic netlink subsystems */
 	rt_netlink_init();

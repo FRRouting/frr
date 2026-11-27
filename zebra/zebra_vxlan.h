@@ -190,6 +190,7 @@ extern void zebra_vxlan_close_tables(struct zebra_vrf *zvrf);
 extern void zebra_vxlan_cleanup_tables(struct zebra_vrf *zvrf);
 extern void zebra_vxlan_init(void);
 extern void zebra_vxlan_terminate(void);
+extern void zebra_vxlan_fdb_filter_schedule(void);
 extern void zebra_vxlan_disable(void);
 extern void zebra_vxlan_evpn_vrf_route_add(vrf_id_t vrf_id,
 					   const struct ethaddr *rmac,

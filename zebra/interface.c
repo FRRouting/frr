@@ -2459,9 +2459,11 @@ void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
 		 * that we need to handle( create/delete the
 		 * interface as needed )
 		 */
-		if (dp_res == ZEBRA_DPLANE_REQUEST_QUEUED)
+		if (dp_res == ZEBRA_DPLANE_REQUEST_QUEUED) {
 			zebra_if_dplane_ifp_handling(ctx);
-		else
+			/* Bridge ports or VXLAN devices may have changed */
+			zebra_vxlan_fdb_filter_schedule();
+		} else
 			zebra_if_update_ctx(ctx, ifp);
 	} else if (op == DPLANE_OP_INTF_NETCONFIG) {
 		zebra_if_netconf_update_ctx(ctx, ifp, ifindex);
