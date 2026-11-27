@@ -183,6 +183,8 @@ struct nhrp_packet_parser {
 	enum nhrp_route_type route_type;
 	struct prefix route_prefix;
 	union sockunion src_nbma, src_proto, dst_proto;
+	/** An Error Indication has already been generated for this packet */
+	bool error_sent;
 };
 
 struct nhrp_reqid_pool {
