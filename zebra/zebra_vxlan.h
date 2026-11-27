@@ -172,6 +172,7 @@ extern int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 					    struct ethaddr *mac, vlanid_t vid,
 					    bool sticky, bool local_inactive,
 						bool dp_static);
+extern void zebra_vxlan_local_macs_port_flush(struct interface *ifp);
 extern int zebra_vxlan_local_mac_del(struct interface *ifp,
 				     struct interface *br_if,
 				     struct ethaddr *mac, vlanid_t vid);

@@ -41,6 +41,7 @@
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_trace.h"
+#include "zebra/zebra_neigh.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZEVPN, "VNI hash");
 DEFINE_MTYPE_STATIC(ZEBRA, ZEVPN_VTEP, "VNI remote VTEP");
@@ -959,6 +960,10 @@ void zebra_evpn_read_mac_neigh(struct zebra_evpn *zevpn, struct interface *ifp)
 			zif->brslave_info.bridge_ifindex);
 
 	dplane_fdb_read_for_bridge(zns, ifp, zif->brslave_info.br_if, vni->access_vlan);
+	/* The local MACs this read reports are ignored while a dataplane
+	 * module learns them, so ask the module instead.
+	 */
+	zebra_neigh_dplane_mac_read(zevpn);
 	/* We need to specifically read and retrieve the entry for BUM handling
 	 * via multicast, if any.
 	 */

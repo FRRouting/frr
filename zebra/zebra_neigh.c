@@ -597,6 +597,59 @@ static void zebra_neigh_ipaddr_update(struct zebra_dplane_ctx *ctx)
 		zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip);
 }
 
+static bool dplane_mac_learning;
+
+DEFINE_HOOK(zebra_dplane_mac_read, (struct zebra_evpn *zevpn), (zevpn));
+
+void zebra_neigh_set_dplane_mac_learning(bool enable)
+{
+	dplane_mac_learning = enable;
+}
+
+bool zebra_neigh_dplane_mac_learning(void)
+{
+	return zebra_mac_ext_learn_mode() && dplane_mac_learning;
+}
+
+void zebra_neigh_dplane_mac_read(struct zebra_evpn *zevpn)
+{
+	if (zebra_neigh_dplane_mac_learning())
+		hook_call(zebra_dplane_mac_read, zevpn);
+}
+
+DEFINE_HOOK(zebra_dplane_mac_port_flush, (struct interface *ifp), (ifp));
+
+/* Called before the port is unlinked from its bridge, while its ifindex
+ * still names it.
+ */
+void zebra_neigh_dplane_port_flush(struct interface *ifp)
+{
+	struct zebra_if *zif = ifp->info;
+
+	if (!zebra_neigh_dplane_mac_learning() || !zif || !zif->brslave_info.br_if ||
+	    IS_ZEBRA_IF_VXLAN(ifp))
+		return;
+
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("Applying the kernel's FDB flush of %s(%u)", ifp->name, ifp->ifindex);
+
+	zebra_vxlan_local_macs_port_flush(ifp);
+	hook_call(zebra_dplane_mac_port_flush, ifp);
+}
+
+DEFINE_HOOK(zebra_dplane_mac_port_up, (struct interface *ifp), (ifp));
+
+void zebra_neigh_dplane_port_up(struct interface *ifp)
+{
+	struct zebra_if *zif = ifp->info;
+
+	if (!zebra_neigh_dplane_mac_learning() || !zif || !zif->brslave_info.br_if ||
+	    IS_ZEBRA_IF_VXLAN(ifp))
+		return;
+
+	hook_call(zebra_dplane_mac_port_up, ifp);
+}
+
 static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx)
 {
 	ns_id_t ns_id;
@@ -633,6 +686,10 @@ static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx)
 
 	/* The interface should be something we're interested in. */
 	if (!IS_ZEBRA_IF_BRIDGE_SLAVE(ifp))
+		return;
+
+	/* External-learn mode only consumes kernel FDB entries for VXLAN flooding. */
+	if (zebra_mac_ext_learn_mode() && !IS_ZEBRA_IF_VXLAN(ifp))
 		return;
 
 	op = dplane_ctx_get_op(ctx);
@@ -694,9 +751,9 @@ static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx)
 		 * If zebra started gracefully and if this is a remote MAC/RMAC
 		 * entry, then restore it.
 		 */
-		if (zrouter.graceful_restart && CHECK_FLAG(ndm_flags, ZEBRA_NTF_EXT_LEARNED))
+		if (zrouter.graceful_restart && !zebra_mac_ext_learn_mode() &&
+		    CHECK_FLAG(ndm_flags, ZEBRA_NTF_EXT_LEARNED))
 			zebra_vxlan_stale_remote_mac_add(&mac, *vtep_ip, sticky, vni);
-
 
 		if (IS_ZEBRA_IF_VXLAN(ifp)) {
 			if (!dst_present)
@@ -715,9 +772,12 @@ static void zebra_neigh_macfdb_update(struct zebra_dplane_ctx *ctx)
 				return;
 			}
 
-			zebra_vxlan_dp_network_mac_add(ifp, br_if, &mac, vid, vni, nhg_id, sticky,
-						       !!(ndm_flags & ZEBRA_NTF_EXT_LEARNED),
-						       vtep_ip);
+			if (!zebra_mac_ext_learn_mode())
+				zebra_vxlan_dp_network_mac_add(ifp, br_if, &mac, vid, vni, nhg_id,
+							       sticky,
+							       !!(ndm_flags &
+								  ZEBRA_NTF_EXT_LEARNED),
+							       vtep_ip);
 			return;
 		}
 

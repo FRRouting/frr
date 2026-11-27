@@ -38,6 +38,7 @@
 #include "zebra/zebra_trace.h"
 #include "zebra/zebra_l2.h"
 #include "zebra/zebra_dplane.h"
+#include "zebra/zebra_neigh.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, ZINFO, "Zebra Interface Information");
 
@@ -1042,6 +1043,8 @@ void if_up(struct interface *ifp, bool install_connected)
 	if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK)
 		zebra_evpn_mh_uplink_oper_update(zif);
 
+	zebra_neigh_dplane_port_up(ifp);
+
 	event_cancel(&zif->speed_update);
 	dplane_intf_speed_get(ifp);
 
@@ -2028,6 +2031,9 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		}
 
 		frrtrace(3, frr_zebra, if_dplane_ifp_handling, name, ifindex, 0);
+
+		/* The kernel flushed the FDB entries of a bridge port as it went. */
+		zebra_neigh_dplane_port_flush(ifp);
 
 		if (IS_ZEBRA_IF_BOND(ifp))
 			zebra_l2if_update_bond(ifp, false);

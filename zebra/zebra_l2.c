@@ -30,6 +30,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_vxlan_if.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_neigh.h"
 
 /* definitions */
 
@@ -455,6 +456,9 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 
 	ctx.chgflags = ZEBRA_VXLIF_MASTER_CHANGE;
 
+	/* Apply the FDB flush while the old bridge mapping is still available. */
+	if (bridge_ifindex == IFINDEX_INTERNAL && old_bridge_ifindex != IFINDEX_INTERNAL)
+		zebra_neigh_dplane_port_flush(ifp);
 
 	zif->brslave_info.ns_id = ns_id;
 	zif->brslave_info.bridge_ifindex = bridge_ifindex;

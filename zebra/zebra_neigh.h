@@ -14,11 +14,14 @@
 #include "lib/prefix.h"
 #include "lib/ns.h"
 #include "lib/if.h"
+#include "lib/hook.h"
 
 struct zebra_pbr_rule;
 struct zebra_dplane_ctx;
 
 #define zneigh_info zrouter.neigh_info
+
+struct zebra_evpn;
 
 struct zebra_neigh_ent {
 	ns_id_t ns_id;
@@ -60,4 +63,25 @@ extern void zebra_neigh_deref(struct zebra_pbr_rule *rule);
 extern void zebra_neigh_ref(ns_id_t ns_id, int ifindex, struct ipaddr *ip,
 			    struct zebra_pbr_rule *rule);
 void zebra_neigh_dplane_update(struct zebra_dplane_ctx *ctx);
+/* A dataplane module, not the kernel, learns and ages local MACs. */
+extern void zebra_neigh_set_dplane_mac_learning(bool enable);
+extern bool zebra_neigh_dplane_mac_learning(void);
+/* Where zebra reads local MACs from the kernel, it asks that module for them
+ * instead. zevpn is the EVPN being read, or NULL for all of them.
+ */
+DECLARE_HOOK(zebra_dplane_mac_read, (struct zebra_evpn *zevpn), (zevpn));
+extern void zebra_neigh_dplane_mac_read(struct zebra_evpn *zevpn);
+/* When a bridge port leaves its bridge or goes away, the kernel flushes the
+ * port's FDB entries, which zebra ignores while that module learns local
+ * MACs. zebra applies the flush itself: it deletes the port's local MACs as
+ * the flush would have, then tells the module, which drops what it keeps for
+ * the port.
+ */
+DECLARE_HOOK(zebra_dplane_mac_port_flush, (struct interface *ifp), (ifp));
+extern void zebra_neigh_dplane_port_flush(struct interface *ifp);
+/* A bridge port came up: the module gives zebra the port's MACs it held back
+ * while the port was down.
+ */
+DECLARE_HOOK(zebra_dplane_mac_port_up, (struct interface *ifp), (ifp));
+extern void zebra_neigh_dplane_port_up(struct interface *ifp);
 #endif /* _ZEBRA_NEIGH_H */
