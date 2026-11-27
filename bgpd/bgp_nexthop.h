@@ -23,6 +23,7 @@
 #define BGP_MP_NEXTHOP_FAMILY NEXTHOP_FAMILY
 
 PREDECL_RBTREE_UNIQ(bgp_nexthop_cache);
+PREDECL_RBTREE_UNIQ(bgp_nexthop_resolved);
 
 /* BGP nexthop cache value structure. */
 struct bgp_nexthop_cache {
@@ -91,6 +92,12 @@ struct bgp_nexthop_cache {
 
 	struct prefix prefix;
 	struct prefix resolved_prefix;
+	uint8_t resolved_type;
+	/* Entry in the nexthops resolved by a BGP route */
+	struct bgp_nexthop_resolved_item resolved_entry;
+	/* AIGP distance through the BGP route resolving the nexthop */
+	uint64_t aigp_distance;
+	bool aigp_valid;
 	void *nht_info; /* In BGP, peer session */
 	LIST_HEAD(path_list, bgp_path_info) paths;
 	unsigned int path_count;
@@ -101,6 +108,10 @@ extern int bgp_nexthop_cache_compare(const struct bgp_nexthop_cache *a,
 				     const struct bgp_nexthop_cache *b);
 DECLARE_RBTREE_UNIQ(bgp_nexthop_cache, struct bgp_nexthop_cache, entry,
 		    bgp_nexthop_cache_compare);
+extern int bgp_nexthop_resolved_compare(const struct bgp_nexthop_cache *a,
+					const struct bgp_nexthop_cache *b);
+DECLARE_RBTREE_UNIQ(bgp_nexthop_resolved, struct bgp_nexthop_cache, resolved_entry,
+		    bgp_nexthop_resolved_compare);
 
 /* Own tunnel-ip address structure */
 struct tip_addr {
@@ -141,6 +152,8 @@ extern struct bgp_nexthop_cache *bnc_new(struct bgp_nexthop_cache_head *tree,
 					 ifindex_t ifindex);
 extern bool bnc_existing_for_prefix(struct bgp_nexthop_cache *bnc);
 extern void bnc_free(struct bgp_nexthop_cache *bnc);
+extern void bnc_set_resolved(struct bgp_nexthop_cache *bnc, uint8_t type,
+			     const struct prefix *prefix);
 extern struct bgp_nexthop_cache *bnc_find(struct bgp_nexthop_cache_head *tree,
 					  struct prefix *prefix,
 					  uint32_t srte_color,
