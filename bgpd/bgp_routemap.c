@@ -2081,7 +2081,8 @@ static const struct route_map_rule_cmd route_match_ecommunity_cmd = {
 	"extcommunity",
 	route_match_ecommunity,
 	route_match_ecommunity_compile,
-	route_match_ecommunity_free
+	route_match_ecommunity_free,
+	route_match_get_community_key
 };
 
 /* `match nlri` and `set nlri` are replaced by `address-family ipv4`
