@@ -163,6 +163,9 @@ struct route_entry {
 	/* Sequence value incremented for each dataplane operation */
 	uint32_t dplane_sequence;
 
+	/* install_gen of the nexthop group when the route was sent to the dataplane */
+	uint32_t nhe_install_gen;
+
 	/* Source protocol instance */
 	uint16_t instance;
 

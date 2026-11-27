@@ -170,6 +170,12 @@ struct dplane_route_info {
 	/* Nexthop hash entry info */
 	struct dplane_nexthop_info nhe;
 
+	/*
+	 * The nexthop group of the old route was installed again since the
+	 * old route was installed: the old route is no longer in the kernel.
+	 */
+	bool zd_old_nhe_reinstalled;
+
 	/* Nexthops */
 	uint32_t zd_nhg_id;
 	struct nexthop_group zd_ng;
@@ -5296,6 +5302,7 @@ dplane_route_update_internal(struct route_node *rn,
 		 */
 		re->dplane_sequence = zebra_router_get_next_sequence();
 		ctx->zd_seq = re->dplane_sequence;
+		re->nhe_install_gen = zebra_nhg_resolve(re->nhe)->install_gen;
 
 		/* Capture some extra info for update case
 		 * where there's a different 'old' route.
@@ -5313,6 +5320,9 @@ dplane_route_update_internal(struct route_node *rn,
 			ctx->u.rinfo.zd_old_distance = old_re->distance;
 			ctx->u.rinfo.zd_old_metric = old_re->metric;
 			ctx->u.rinfo.nhe.old_id = old_re->nhe->id;
+			ctx->u.rinfo.zd_old_nhe_reinstalled =
+				old_re->nhe_install_gen !=
+				zebra_nhg_resolve(old_re->nhe)->install_gen;
 
 #ifndef HAVE_NETLINK
 			/* For bsd, capture previous re's nexthops too, sigh.
@@ -8385,7 +8395,8 @@ static int kernel_dplane_process_func(struct zebra_dplane_provider *prov)
 		if (zebra_nhg_kernel_nexthops_enabled() &&
 		    dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_UPDATE &&
 		    dplane_ctx_get_old_nhe_id(ctx) == dplane_ctx_get_nhe_id(ctx) &&
-		    dplane_ctx_get_old_type(ctx) == dplane_ctx_get_type(ctx)) {
+		    dplane_ctx_get_old_type(ctx) == dplane_ctx_get_type(ctx) &&
+		    !ctx->u.rinfo.zd_old_nhe_reinstalled) {
 			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 				zlog_debug("%s: %pFX Route Update with same nexthop group as old, Marking success",
 					   __func__, dplane_ctx_get_dest(ctx));
