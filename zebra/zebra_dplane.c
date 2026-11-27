@@ -240,6 +240,8 @@ struct dplane_intf_info {
 	ns_id_t link_nsid;
 	enum zebra_slave_iftype zslave_type;
 	uint8_t bypass;
+	bool ad_actor_state_valid;
+	uint8_t ad_actor_state;
 	enum zebra_link_type zltype;
 	uint8_t family;
 	struct zebra_vxlan_vni_array *vniarray;
@@ -384,6 +386,19 @@ struct dplane_gre_ctx {
 	uint32_t link_ifindex;
 	unsigned int mtu;
 	struct zebra_l2info_gre info;
+};
+
+/*
+ * Interface master membership change: one RTM_SETLINK request carrying an
+ * optional admin state change, an optional MAC address and an optional
+ * master (0 = no master).
+ */
+struct dplane_intf_master_info {
+	bool set_master;
+	ifindex_t master_ifindex;
+	enum dplane_intf_admin admin;
+	bool set_mac;
+	uint8_t mac[ETH_ALEN];
 };
 
 
@@ -570,6 +585,7 @@ struct zebra_dplane_ctx {
 		} ipset_entry;
 		struct dplane_neigh_table neightable;
 		struct dplane_gre_ctx gre;
+		struct dplane_intf_master_info intf_master;
 		struct dplane_netconf_info netconf;
 		enum zebra_dplane_startup_notifications spot;
 		struct dplane_srv6_encap_ctx srv6_encap;
@@ -756,6 +772,9 @@ static struct zebra_dplane_globals {
 
 	_Atomic uint32_t dg_gre_set_in;
 	_Atomic uint32_t dg_gre_set_errors;
+
+	_Atomic uint32_t dg_intf_master_in;
+	_Atomic uint32_t dg_intf_master_errors;
 
 	_Atomic uint32_t dg_intfs_in;
 	_Atomic uint32_t dg_intf_errors;
@@ -1042,6 +1061,7 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 			list_delete(&ctx->u.iptable.interface_name_list);
 		break;
 	case DPLANE_OP_GRE_SET:
+	case DPLANE_OP_INTF_SET_MASTER:
 	case DPLANE_OP_INTF_NETCONFIG:
 	case DPLANE_OP_INTF_SPEED_GET:
 	case DPLANE_OP_STARTUP_STAGE:
@@ -1336,6 +1356,9 @@ const char *dplane_op2str(enum dplane_op_e op)
 
 	case DPLANE_OP_GRE_SET:
 		return "GRE_SET";
+
+	case DPLANE_OP_INTF_SET_MASTER:
+		return "INTF_SET_MASTER";
 
 	case DPLANE_OP_INTF_ADDR_ADD:
 		return "INTF_ADDR_ADD";
@@ -1704,6 +1727,24 @@ uint8_t dplane_ctx_get_ifp_bypass(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.intf.bypass;
+}
+
+void dplane_ctx_set_ifp_ad_actor_state(struct zebra_dplane_ctx *ctx, bool valid, uint8_t state)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.ad_actor_state_valid = valid;
+	ctx->u.intf.ad_actor_state = valid ? state : 0;
+}
+
+bool dplane_ctx_get_ifp_ad_actor_state(const struct zebra_dplane_ctx *ctx, uint8_t *state)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	if (state)
+		*state = ctx->u.intf.ad_actor_state;
+
+	return ctx->u.intf.ad_actor_state_valid;
 }
 
 void dplane_ctx_set_ifp_bridge_ifindex(struct zebra_dplane_ctx *ctx,
@@ -3573,6 +3614,31 @@ union sockunion dplane_ctx_neigh_get_link_layer_ipv4(const struct zebra_dplane_c
 }
 
 /* Accessor for GRE set */
+bool dplane_ctx_intf_master_get_master(const struct zebra_dplane_ctx *ctx,
+				       ifindex_t *master_ifindex)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	if (master_ifindex)
+		*master_ifindex = ctx->u.intf_master.master_ifindex;
+
+	return ctx->u.intf_master.set_master;
+}
+
+enum dplane_intf_admin dplane_ctx_intf_master_get_admin(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.intf_master.admin;
+}
+
+const uint8_t *dplane_ctx_intf_master_get_mac(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.intf_master.set_mac ? ctx->u.intf_master.mac : NULL;
+}
+
 uint32_t
 dplane_ctx_gre_get_link_ifindex(const struct zebra_dplane_ctx *ctx)
 {
@@ -6973,6 +7039,91 @@ dplane_pbr_ipset_entry_delete(struct zebra_pbr_ipset_entry *ipset)
 }
 
 /*
+ * Enqueue one interface master request (see struct dplane_intf_master_info).
+ */
+static enum zebra_dplane_result
+dplane_intf_master_enqueue(const struct interface *ifp, bool set_master, ifindex_t master_ifindex,
+			   enum dplane_intf_admin admin, const uint8_t *mac)
+{
+	struct zebra_dplane_ctx *ctx;
+	struct zebra_vrf *zvrf;
+	struct zebra_ns *zns;
+	int ret = EINVAL;
+
+	ctx = dplane_ctx_alloc();
+
+	zvrf = ifp->vrf ? ifp->vrf->info : NULL;
+	zns = zvrf ? zvrf->zns : NULL;
+	if (zns == NULL)
+		goto done;
+
+	ctx->zd_op = DPLANE_OP_INTF_SET_MASTER;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	dplane_ctx_ns_init(ctx, zns, false);
+	dplane_ctx_set_ifname(ctx, ifp->name);
+	ctx->zd_vrf_id = ifp->vrf->vrf_id;
+	ctx->zd_ifindex = ifp->ifindex;
+
+	ctx->u.intf_master.set_master = set_master;
+	ctx->u.intf_master.master_ifindex = set_master ? master_ifindex : IFINDEX_INTERNAL;
+	ctx->u.intf_master.admin = admin;
+	if (mac) {
+		ctx->u.intf_master.set_mac = true;
+		memcpy(ctx->u.intf_master.mac, mac, ETH_ALEN);
+	}
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+		zlog_debug("init dplane ctx %s: if %s(%u) master %s%u admin %d mac %s",
+			   dplane_op2str(ctx->zd_op), ifp->name, ifp->ifindex,
+			   set_master ? "" : "unchanged/", master_ifindex, admin,
+			   mac ? "set" : "unchanged");
+
+	ret = dplane_update_enqueue(ctx);
+
+done:
+	atomic_fetch_add_explicit(&zdplane_info.dg_intf_master_in, 1, memory_order_relaxed);
+
+	if (ret == AOK)
+		return ZEBRA_DPLANE_REQUEST_QUEUED;
+
+	atomic_fetch_add_explicit(&zdplane_info.dg_intf_master_errors, 1, memory_order_relaxed);
+	dplane_ctx_free(&ctx);
+	return ZEBRA_DPLANE_REQUEST_FAILURE;
+}
+
+enum zebra_dplane_result dplane_intf_set_master(const struct interface *ifp,
+						const struct interface *master, uint32_t flags)
+{
+	if (ifp == NULL || master == NULL)
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
+
+	return dplane_intf_master_enqueue(ifp, true, master->ifindex,
+					  CHECK_FLAG(flags, DPLANE_INTF_MASTER_F_DOWN_FIRST)
+						  ? DPLANE_INTF_ADMIN_DOWN
+						  : DPLANE_INTF_ADMIN_NONE,
+					  NULL);
+}
+
+enum zebra_dplane_result dplane_intf_release_master(const struct interface *ifp, bool admin_up,
+						    const uint8_t *mac)
+{
+	enum zebra_dplane_result result;
+
+	if (ifp == NULL)
+		return ZEBRA_DPLANE_REQUEST_FAILURE;
+
+	result = dplane_intf_master_enqueue(ifp, true, IFINDEX_INTERNAL, DPLANE_INTF_ADMIN_NONE,
+					    NULL);
+	if (result == ZEBRA_DPLANE_REQUEST_FAILURE || (!admin_up && mac == NULL))
+		return result;
+
+	/* Second request: applied after the release (see zebra_dplane.h). */
+	return dplane_intf_master_enqueue(ifp, false, IFINDEX_INTERNAL,
+					  admin_up ? DPLANE_INTF_ADMIN_UP : DPLANE_INTF_ADMIN_NONE,
+					  mac);
+}
+
+/*
  * Common helper api for GRE set
  */
 enum zebra_dplane_result
@@ -7427,6 +7578,11 @@ int dplane_show_helper(struct vty *vty, bool detailed)
 				    memory_order_relaxed);
 	vty_out(vty, "GRE set updates:       %"PRIu64"\n", incoming);
 	vty_out(vty, "GRE set errors:        %"PRIu64"\n", errs);
+
+	incoming = atomic_load_explicit(&zdplane_info.dg_intf_master_in, memory_order_relaxed);
+	errs = atomic_load_explicit(&zdplane_info.dg_intf_master_errors, memory_order_relaxed);
+	vty_out(vty, "Intf master updates:   %" PRIu64 "\n", incoming);
+	vty_out(vty, "Intf master errors:    %" PRIu64 "\n", errs);
 	return CMD_SUCCESS;
 }
 
@@ -7994,6 +8150,14 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 			   ctx->u.gre.link_ifindex);
 		break;
 
+	case DPLANE_OP_INTF_SET_MASTER:
+		zlog_debug("Dplane intf master op %s, ifp %s, master %s%u, admin %d, mac %s",
+			   dplane_op2str(dplane_ctx_get_op(ctx)), dplane_ctx_get_ifname(ctx),
+			   ctx->u.intf_master.set_master ? "" : "unchanged/",
+			   ctx->u.intf_master.master_ifindex, ctx->u.intf_master.admin,
+			   ctx->u.intf_master.set_mac ? "set" : "unchanged");
+		break;
+
 	case DPLANE_OP_INTF_ADDR_ADD:
 	case DPLANE_OP_INTF_ADDR_DEL:
 		zlog_debug("Dplane incoming op %s, intf %s, addr %pFX",
@@ -8233,6 +8397,12 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 			atomic_fetch_add_explicit(
 				&zdplane_info.dg_gre_set_errors, 1,
 				memory_order_relaxed);
+		break;
+
+	case DPLANE_OP_INTF_SET_MASTER:
+		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
+			atomic_fetch_add_explicit(&zdplane_info.dg_intf_master_errors, 1,
+						  memory_order_relaxed);
 		break;
 
 	case DPLANE_OP_INTF_INSTALL:

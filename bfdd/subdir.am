@@ -16,6 +16,7 @@ bfdd_libbfd_a_SOURCES = \
 	bfdd/bfdd_nb_state.c \
 	bfdd/bfdd_vty.c \
 	bfdd/bfdd_cli.c \
+	bfdd/bfd_frame.c \
 	bfdd/bfd_packet.c \
 	bfdd/dplane.c \
 	bfdd/event.c \
@@ -38,6 +39,7 @@ clippy_scan += \
 noinst_HEADERS += \
 	bfdd/bfdd_nb.h \
 	bfdd/bfd.h \
+	bfdd/bfd_frame.h \
 	bfdd/bfd_timer.h \
 	bfdd/bfd_trace.h \
 	# end

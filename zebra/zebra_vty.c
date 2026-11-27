@@ -4154,6 +4154,106 @@ DEFPY_HIDDEN(zebra_test_dplane_install_plug,
 }
 #endif
 
+static struct interface *zebra_test_if_lookup(const char *name)
+{
+	struct interface *ifp;
+	struct vrf *vrf;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		ifp = if_lookup_by_name_vrf(name, vrf);
+		if (ifp)
+			return ifp;
+	}
+
+	return NULL;
+}
+
+/*
+ * Exercise interface master membership changes (dplane_intf_set_master(),
+ * dplane_intf_release_master() and the synchronous shutdown variant) from
+ * tests.
+ */
+DEFPY_HIDDEN(zebra_test_intf_master, zebra_test_intf_master_cmd,
+	     "zebra test interface IFNAME$ifname <master IFNAME$master [down-first$down]|release$release [up$up] [mac X:X:X:X:X:X$mac]> [sync$sync]",
+	     ZEBRA_STR
+	     "Test command\n"
+	     "Interface\n"
+	     "Interface name\n"
+	     "Make the interface a member of a master\n"
+	     "Master interface name\n"
+	     "Set the interface down in the same request\n"
+	     "Release the interface from its master\n"
+	     "Set the interface up after the release\n"
+	     "Set the interface MAC address after the release\n"
+	     "MAC address\n"
+	     "Send the request synchronously (shutdown path)\n")
+{
+	struct interface *ifp, *mifp = NULL;
+	enum dplane_intf_admin admin = DPLANE_INTF_ADMIN_NONE;
+	enum zebra_dplane_result res;
+	struct zebra_vrf *zvrf;
+	/* `mac` always points somewhere; `mac_str` says whether it was given. */
+	const uint8_t *macp = mac_str ? mac->eth_addr.octet : NULL;
+	int ret = 0;
+
+	ifp = zebra_test_if_lookup(ifname);
+	if (!ifp) {
+		vty_out(vty, "%% Interface %s not found\n", ifname);
+		return CMD_WARNING;
+	}
+
+	if (master) {
+		mifp = zebra_test_if_lookup(master);
+		if (!mifp) {
+			vty_out(vty, "%% Interface %s not found\n", master);
+			return CMD_WARNING;
+		}
+	}
+
+	if (!sync) {
+		if (mifp)
+			res = dplane_intf_set_master(ifp, mifp,
+						     down ? DPLANE_INTF_MASTER_F_DOWN_FIRST : 0);
+		else
+			res = dplane_intf_release_master(ifp, !!up, macp);
+
+		if (res == ZEBRA_DPLANE_REQUEST_FAILURE) {
+			vty_out(vty, "%% Failed to queue the request\n");
+			return CMD_WARNING;
+		}
+		return CMD_SUCCESS;
+	}
+
+	zvrf = ifp->vrf->info;
+	if (!zvrf || !zvrf->zns) {
+		vty_out(vty, "%% No namespace for interface %s\n", ifname);
+		return CMD_WARNING;
+	}
+
+	if (mifp) {
+		if (down)
+			admin = DPLANE_INTF_ADMIN_DOWN;
+		ret = kernel_intf_set_master_sync(zvrf->zns, ifp->ifindex, true, mifp->ifindex,
+						  admin, NULL);
+	} else {
+		ret = kernel_intf_set_master_sync(zvrf->zns, ifp->ifindex, true, IFINDEX_INTERNAL,
+						  DPLANE_INTF_ADMIN_NONE, NULL);
+		if (ret == 0 && (up || macp))
+			ret = kernel_intf_set_master_sync(zvrf->zns, ifp->ifindex, false,
+							  IFINDEX_INTERNAL,
+							  up ? DPLANE_INTF_ADMIN_UP
+							     : DPLANE_INTF_ADMIN_NONE,
+							  macp);
+	}
+
+	if (ret < 0) {
+		vty_out(vty, "%% Request failed\n");
+		return CMD_WARNING;
+	}
+
+	return CMD_SUCCESS;
+}
+
 /* Display Zebra MetaQ counters */
 DEFUN (show_zebra_metaq_counters,
        show_zebra_metaq_counters_cmd,
@@ -4426,6 +4526,7 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_dataplane_providers_cmd);
 	install_element(VIEW_NODE, &show_zebra_metaq_counters_cmd);
 	install_element(VIEW_NODE, &zebra_test_metaq_plug_cmd);
+	install_element(ENABLE_NODE, &zebra_test_intf_master_cmd);
 #ifdef DEV_BUILD
 	install_element(VIEW_NODE, &zebra_test_dplane_results_plug_cmd);
 	install_element(VIEW_NODE, &zebra_test_dplane_install_plug_cmd);

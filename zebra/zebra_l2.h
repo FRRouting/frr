@@ -138,9 +138,26 @@ struct zebra_l2info_vxlan {
 	ns_id_t link_nsid;
 };
 
+/* IEEE 802.1AX LACP actor/partner state bits */
+#define ZEBRA_LACP_STATE_ACTIVITY     0x01
+#define ZEBRA_LACP_STATE_TIMEOUT      0x02
+#define ZEBRA_LACP_STATE_AGGREGATION  0x04
+#define ZEBRA_LACP_STATE_SYNC	      0x08
+#define ZEBRA_LACP_STATE_COLLECTING   0x10
+#define ZEBRA_LACP_STATE_DISTRIBUTING 0x20
+#define ZEBRA_LACP_STATE_DEFAULTED    0x40
+#define ZEBRA_LACP_STATE_EXPIRED      0x80
+
 struct zebra_l2info_bondslave {
 	ifindex_t bond_ifindex;    /* Bridge Master */
 	struct interface *bond_if; /* Pointer to master */
+
+	/*
+	 * LACP actor operational state reported by the kernel for this
+	 * member (802.3ad bonds only; not valid otherwise).
+	 */
+	bool ad_actor_state_valid;
+	uint8_t ad_actor_oper_state;
 };
 
 union zebra_l2if_info {
@@ -201,8 +218,9 @@ extern void zebra_l2if_update_bridge_slave(struct interface *ifp,
 					   ifindex_t bridge_ifindex,
 					   ns_id_t ns_id, uint8_t chgflags);
 
-extern void zebra_l2if_update_bond_slave(struct interface *ifp,
-					 ifindex_t bond_ifindex, bool bypass);
+extern void zebra_l2if_update_bond_slave(struct interface *ifp, ifindex_t bond_ifindex, bool bypass,
+					 bool ad_actor_state_valid, uint8_t ad_actor_state);
+extern const char *zebra_lacp_state2str(uint8_t state, char *buf, size_t len);
 extern void zebra_vlan_bitmap_compute(struct interface *ifp,
 		uint32_t vid_start, uint16_t vid_end);
 extern void zebra_vlan_mbr_re_eval(struct interface *ifp,

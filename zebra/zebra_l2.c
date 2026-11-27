@@ -496,8 +496,30 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 	}
 }
 
-void zebra_l2if_update_bond_slave(struct interface *ifp, ifindex_t bond_ifindex,
-				  bool new_bypass)
+/* Render IEEE 802.1AX LACP state bits as a comma separated list. */
+const char *zebra_lacp_state2str(uint8_t state, char *buf, size_t len)
+{
+	static const char *const names[] = {
+		"Activity",   "Timeout",      "Aggregation", "Sync",
+		"Collecting", "Distributing", "Defaulted",   "Expired",
+	};
+	size_t pos = 0;
+
+	if (len == 0)
+		return buf;
+	buf[0] = '\0';
+
+	for (unsigned int i = 0; i < array_size(names) && pos < len; i++) {
+		if (!CHECK_FLAG(state, 1 << i))
+			continue;
+		pos += snprintf(buf + pos, len - pos, "%s%s", pos ? "," : "", names[i]);
+	}
+
+	return buf;
+}
+
+void zebra_l2if_update_bond_slave(struct interface *ifp, ifindex_t bond_ifindex, bool new_bypass,
+				  bool ad_actor_state_valid, uint8_t ad_actor_state)
 {
 	struct zebra_if *zif;
 	ifindex_t old_bond_ifindex;
@@ -506,6 +528,32 @@ void zebra_l2if_update_bond_slave(struct interface *ifp, ifindex_t bond_ifindex,
 
 	zif = ifp->info;
 	assert(zif);
+
+	/*
+	 * LACP actor state first: it changes while the member stays in the
+	 * same bond, which returns early below.
+	 */
+	bond_mbr = &zif->bondslave_info;
+	if (bond_ifindex == IFINDEX_INTERNAL)
+		ad_actor_state_valid = false;
+	if (!ad_actor_state_valid)
+		ad_actor_state = 0;
+	if (bond_mbr->ad_actor_state_valid != ad_actor_state_valid ||
+	    bond_mbr->ad_actor_oper_state != ad_actor_state) {
+		if (IS_ZEBRA_DEBUG_EVENT) {
+			char ostr[96], nstr[96];
+
+			zlog_debug("bond-mbr %s lacp actor state %s0x%02x (%s) -> %s0x%02x (%s)",
+				   ifp->name, bond_mbr->ad_actor_state_valid ? "" : "invalid ",
+				   bond_mbr->ad_actor_oper_state,
+				   zebra_lacp_state2str(bond_mbr->ad_actor_oper_state, ostr,
+							sizeof(ostr)),
+				   ad_actor_state_valid ? "" : "invalid ", ad_actor_state,
+				   zebra_lacp_state2str(ad_actor_state, nstr, sizeof(nstr)));
+		}
+		bond_mbr->ad_actor_state_valid = ad_actor_state_valid;
+		bond_mbr->ad_actor_oper_state = ad_actor_state;
+	}
 
 	old_bypass = !!CHECK_FLAG(zif->flags, ZIF_FLAG_LACP_BYPASS);
 	if (old_bypass != new_bypass) {

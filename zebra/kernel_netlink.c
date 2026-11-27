@@ -1566,6 +1566,9 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_GRE_SET:
 		return netlink_put_gre_set_msg(bth, ctx);
 
+	case DPLANE_OP_INTF_SET_MASTER:
+		return netlink_put_intf_set_master_msg(bth, ctx);
+
 	case DPLANE_OP_INTF_ADDR_ADD:
 	case DPLANE_OP_INTF_ADDR_DEL:
 	case DPLANE_OP_NONE:

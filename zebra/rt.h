@@ -68,8 +68,9 @@ extern int kernel_neigh_update(int cmd, int ifindex, void *addr, char *lla,
 			       bool permanent);
 extern int kernel_neigh_register(vrf_id_t vrf_id, struct zserv *client,
 				 bool reg);
-extern int kernel_interface_set_master(struct interface *master,
-				       struct interface *slave);
+extern int kernel_intf_set_master_sync(struct zebra_ns *zns, ifindex_t ifindex, bool set_master,
+				       ifindex_t master_ifindex, enum dplane_intf_admin admin,
+				       const uint8_t *mac);
 
 extern int mpls_kernel_init(void);
 
