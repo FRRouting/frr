@@ -95,6 +95,14 @@ alt a 	a?b
 alt a 1	.2?.3.4
 alt a 1	:2?	::?3
 
+attr 	
+attr a	
+attr ?
+attr d ?
+attr c ?
+attr a foo
+attr c y
+
 conf t
 do pat d baz
 exit
