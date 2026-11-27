@@ -183,24 +183,14 @@ void rip_peer_delete_routes(const struct rip_peer *peer)
 			if (route_entry->from.s_addr != peer->addr.s_addr)
 				continue;
 
-			if (rip_info_list_count(list) == 1) {
-				event_cancel(&route_entry->t_timeout);
-				event_cancel(&route_entry->t_garbage_collect);
-				rip_info_list_del(list, route_entry);
-				if (rip_info_list_count(list) == 0) {
-					rip_info_list_fini(list);
-					XFREE(MTYPE_RIP_INFO_LIST,
-					      route_node->info);
-					route_unlock_node(route_node);
-				}
-				rip_info_free(route_entry);
-
-				/* Signal the output process to trigger an
-				 * update (see section 2.5). */
-				rip_event(peer->rip, RIP_TRIGGERED_UPDATE, 0);
-			} else
-				rip_ecmp_delete(peer->rip, route_entry);
-			break;
+			/* Withdraw like the normal last-path deletion so
+			 * zebra is notified, the route is poisoned to the
+			 * other peers and the last path is kept with metric
+			 * INFINITY for garbage collection.  Every path from
+			 * this peer must be withdrawn, otherwise stale paths
+			 * survive the BFD session.
+			 */
+			rip_ecmp_delete(peer->rip, route_entry);
 		}
 	}
 }
