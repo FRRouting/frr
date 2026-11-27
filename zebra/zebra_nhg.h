@@ -178,6 +178,9 @@ struct nhg_hash_entry {
  * by the NHG layer, not the EVPN-MH layer.
  */
 #define NEXTHOP_GROUP_STALE_FDB (1 << 11)
+
+/* The dataplane holds this group without some of its depends. */
+#define NEXTHOP_GROUP_PARTIAL (1 << 12)
 };
 
 /* Upper 4 bits of the NHG are reserved for indicating the NHG type */

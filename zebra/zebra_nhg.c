@@ -1287,6 +1287,10 @@ static void zebra_nhg_handle_install(struct nhg_hash_entry *nhe, bool install)
 				nhg_handle_install_one(rb_node_dep);
 			}
 
+			if (CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_PARTIAL) &&
+			    CHECK_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_INSTALLED))
+				SET_FLAG(rb_node_dep->nhe->flags, NEXTHOP_GROUP_REINSTALL);
+
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 				zlog_debug(
 					"%s nh id %u (flags 0x%x) associated dependent NHG %pNG install",
@@ -3706,7 +3710,8 @@ backups_done:
  */
 static uint16_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp, uint16_t curr_index,
 					   struct nhg_hash_entry *nhe,
-					   struct nhg_hash_entry *original, int max_num)
+					   struct nhg_hash_entry *original, int max_num,
+					   bool *partial)
 {
 	struct nhg_connected *rb_node_dep = NULL;
 	struct nhg_hash_entry *depend = NULL;
@@ -3737,8 +3742,7 @@ static uint16_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp, uint16_t curr_ind
 
 		if (!zebra_nhg_depends_is_empty(depend)) {
 			/* This is a group within a group */
-			i = zebra_nhg_nhe2grp_internal(grp, i, depend, nhe,
-						       max_num);
+			i = zebra_nhg_nhe2grp_internal(grp, i, depend, nhe, max_num, partial);
 		} else {
 			bool found;
 
@@ -3751,6 +3755,8 @@ static uint16_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp, uint16_t curr_ind
 
 				frrtrace(1, frr_zebra, zebra_nhg_nhe2grp_internal_failure,
 					 depend->id);
+				if (partial)
+					*partial = true;
 				continue;
 			}
 
@@ -3768,6 +3774,8 @@ static uint16_t zebra_nhg_nhe2grp_internal(struct nh_grp *grp, uint16_t curr_ind
 
 				frrtrace(1, frr_zebra, zebra_nhg_nhe2grp_internal_failure,
 					 depend->id);
+				if (partial)
+					*partial = true;
 				continue;
 			}
 
@@ -3841,7 +3849,46 @@ done:
 uint16_t zebra_nhg_nhe2grp(struct nh_grp *grp, struct nhg_hash_entry *nhe, int max_num)
 {
 	/* Call into the recursive function */
-	return zebra_nhg_nhe2grp_internal(grp, 0, nhe, nhe, max_num);
+	return zebra_nhg_nhe2grp_internal(grp, 0, nhe, nhe, max_num, NULL);
+}
+
+/*
+ * Depends that were not ready are left out of the group sent to the
+ * dataplane. Resend the group once one of them can be included.
+ */
+static void zebra_nhg_check_partial(struct nhg_hash_entry *nhe, const struct zebra_dplane_ctx *ctx)
+{
+	struct nh_grp grp[MULTIPATH_NUM];
+	const struct nh_grp *sent = dplane_ctx_get_nhe_nh_grp(ctx);
+	uint16_t sent_count = dplane_ctx_get_nhe_nh_grp_count(ctx);
+	uint16_t count, i, j;
+	bool partial = false;
+
+	if (zebra_nhg_depends_is_empty(nhe) ||
+	    CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_INITIAL_DELAY_INSTALL))
+		return;
+
+	count = zebra_nhg_nhe2grp_internal(grp, 0, nhe, nhe, MULTIPATH_NUM, &partial);
+
+	for (i = 0; i < count; i++) {
+		for (j = 0; j < sent_count; j++)
+			if (grp[i].id == sent[j].id)
+				break;
+
+		if (j == sent_count) {
+			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
+				zlog_debug("%s: nhe %pNG gained depend %u, reinstall", __func__,
+					   nhe, grp[i].id);
+			SET_FLAG(nhe->flags, NEXTHOP_GROUP_REINSTALL);
+			zebra_nhg_install_kernel(nhe, ZEBRA_ROUTE_MAX);
+			return;
+		}
+	}
+
+	if (partial)
+		SET_FLAG(nhe->flags, NEXTHOP_GROUP_PARTIAL);
+	else
+		UNSET_FLAG(nhe->flags, NEXTHOP_GROUP_PARTIAL);
 }
 
 void zebra_nhg_install_kernel(struct nhg_hash_entry *nhe, uint8_t type)
@@ -3992,6 +4039,7 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 		switch (status) {
 		case ZEBRA_DPLANE_REQUEST_SUCCESS:
 			SET_FLAG(nhe->flags, NEXTHOP_GROUP_INSTALLED);
+			zebra_nhg_check_partial(nhe, ctx);
 			zebra_nhg_handle_install(nhe, true);
 
 			/* If daemon nhg, send it an update */
@@ -4665,5 +4713,11 @@ void dump_nhg_flags(uint32_t flags, char *buf, size_t len)
 		if (!first)
 			strlcat(buf, ", ", len);
 		strlcat(buf, "Initial Delay", len);
+		first = false;
+	}
+	if (CHECK_FLAG(flags, NEXTHOP_GROUP_PARTIAL)) {
+		if (!first)
+			strlcat(buf, ", ", len);
+		strlcat(buf, "Partial", len);
 	}
 }
