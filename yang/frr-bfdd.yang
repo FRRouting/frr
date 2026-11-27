@@ -168,7 +168,9 @@ module frr-bfdd {
 
   grouping auth-config {
     leaf authentication-key-chain {
-      type kc:key-chain-ref;
+      type kc:key-chain-ref {
+        require-instance false;
+      }
       description "Reference to the key chain for authentication";
     }
 

@@ -197,31 +197,23 @@ static void __bfd_process_keychain_updated(const char *keychain_name, bool is_mh
 					   bool remove_event)
 {
 	struct bfd_session *bs;
-	const struct bfd_session *iter = NULL;
-	struct keychain *kc;
+	const struct bfd_session *iter;
+	uint32_t mode;
 
-	kc = keychain_lookup(keychain_name);
+	for (mode = BFD_MODE_TYPE_BFD; mode <= BFD_MODE_TYPE_SBFD_INIT; mode++) {
+		iter = NULL;
+		while ((iter = bfd_session_next(iter, is_mhop, mode)) != NULL) {
+			bs = (struct bfd_session *)iter;
 
-	while ((iter = bfd_session_next(iter, is_mhop, BFD_MODE_TYPE_BFD)) != NULL) {
-		bs = (struct bfd_session *)iter;
+			if (strcmp(keychain_name, bs->peer_profile.auth_config.key_chain_name) != 0)
+				/* peer profile keychain name does not match */
+				continue;
 
-		if (!bfd_session_auth_config_takes_precedence_over_profile(bs))
-			/* Peer-specific config takes precedence */
-			continue;
+			zlog_info("BFD: session [%s], keychain %s %s", bs_to_string(bs),
+				  keychain_name, remove_event ? "removed" : "updated");
 
-		if (strcmp(keychain_name, bs->peer_profile.auth_config.key_chain_name) != 0)
-			/* peer profile keychain name does not match */
-			continue;
-
-		if (kc && remove_event == false)
-			bs->kc = kc;
-		else
-			bs->kc = NULL;
-
-		zlog_info("BFD: session [%s], keychain %s %s", bs_to_string(bs), keychain_name,
-			  remove_event ? "removed" : "updated");
-
-		bfd_session_apply(bs);
+			bfd_session_apply(bs);
+		}
 	}
 }
 
