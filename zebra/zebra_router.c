@@ -159,15 +159,18 @@ void zebra_router_show_table_summary(struct vty *vty)
 	}
 }
 
-void zebra_router_sweep_route(void)
+unsigned long zebra_router_sweep_route(void)
 {
 	struct zebra_router_table *zrt;
+	unsigned long n = 0;
 
 	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables) {
 		if (zrt->ns_id != NS_DEFAULT)
 			continue;
-		rib_sweep_table(zrt->table);
+		n += rib_sweep_table(zrt->table);
 	}
+
+	return n;
 }
 
 void zebra_router_sweep_nhgs(void)

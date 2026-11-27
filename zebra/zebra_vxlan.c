@@ -2826,6 +2826,17 @@ static void zl3vni_del_nh_hash_entry(struct l3vni_walk_ctx *wctx, struct zebra_n
 
 	zl3vni = (struct zebra_l3vni *)wctx->zl3vni;
 
+	/*
+	 * If we are doing stale cleanup but this neigh is not
+	 * marked stale, then do not delete it. The shared SVD
+	 * nexthop refcount must not be decremented in this case
+	 * either, otherwise it can drop to zero and uninstall the
+	 * SVD neigh while the L3VNI nh that references it is still
+	 * alive.
+	 */
+	if (wctx->gr_stale_cleanup && (n->gr_refresh_time > wctx->gr_cleanup_time))
+		return;
+
 	/* remove SVD based remote nexthop neigh entry */
 	svd_nh = svd_nh_lookup(&n->ip);
 	if (svd_nh) {
@@ -2839,13 +2850,6 @@ static void zl3vni_del_nh_hash_entry(struct l3vni_walk_ctx *wctx, struct zebra_n
 			svd_nh_del(svd_nh);
 		}
 	}
-
-	/*
-	 * If we are doing stale cleanup but this neigh is not
-	 * marked stale, then do not delete it
-	 */
-	if (wctx->gr_stale_cleanup && (n->gr_refresh_time > wctx->gr_cleanup_time))
-		return;
 
 	zl3vni_nh_uninstall(zl3vni, n);
 	zl3vni_nh_del(zl3vni, n);

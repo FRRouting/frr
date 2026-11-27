@@ -5002,15 +5002,16 @@ void rib_update(enum rib_update_event event, int type)
 }
 
 /* Delete self installed routes after zebra is relaunched.  */
-void rib_sweep_table(struct route_table *table)
+unsigned long rib_sweep_table(struct route_table *table)
 {
 	struct route_node *rn;
 	struct route_entry *re;
 	struct route_entry *next;
 	struct nexthop *nexthop;
+	unsigned long n = 0;
 
 	if (!table)
-		return;
+		return 0;
 
 	if (IS_ZEBRA_DEBUG_RIB)
 		zlog_debug("%s: starting", __func__);
@@ -5059,11 +5060,14 @@ void rib_sweep_table(struct route_table *table)
 
 			rib_uninstall_kernel(rn, re);
 			rib_delnode(rn, re);
+			n++;
 		}
 	}
 
 	if (IS_ZEBRA_DEBUG_RIB)
 		zlog_debug("%s: ends", __func__);
+
+	return n;
 }
 
 /* Sweep all RIB tables.  */
@@ -5086,6 +5090,54 @@ void rib_sweep_route(struct event *t)
 
 	zebra_router_sweep_route();
 	zebra_router_sweep_nhgs();
+	zebra_evpn_stale_entries_cleanup(zrouter.startup_time);
+}
+
+/*
+ * Run the stale-route sweep now instead of waiting for the startup or
+ * graceful-restart cleanup timer.  Unlike rib_sweep_route() this does not
+ * touch t_rib_sweep or rib_sweep_time, so a pending timer still fires and
+ * "show zebra" keeps reporting it.  A NULL vrf means every VRF and
+ * AFI_UNSPEC both address families.  Only a full sweep also covers the
+ * other kernel tables, nexthop groups and EVPN entries, as the startup
+ * sweep does; the caller must not set it when filtering by VRF or address
+ * family.
+ */
+void rib_sweep_stale_routes(struct vrf *vrf, afi_t afi, bool full,
+			    struct rib_stale_sweep_count *count)
+{
+	struct vrf *v;
+	struct zebra_vrf *zvrf;
+	unsigned long nhgs;
+
+	memset(count, 0, sizeof(*count));
+
+	zlog_info("Sweeping the RIB for stale routes on demand (vrf %s, afi %s)",
+		  vrf ? vrf->name : "all", afi == AFI_UNSPEC ? "all" : afi2str(afi));
+
+	RB_FOREACH (v, vrf_id_head, &vrfs_by_id) {
+		if (vrf && v != vrf)
+			continue;
+		zvrf = v->info;
+		if (!zvrf)
+			continue;
+
+		if (afi == AFI_UNSPEC || afi == AFI_IP)
+			count->routes += rib_sweep_table(zvrf->table[AFI_IP][SAFI_UNICAST]);
+		if (afi == AFI_UNSPEC || afi == AFI_IP6)
+			count->routes += rib_sweep_table(zvrf->table[AFI_IP6][SAFI_UNICAST]);
+	}
+
+	if (!full)
+		return;
+
+	count->routes += zebra_router_sweep_route();
+
+	nhgs = hashcount(zrouter.nhgs_id);
+	zebra_router_sweep_nhgs();
+	if (nhgs > hashcount(zrouter.nhgs_id))
+		count->nhgs = nhgs - hashcount(zrouter.nhgs_id);
+
 	zebra_evpn_stale_entries_cleanup(zrouter.startup_time);
 }
 

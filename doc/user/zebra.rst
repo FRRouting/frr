@@ -1822,6 +1822,26 @@ zebra Terminal Mode Commands
    a table is displayed with shortened information.  The json form of
    the command dumps the client information in json.
 
+.. clicmd:: zebra stale-route sweep [vrf <NAME|all>] [<ipv4|ipv6>] [json]
+
+   Remove, right away, the routes that zebra installed in a previous run and
+   read back from the kernel at startup but that no client has refreshed
+   since. These are the routes the startup sweep removes, which with
+   ``-K TIME`` happens only after ``TIME`` seconds. Running this command does
+   not cancel that timer. Routes that a client re-sends after this command
+   are installed again as usual.
+
+   Without arguments the command sweeps the IPv4 and IPv6 unicast tables of
+   every VRF, the other kernel tables, unused nexthop groups and stale EVPN
+   entries, as the startup sweep does. ``vrf`` and ``ipv4``/``ipv6`` limit
+   the sweep to those unicast tables; ``vrf all`` covers the unicast tables
+   of every VRF and nothing else. The output gives the number of routes
+   (and, for the full sweep, nexthop groups) removed.
+
+   While zebra still has route updates queued, for example right after
+   startup when the routes read from the kernel are being processed, the
+   command removes nothing and asks to try again later.
+
 .. clicmd:: show zebra router table summary
 
    Display summarized data about tables created, their afi/safi/tableid
