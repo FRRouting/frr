@@ -1274,7 +1274,7 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 	if (vty) {
 		if (!use_json)
 			vty_out(vty, "TLV info:\n");
-	} else {
+	} else if (IS_DEBUG_OSPF6_GR) {
 		zlog_debug("  TLV info:");
 	}
 
@@ -1304,7 +1304,7 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 				else
 					vty_out(vty, "   Grace period:%d\n",
 						ntohl(gracePeriod->interval));
-			} else {
+			} else if (IS_DEBUG_OSPF6_GR) {
 				zlog_debug("    Grace period:%d",
 					   ntohl(gracePeriod->interval));
 			}
@@ -1320,7 +1320,7 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 				else
 					vty_out(vty, "   Restart reason:%s\n",
 						ospf6_restart_reason_str(grReason->reason));
-			} else {
+			} else if (IS_DEBUG_OSPF6_GR) {
 				zlog_debug("    Restart reason:%s",
 					   ospf6_restart_reason_str(grReason->reason));
 			}
