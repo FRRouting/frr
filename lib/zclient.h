@@ -238,6 +238,9 @@ typedef enum {
 	ZEBRA_TC_FILTER_DELETE,
 	ZEBRA_OPAQUE_NOTIFY,
 	ZEBRA_SRV6_SID_NOTIFY,
+	ZEBRA_PREFIX_TRACK_REGISTER,
+	ZEBRA_PREFIX_TRACK_UNREGISTER,
+	ZEBRA_PREFIX_TRACK_UPDATE,
 } zebra_message_types_t;
 /* Zebra message types. Please update the corresponding
  * command_types array with any changes!
@@ -926,6 +929,50 @@ int zclient_neigh_ip_decode(struct stream *s, struct zapi_neigh_ip *api);
 int zclient_neigh_ip_encode(struct stream *s, uint16_t cmd, union sockunion *in,
 			    union sockunion *out, struct interface *ifp,
 			    int ndm_state, int ip_len);
+
+enum zapi_ptrack_state {
+	ZAPI_PTRACK_UNREACHABLE = 0,
+	ZAPI_PTRACK_REACHABLE,
+};
+
+static inline const char *zapi_ptrack_state2str(enum zapi_ptrack_state state)
+{
+	switch (state) {
+	case ZAPI_PTRACK_UNREACHABLE:
+		return "UNREACHABLE";
+	case ZAPI_PTRACK_REACHABLE:
+		return "REACHABLE";
+	}
+
+	return "UNKNOWN";
+}
+
+/*
+ * Default payload size (without cookies)
+ * vrf name, family, prefix len, prefix, state, cookie count
+ */
+#define ZAPI_PTRACK_FIXED_SIZE (VRF_NAMSIZ + 1 + 1 + IPV6_MAX_BYTELEN + 1 + 2)
+
+/* Max zapi buffer length per message */
+#define ZAPI_PTRACK_MAX_COOKIES                                                \
+	((ZEBRA_MAX_PACKET_SIZ - ZEBRA_HEADER_SIZE - ZAPI_PTRACK_FIXED_SIZE) / \
+	 sizeof(uint64_t))
+
+struct zapi_ptrack {
+	char vrf_name[VRF_NAMSIZ];
+	struct prefix prefix;
+
+	/* Sent only in UPDATE */
+	enum zapi_ptrack_state state;
+
+	uint16_t cookie_count;
+	uint64_t cookies[ZAPI_PTRACK_MAX_COOKIES];
+};
+
+extern int zapi_ptrack_encode(uint8_t cmd, struct stream *s,
+			      const struct zapi_ptrack *api);
+extern bool zapi_ptrack_decode(uint8_t cmd, struct stream *s,
+			       struct zapi_ptrack *api);
 
 /*
  * We reserve the top 4 bits for l2-NHG, everything else

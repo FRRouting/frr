@@ -43,6 +43,7 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_rnh.h"
+#include "zebra/zebra_ptrack.h"
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_vxlan.h"
@@ -1615,6 +1616,11 @@ static void rib_process(struct route_node *rn)
 	 * Check if the dest can be deleted now.
 	 */
 	rib_gc_dest(rn);
+
+	/*
+	 * Evaluate ptrack state
+	 */
+	zebra_ptrack_evaluate(zvrf, rn);
 }
 
 static void zebra_rib_evaluate_mpls(struct route_node *rn)
@@ -5066,6 +5072,21 @@ void rib_sweep_table(struct route_table *table)
 		zlog_debug("%s: ends", __func__);
 }
 
+/*
+ * RIB startup status
+ */
+bool zebra_rib_startup_done(void)
+{
+	if (!zrouter.startup_time)
+		return false;
+
+	if (zrouter.graceful_restart)
+		return true;
+
+	/* Non GR, wait until stale routes sweep */
+	return zrouter.rib_sweep_time != 0;
+}
+
 /* Sweep all RIB tables.  */
 void rib_sweep_route(struct event *t)
 {
@@ -5087,6 +5108,7 @@ void rib_sweep_route(struct event *t)
 	zebra_router_sweep_route();
 	zebra_router_sweep_nhgs();
 	zebra_evpn_stale_entries_cleanup(zrouter.startup_time);
+	zebra_ptrack_rib_sweep();
 }
 
 /* Remove specific by protocol routes from 'table'. */

@@ -8,6 +8,7 @@
 #define __ZEBRA_VRF_H__
 
 #include "vxlan.h"
+#include "zebra_ptrack.h"
 
 #include <zebra/zebra_ns.h>
 #include <zebra/zebra_pw.h>
@@ -77,6 +78,11 @@ struct zebra_vrf {
 	struct route_table *rnh_table_multicast[AFI_MAX];
 
 	struct otable_head other_tables;
+
+	/*
+	 * Ptrack context
+	 */
+	struct ptrack_vrf_ctx *ptrack;
 
 	/* 2nd pointer type used primarily to quell a warning on
 	 * ALL_LIST_ELEMENTS_RO

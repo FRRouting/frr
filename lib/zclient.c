@@ -2727,6 +2727,169 @@ zebra_redistribute_default_send(int command, struct zclient *zclient, afi_t afi,
 	return zclient_send_message(zclient);
 }
 
+static bool zapi_ptrack_cmd_valid(uint8_t cmd)
+{
+	switch (cmd) {
+	case ZEBRA_PREFIX_TRACK_REGISTER:
+	case ZEBRA_PREFIX_TRACK_UNREGISTER:
+	case ZEBRA_PREFIX_TRACK_UPDATE:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static bool zapi_ptrack_prefix_valid(const struct prefix *p)
+{
+	switch (p->family) {
+	case AF_INET:
+		return p->prefixlen <= IPV4_MAX_BITLEN;
+	case AF_INET6:
+		return p->prefixlen <= IPV6_MAX_BITLEN;
+	default:
+		return false;
+	}
+}
+
+/*
+ * Encode ptrack update
+ */
+int zapi_ptrack_encode(uint8_t cmd, struct stream *s,
+		       const struct zapi_ptrack *api)
+{
+	char vrf_name[VRF_NAMSIZ] = {};
+	size_t name_len;
+	uint16_t i;
+
+	if (!zapi_ptrack_cmd_valid(cmd)) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: Specified zapi ptrack command (%u) doesn't exist",
+			 __func__, cmd);
+		return -1;
+	}
+
+	name_len = strnlen(api->vrf_name, VRF_NAMSIZ);
+	if (name_len == 0 || name_len == VRF_NAMSIZ) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: VRF name is empty or not terminated", __func__);
+		return -1;
+	}
+
+	if (!zapi_ptrack_prefix_valid(&api->prefix)) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: Specified prefix family %d or length %u is not valid",
+			 __func__, api->prefix.family, api->prefix.prefixlen);
+		return -1;
+	}
+
+	if (cmd == ZEBRA_PREFIX_TRACK_UPDATE &&
+	    api->state != ZAPI_PTRACK_UNREACHABLE &&
+	    api->state != ZAPI_PTRACK_REACHABLE) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: Specified state (%d) is not a legal value",
+			 __func__, api->state);
+		return -1;
+	}
+
+	if (api->cookie_count > ZAPI_PTRACK_MAX_COOKIES) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: can't encode %u cookies (maximum is %zu)",
+			 __func__, api->cookie_count,
+			 (size_t)ZAPI_PTRACK_MAX_COOKIES);
+		return -1;
+	}
+
+	if (STREAM_SIZE(s) < ZEBRA_HEADER_SIZE + ZAPI_PTRACK_FIXED_SIZE +
+				     api->cookie_count * sizeof(uint64_t)) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: stream is too small for %u cookies", __func__,
+			 api->cookie_count);
+		return -1;
+	}
+
+	stream_reset(s);
+	/* Use vrf_name instead of vrf_id */
+	zclient_create_header(s, cmd, VRF_DEFAULT);
+
+	memcpy(vrf_name, api->vrf_name, name_len);
+	stream_put(s, vrf_name, VRF_NAMSIZ);
+
+	stream_putc(s, api->prefix.family);
+	stream_putc(s, api->prefix.prefixlen);
+	stream_put(s, &api->prefix.u.prefix, PSIZE(api->prefix.prefixlen));
+
+	if (cmd == ZEBRA_PREFIX_TRACK_UPDATE)
+		stream_putc(s, api->state);
+
+	stream_putw(s, api->cookie_count);
+	for (i = 0; i < api->cookie_count; i++)
+		stream_putq(s, api->cookies[i]);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return 0;
+}
+
+/*
+ * Decode ptrack request
+ */
+bool zapi_ptrack_decode(uint8_t cmd, struct stream *s, struct zapi_ptrack *api)
+{
+	uint8_t state;
+	uint16_t i;
+
+	if (!zapi_ptrack_cmd_valid(cmd)) {
+		zlog_debug("%s: unexpected zapi ptrack command (%u)", __func__,
+			   cmd);
+		return false;
+	}
+
+	memset(api, 0, offsetof(struct zapi_ptrack, cookies));
+
+	STREAM_GET(api->vrf_name, s, VRF_NAMSIZ);
+	if (api->vrf_name[0] == '\0' ||
+	    strnlen(api->vrf_name, VRF_NAMSIZ) == VRF_NAMSIZ) {
+		zlog_debug("%s: VRF name is empty or not terminated", __func__);
+		return false;
+	}
+
+	STREAM_GETC(s, api->prefix.family);
+	STREAM_GETC(s, api->prefix.prefixlen);
+	if (!zapi_ptrack_prefix_valid(&api->prefix)) {
+		flog_err(EC_LIB_ZAPI_ENCODE,
+			 "%s: Specified family %d or prefix length %u is not valid",
+			 __func__, api->prefix.family, api->prefix.prefixlen);
+		return false;
+	}
+	STREAM_GET(&api->prefix.u.prefix, s, PSIZE(api->prefix.prefixlen));
+
+	if (cmd == ZEBRA_PREFIX_TRACK_UPDATE) {
+		STREAM_GETC(s, state);
+		if (state != ZAPI_PTRACK_UNREACHABLE &&
+		    state != ZAPI_PTRACK_REACHABLE) {
+			zlog_debug("%s: state (%u) is not a legal value",
+				   __func__, state);
+			return false;
+		}
+		api->state = state;
+	}
+
+	STREAM_GETW(s, api->cookie_count);
+	if (api->cookie_count > ZAPI_PTRACK_MAX_COOKIES) {
+		zlog_debug("%s: invalid number of cookies (%u)", __func__,
+			   api->cookie_count);
+		return false;
+	}
+
+	for (i = 0; i < api->cookie_count; i++)
+		STREAM_GETQ(s, api->cookies[i]);
+
+	return true;
+
+stream_failure:
+	return false;
+}
+
 /* Send route notify request to zebra */
 int zebra_route_notify_send(int command, struct zclient *zclient, bool set)
 {
@@ -5499,3 +5662,4 @@ void zclient_neigh_get(struct zclient *zclient, struct interface *ifp, afi_t afi
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zclient_send_message(zclient);
 }
+

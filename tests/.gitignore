@@ -94,3 +94,4 @@ frr_northbound*
 /pimd/test_pim_jp_encode
 /pimd/test_pim_staterefresh
 /zebra/test_lm_plugin
+/zebra/test_ptrack

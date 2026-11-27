@@ -25,6 +25,7 @@
 #include "zebra/rib.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_rnh.h"
+#include "zebra/zebra_ptrack.h"
 #include "zebra/router-id.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_mpls.h"
@@ -157,6 +158,9 @@ static int zebra_vrf_enable(struct vrf *vrf)
 	/* Kick off any VxLAN-EVPN processing. */
 	zebra_vxlan_vrf_enable(zvrf);
 
+	/* Kick off ptrack processing. */
+	zebra_ptrack_vrf_enable(zvrf);
+
 	return 0;
 }
 
@@ -241,6 +245,9 @@ static int zebra_vrf_disable(struct vrf *vrf)
 	zebra_vxlan_vrf_disable(zvrf);
 
 	rtadv_vrf_terminate(zvrf);
+
+	/* Stop any ptrack processing. */
+	zebra_ptrack_vrf_disable(zvrf);
 
 	/* Inform clients that the VRF is now inactive. This is a
 	 * delete for the clients.

@@ -54,6 +54,7 @@
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_srv6.h"
 #include "zebra/zebra_neigh.h"
+#include "zebra/zebra_ptrack.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, RE_OPAQUE, "Route Opaque Data");
 
@@ -1413,6 +1414,34 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 	}
 stream_failure:
 	return;
+}
+
+/* Ptrack register */
+static void zread_ptrack_register(ZAPI_HANDLER_ARGS)
+{
+	struct zapi_ptrack api;
+
+	if (!zapi_ptrack_decode(ZEBRA_PREFIX_TRACK_REGISTER, msg, &api)) {
+		zlog_debug("%s: client %s: malformed message, dropping the request",
+			   __func__, zebra_route_string(client->proto));
+		return;
+	}
+
+	zebra_ptrack_register(client, &api);
+}
+
+/* Ptrack unregister */
+static void zread_ptrack_unregister(ZAPI_HANDLER_ARGS)
+{
+	struct zapi_ptrack api;
+
+	if (!zapi_ptrack_decode(ZEBRA_PREFIX_TRACK_UNREGISTER, msg, &api)) {
+		zlog_debug("%s: client %s: malformed message, dropping the request",
+			   __func__, zebra_route_string(client->proto));
+		return;
+	}
+
+	zebra_ptrack_unregister(client, &api);
 }
 
 #define ZEBRA_MIN_FEC_LENGTH 5
@@ -4260,6 +4289,18 @@ void zserv_handle_commands(struct zserv *client, struct stream_fifo *fifo)
 
 			/* Continue without freeing the message */
 			msg = NULL;
+			goto continue_loop;
+		}
+
+		/*
+		 * Ptrack handlers
+		 */
+		if (hdr.command == ZEBRA_PREFIX_TRACK_REGISTER) {
+			zread_ptrack_register(client, &hdr, msg, NULL);
+			goto continue_loop;
+		}
+		if (hdr.command == ZEBRA_PREFIX_TRACK_UNREGISTER) {
+			zread_ptrack_unregister(client, &hdr, msg, NULL);
 			goto continue_loop;
 		}
 

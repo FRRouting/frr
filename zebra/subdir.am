@@ -97,6 +97,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_pbr.c \
 	zebra/zebra_ptm.c \
 	zebra/zebra_ptm_redistribute.c \
+	zebra/zebra_ptrack.c \
 	zebra/zebra_pw.c \
 	zebra/zebra_rib.c \
 	zebra/zebra_router.c \
@@ -181,6 +182,7 @@ nobase_pkginclude_HEADERS += \
 	zebra/zebra_pbr.h \
 	zebra/zebra_ptm.h \
 	zebra/zebra_ptm_redistribute.h \
+	zebra/zebra_ptrack.h \
 	zebra/zebra_pw.h \
 	zebra/zebra_rnh.h \
 	zebra/zebra_routemap.h \
