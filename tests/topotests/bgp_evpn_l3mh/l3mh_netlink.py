@@ -74,7 +74,10 @@ def watch_binding(leaf, entry, *, expect_probe=False):
     if expect_probe:
         args.append("probe")
     with leaf.popen(
-        args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        args,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
     ) as monitor:
         try:
             assert monitor.stdout.readline() == "ready\n"

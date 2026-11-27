@@ -249,7 +249,7 @@ struct bgp_evpn_es_vrf_vtep {
 
 	uint32_t flags;
 #define BGP_EVPN_ES_VRF_VTEP_IP_EAD_EVI (1 << 0)
-#define BGP_EVPN_ES_VRF_VTEP_IP_EAD_ES  (1 << 1)
+#define BGP_EVPN_ES_VRF_VTEP_IP_EAD_ES	(1 << 1)
 
 	uint32_t evi_ref;
 	uint32_t es_ref;
@@ -274,7 +274,7 @@ struct bgp_evpn_es_l3_vtep {
 	struct ethaddr sent_rmac;
 	bool rmac_mismatch_logged;
 	uint8_t warn_state;
-#define BGP_EVPN_ES_L3_VTEP_WARN_NONE	      0
+#define BGP_EVPN_ES_L3_VTEP_WARN_NONE		 0
 #define BGP_EVPN_ES_L3_VTEP_WARN_ELIGIBLE_NO_RT4 1
 #define BGP_EVPN_ES_L3_VTEP_WARN_RT4_NO_IP_EAD	 2
 
@@ -493,17 +493,16 @@ extern int bgp_evpn_es_route_install_uninstall(struct bgp *bgp,
 		int install);
 extern void update_type1_routes_for_evi(struct bgp *bgp, struct bgpevpn *vpn);
 extern int delete_global_ead_evi_routes(struct bgp *bgp, struct bgpevpn *vpn);
-extern int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
-				    struct bgpevpn *vpn, vni_t vni, afi_t afi, safi_t safi,
-				    struct bgp_dest *dest, struct attr *attr,
-				    struct bgp_path_info **ri,
+extern int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es, struct bgpevpn *vpn,
+				    vni_t vni, afi_t afi, safi_t safi, struct bgp_dest *dest,
+				    struct attr *attr, struct bgp_path_info **ri,
 				    int *route_changed);
 extern void bgp_evpn_es_vrf_ip_ead_update(struct bgp *bgp_vrf);
 extern void bgp_evpn_es_vrf_ip_ead_withdraw(struct bgp *bgp_vrf);
 extern void bgp_evpn_ip_ead_install_uninstall(struct prefix_evpn *evp, struct bgp_path_info *pi,
-					     struct list *vrfs, int import);
+					      struct list *vrfs, int import);
 extern void bgp_evpn_ip_ead_process(struct bgp *bgp_vrf, struct prefix_evpn *evp,
-				   struct bgp_path_info *pi, int import);
+				    struct bgp_path_info *pi, int import);
 extern void bgp_evpn_ip_ead_reimport(void);
 extern void bgp_evpn_ip_ead_flush_all(void);
 extern void bgp_evpn_ip_ead_path_owners_free(struct bgp_evpn_ip_ead_path_owners **owners);

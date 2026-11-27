@@ -387,7 +387,10 @@ def config_hosts(tgen):
     if "leaf4" in tgen.gears:
         members.append("host1-eth2")
     config_host_bond(
-        tgen.gears["host1"], members, HOST_IP["host1"], ip6=HOST_IP6["host1"],
+        tgen.gears["host1"],
+        members,
+        HOST_IP["host1"],
+        ip6=HOST_IP6["host1"],
     )
     # host3: a second BD on host1's bond (VLAN 101, tagged) in the same VRF.
     h1 = tgen.gears["host1"]
@@ -1101,7 +1104,11 @@ def test_advertise_l3vni_neigh_cli():
         state = js.get("advertiseL3vniNeigh")
         if state == want:
             return None
-        return "bgp vni %d advertiseL3vniNeigh=%s (expected %s)" % (L3VNI, state, want,)
+        return "bgp vni %d advertiseL3vniNeigh=%s (expected %s)" % (
+            L3VNI,
+            state,
+            want,
+        )
 
     def _expect(fn, *args):
         _, result = topotest.run_and_expect(
@@ -1513,23 +1520,27 @@ def test_l3mh_neighbor_transition_debug():
         r"next local-dynamic ip %s mac %s interface \S+\(\d+\) "
         r"L3-VNI %d ETAG %d generation (\d+) reason none forwarding bridge "
         r"associated-neighbors \d+"
-        % (re.escape(HOST_IP["host1"]), re.escape(host1_mac), L3VNI, HOST_VID,)
+        % (
+            re.escape(HOST_IP["host1"]),
+            re.escape(host1_mac),
+            L3VNI,
+            HOST_VID,
+        )
     )
 
     local_leaf.vtysh_cmd("configure terminal\ndebug zebra evpn mh l3vni-neigh")
-    match = None
     try:
         # A repeated REACHABLE update may not notify zebra.
         local_leaf.cmd_raises(update + "stale")
         local_leaf.cmd_raises(update + "reachable")
 
         def _transition_logged():
-            nonlocal match
             with open(log_path, "r", encoding="utf-8", errors="replace") as log_file:
                 log_file.seek(log_offset)
                 output = log_file.read()
             match = pattern.search(output)
             if match:
+                assert int(match.group(1)) > 0, match.group(0)
                 return None
             return "L3MH transition record not found in zebra log: %s" % output
 
@@ -1537,7 +1548,6 @@ def test_l3mh_neighbor_transition_debug():
             _transition_logged, None, count=WAIT_COUNT, wait=WAIT_STEP
         )
         assert result is None, result
-        assert match is not None and int(match[1]) > 0
     finally:
         local_leaf.vtysh_cmd("configure terminal\nno debug zebra evpn mh l3vni-neigh")
 
@@ -5330,7 +5340,10 @@ def test_frr_reload_l3vni_neigh_token_in_place():
         assert not any(l.startswith("no advertise-all-vni") for l in lines), (
             "frr-reload would bounce EVPN:\n%s" % out
         )
-        assert want_add in lines, "frr-reload does not add '%s':\n%s" % (want_add, out,)
+        assert want_add in lines, "frr-reload does not add '%s':\n%s" % (
+            want_add,
+            out,
+        )
 
     _expect(_synced_is, True)
 

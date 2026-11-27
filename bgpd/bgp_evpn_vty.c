@@ -231,9 +231,10 @@ static void display_l2vni_import_rt(struct vty *vty,
 /* Display one wildcard L2VNI import route-target (matched on local-admin only)
  * and the VNIs importing routes that match it.
  */
-static void display_l2vni_wildcard_import_rt(struct vty *vty,
-					     struct bgp_evpn_l2vni_wildcard_import_rt_node *import_rt,
-					     json_object *json)
+static void
+display_l2vni_wildcard_import_rt(struct vty *vty,
+				 struct bgp_evpn_l2vni_wildcard_import_rt_node *import_rt,
+				 json_object *json)
 {
 	char rt_buf[RT_ADDRSTRLEN];
 

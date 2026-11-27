@@ -168,8 +168,7 @@ extern uint32_t bgp_evpn_l2vni_exact_match_import_rt_hash(
 
 DECLARE_HASH(bgp_evpn_l2vni_exact_match_import_rt,
 	     struct bgp_evpn_l2vni_exact_match_import_rt_node, item,
-	     bgp_evpn_l2vni_exact_match_import_rt_cmp,
-	     bgp_evpn_l2vni_exact_match_import_rt_hash);
+	     bgp_evpn_l2vni_exact_match_import_rt_cmp, bgp_evpn_l2vni_exact_match_import_rt_hash);
 
 /* Mapping of a wildcard Import RT to VNIs.
  * The wildcard import RTs of all VNIs are maintained in a hash table
@@ -193,10 +192,8 @@ extern int bgp_evpn_l2vni_wildcard_import_rt_cmp(
 extern uint32_t bgp_evpn_l2vni_wildcard_import_rt_hash(
 	const struct bgp_evpn_l2vni_wildcard_import_rt_node *import_rt);
 
-DECLARE_HASH(bgp_evpn_l2vni_wildcard_import_rt,
-	     struct bgp_evpn_l2vni_wildcard_import_rt_node, item,
-	     bgp_evpn_l2vni_wildcard_import_rt_cmp,
-	     bgp_evpn_l2vni_wildcard_import_rt_hash);
+DECLARE_HASH(bgp_evpn_l2vni_wildcard_import_rt, struct bgp_evpn_l2vni_wildcard_import_rt_node,
+	     item, bgp_evpn_l2vni_wildcard_import_rt_cmp, bgp_evpn_l2vni_wildcard_import_rt_hash);
 
 /* Mapping of an exact-match Import RT to VRFs.
  * The exact-match import RTs of all VRFs are maintained in a hash
@@ -219,10 +216,8 @@ extern int bgp_evpn_vrf_exact_match_import_rt_cmp(
 extern uint32_t bgp_evpn_vrf_exact_match_import_rt_hash(
 	const struct bgp_evpn_vrf_exact_match_import_rt_node *import_rt);
 
-DECLARE_HASH(bgp_evpn_vrf_exact_match_import_rt,
-	     struct bgp_evpn_vrf_exact_match_import_rt_node, item,
-	     bgp_evpn_vrf_exact_match_import_rt_cmp,
-	     bgp_evpn_vrf_exact_match_import_rt_hash);
+DECLARE_HASH(bgp_evpn_vrf_exact_match_import_rt, struct bgp_evpn_vrf_exact_match_import_rt_node,
+	     item, bgp_evpn_vrf_exact_match_import_rt_cmp, bgp_evpn_vrf_exact_match_import_rt_hash);
 
 /* Mapping of a wildcard Import RT to VRFs. See the VNI variant above
  * for the wildcard matching semantics.
@@ -237,16 +232,14 @@ struct bgp_evpn_vrf_wildcard_import_rt_node {
 	struct bgp_evpn_vrf_wildcard_import_rt_item item;
 };
 
-extern int bgp_evpn_vrf_wildcard_import_rt_cmp(
-	const struct bgp_evpn_vrf_wildcard_import_rt_node *import_rt1,
-	const struct bgp_evpn_vrf_wildcard_import_rt_node *import_rt2);
-extern uint32_t bgp_evpn_vrf_wildcard_import_rt_hash(
-	const struct bgp_evpn_vrf_wildcard_import_rt_node *import_rt);
+extern int
+bgp_evpn_vrf_wildcard_import_rt_cmp(const struct bgp_evpn_vrf_wildcard_import_rt_node *import_rt1,
+				    const struct bgp_evpn_vrf_wildcard_import_rt_node *import_rt2);
+extern uint32_t
+bgp_evpn_vrf_wildcard_import_rt_hash(const struct bgp_evpn_vrf_wildcard_import_rt_node *import_rt);
 
-DECLARE_HASH(bgp_evpn_vrf_wildcard_import_rt,
-	     struct bgp_evpn_vrf_wildcard_import_rt_node, item,
-	     bgp_evpn_vrf_wildcard_import_rt_cmp,
-	     bgp_evpn_vrf_wildcard_import_rt_hash);
+DECLARE_HASH(bgp_evpn_vrf_wildcard_import_rt, struct bgp_evpn_vrf_wildcard_import_rt_node, item,
+	     bgp_evpn_vrf_wildcard_import_rt_cmp, bgp_evpn_vrf_wildcard_import_rt_hash);
 
 
 /* Direction(s) of a configured EVPN route target. */

@@ -788,7 +788,9 @@ def test_rt1_loss_excludes_rt2_before_import():
 
             owner.vtysh_cmd(config + "no " + bypass, raises=True)
             l3mh._settle(leaves)
-            receiver.cmd_raises(f"ip neigh replace {ip} lladdr {mac} dev {svi} nud failed")
+            receiver.cmd_raises(
+                f"ip neigh replace {ip} lladdr {mac} dev {svi} nud failed"
+            )
             l3mh._settle(leaves)
             assert l3mh._neigh_synced(receiver, ip)
     finally:

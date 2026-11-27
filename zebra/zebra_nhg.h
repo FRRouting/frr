@@ -186,7 +186,7 @@ struct nhg_hash_entry {
  */
 #define NHG_ID_TYPE_POS 28
 #define NHG_ID_TYPE_MASK (0xfu << NHG_ID_TYPE_POS)
-#define NHG_ID_TYPE(id)	 (((uint32_t)(id) & NHG_ID_TYPE_MASK) >> NHG_ID_TYPE_POS)
+#define NHG_ID_TYPE(id)	 ((NHG_ID_TYPE_MASK & (uint32_t)(id)) >> NHG_ID_TYPE_POS)
 enum nhg_type {
 	NHG_TYPE_L3 = 0,
 	NHG_TYPE_L2_NH = 1,	/* NHs in a L2 NHG used as a MAC/FDB dest */

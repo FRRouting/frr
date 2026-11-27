@@ -896,8 +896,8 @@ extern char *zclient_evpn_dump_macip_flags(uint8_t flags, char *buf,
 #define ZAPI_ES_VTEP_FLAG_ESR_RXED (1 << 0)
 
 /* ZEBRA_EVPN_BPP_PEER_ADD/DEL: L3 only in this release */
-#define ZAPI_EVPN_BPP_PEER_L2 0
-#define ZAPI_EVPN_BPP_PEER_L3 1
+#define ZAPI_EVPN_BPP_PEER_L2		    0
+#define ZAPI_EVPN_BPP_PEER_L3		    1
 #define ZAPI_EVPN_BPP_PEER_L3_NEIGH_BACKING 2 /* DEL only */
 
 struct zapi_evpn_bpp_peer {

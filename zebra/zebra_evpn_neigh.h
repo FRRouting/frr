@@ -548,10 +548,8 @@ int zebra_evpn_remote_neigh_update(struct zebra_evpn *zevpn, struct interface *i
 				   uint16_t state, bool is_router);
 void zebra_evpn_send_neigh_to_client(struct zebra_evpn *zevpn);
 void zebra_evpn_clear_dup_neigh_hash(struct zebra_evpn *zevpn, struct zebra_neigh *n);
-const char *
-zebra_evpn_l3mh_neigh_lifecycle_name(enum zebra_l3mh_neigh_lifecycle state);
-const char *zebra_evpn_l3mh_neigh_removal_reason_name(
-	enum zebra_l3mh_neigh_removal_reason reason);
+const char *zebra_evpn_l3mh_neigh_lifecycle_name(enum zebra_l3mh_neigh_lifecycle state);
+const char *zebra_evpn_l3mh_neigh_removal_reason_name(enum zebra_l3mh_neigh_removal_reason reason);
 void zebra_evpn_print_neigh(const struct zebra_neigh *n, void *ctxt, json_object *json);
 void zebra_evpn_print_neigh_hash(struct neigh_walk_ctx *ctx, const struct zebra_neigh *n,
 				 int addr_width, int r_vtep_width);
