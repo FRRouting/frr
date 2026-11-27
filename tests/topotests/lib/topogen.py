@@ -81,6 +81,14 @@ def is_string(value):
         return isinstance(value, str)
 
 
+def get_frrdir():
+    """
+    Return the FRR daemon directory that Topogen starts daemons from, as set
+    in `pytest.ini`.  Usable before a Topogen exists.
+    """
+    return _read_config().get(Topogen.CONFIG_SECTION, "frrdir")
+
+
 def get_exabgp_cmd(commander=None):
     """Return the command to use for ExaBGP version >= 4.2.11"""
 
@@ -129,6 +137,13 @@ tgen_defaults = {
     "routertype": "frr",
     "memleak_path": "",
 }
+
+
+def _read_config():
+    "Read `pytest.ini` at the root dir of topotests over the defaults."
+    config = configparser.ConfigParser(tgen_defaults)
+    config.read(os.path.join(CWD, "../pytest.ini"))
+    return config
 
 
 class Topogen(object):
@@ -290,9 +305,7 @@ class Topogen(object):
         Loads the configuration file `pytest.ini` located at the root dir of
         topotests.
         """
-        self.config = configparser.ConfigParser(tgen_defaults)
-        pytestini_path = os.path.join(CWD, "../pytest.ini")
-        self.config.read(pytestini_path)
+        self.config = _read_config()
 
     def add_router(self, name=None, cls=None, **params):
         """

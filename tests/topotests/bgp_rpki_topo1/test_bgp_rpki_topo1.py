@@ -15,7 +15,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, TopoRouter, get_frrdir, get_topogen
 from lib.common_config import step, shutdown_bringup_interface_in_kernel
 from lib.topolog import logger
 
@@ -40,6 +40,9 @@ def build_topo(tgen):
 
 
 def setup_module(mod):
+    # r2 runs bgpd with -M bgpd_rpki.
+    topotest.require_frr_module("bgpd_rpki", "rpki", get_frrdir())
+
     if not topotest.platform_has_vrf():
         pytest.skip("platform does not support VRF")
 
