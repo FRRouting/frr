@@ -4636,6 +4636,10 @@ static void bgp_delete_zebra_announce_queue(struct zebra_announce_head *head, st
 		dest = inode->ptr;
 		dest_table = bgp_dest_table(dest);
 		if (dest_table->bgp == bgp) {
+			/* bgp_cleanup_routes() only withdraws selected paths. */
+			if (CHECK_FLAG(dest->flags, BGP_NODE_SCHEDULE_FOR_DELETE) &&
+			    bgp_fibupd_safi(dest_table->safi))
+				bgp_zebra_withdraw_actual(dest, dest->za_bgp_pi, bgp);
 			zebra_announce_del(head, inode);
 			bgp->zebra_announce_queue_cnt--;
 			bgp_path_info_unlock(dest->za_bgp_pi);
