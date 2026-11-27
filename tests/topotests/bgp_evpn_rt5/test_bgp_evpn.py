@@ -969,7 +969,7 @@ def test_rmap_set_extcommunity_evpn_rmac():
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     assert result is None, "r1 RMAC rewrite via route-map did not converge"
 
-    _assert_no_rmac_on_non_type5_routes(r1, [rmac_101, rmac_102])
+    _assert_no_rmac_on_rt3_rt4_routes(r1, [rmac_101, rmac_102])
 
     cfg = {
         "r1": {
@@ -986,13 +986,13 @@ def test_rmap_set_extcommunity_evpn_rmac():
     _test_evpn_rmac(tgen)
 
 
-def _assert_no_rmac_on_non_type5_routes(router, forbidden_rmacs):
+def _assert_no_rmac_on_rt3_rt4_routes(router, forbidden_rmacs):
     """
     Ensure route-map `set extcommunity evpn rmac` does not leak onto
-    non-Type-5 EVPN routes.
+    EVPN Type-3 and Type-4 routes. It applies to Type-2 and Type-5.
     """
 
-    for route_type in (2, 3, 4):
+    for route_type in (3, 4):
         output = router.vtysh_cmd(
             "show bgp l2vpn evpn route type {} detail".format(route_type),
             isjson=False,
