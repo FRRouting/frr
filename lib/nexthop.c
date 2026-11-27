@@ -945,7 +945,7 @@ void nexthop_copy_no_recurse(struct nexthop *copy,
 	copy->flags = nexthop->flags;
 	copy->weight = nexthop->weight;
 
-	assert(nexthop->backup_num < NEXTHOP_MAX_BACKUPS);
+	assert(nexthop->backup_num <= NEXTHOP_MAX_BACKUPS);
 	copy->backup_num = nexthop->backup_num;
 	if (copy->backup_num > 0)
 		memcpy(copy->backup_idx, nexthop->backup_idx, copy->backup_num);
