@@ -24,25 +24,6 @@
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_TMP_SPF_BACKOFF_BUF_VTY, "ISIS VTY SPF backoff temporary buffer");
 
-static struct isis_circuit *isis_circuit_lookup(struct vty *vty)
-{
-	struct interface *ifp = VTY_GET_CONTEXT(interface);
-	struct isis_circuit *circuit;
-
-	if (!ifp) {
-		vty_out(vty, "Invalid interface \n");
-		return NULL;
-	}
-
-	circuit = circuit_scan_by_ifp(ifp);
-	if (!circuit) {
-		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
-		return NULL;
-	}
-
-	return circuit;
-}
-
 DEFUN (fabric_tier,
        fabric_tier_cmd,
        "fabric-tier (0-14)",
@@ -262,17 +243,12 @@ DEFUN (no_ip_router_isis,
 	const char *area_tag = argv[idx_word]->arg;
 
 	area = isis_area_lookup(area_tag, VRF_DEFAULT);
-	if (!area) {
-		vty_out(vty, "Can't find ISIS instance %s\n",
-			area_tag);
-		return CMD_ERR_NO_MATCH;
-	}
+	if (!area)
+		return CMD_SUCCESS;
 
 	circuit = circuit_scan_by_ifp(ifp);
-	if (!circuit) {
-		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
-		return CMD_ERR_NO_MATCH;
-	}
+	if (!circuit)
+		return CMD_SUCCESS;
 
 	bool ip = circuit->ip_router, ipv6 = circuit->ipv6_router;
 	if (af[2] != '\0')
@@ -294,10 +270,13 @@ DEFUN (isis_bfd,
        PROTO_HELP
        "Enable BFD support\n")
 {
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
 
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
+	if (!circuit) {
+		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	if (circuit->bfd_config.enabled)
 		return CMD_SUCCESS;
@@ -316,10 +295,11 @@ DEFUN (no_isis_bfd,
        "Disables BFD support\n"
 )
 {
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
 
 	if (!circuit)
-		return CMD_ERR_NO_MATCH;
+		return CMD_SUCCESS;
 
 	if (!circuit->bfd_config.enabled)
 		return CMD_SUCCESS;
@@ -640,10 +620,7 @@ DEFUN (area_lsp_mtu,
        "Configure the maximum size of generated LSPs\n"
        "Maximum size of generated LSPs\n")
 {
-	int idx_number = 1;
-	unsigned int lsp_mtu;
-
-	lsp_mtu = strtoul(argv[idx_number]->arg, NULL, 10);
+	unsigned int lsp_mtu = strtoul(argv[1]->arg, NULL, 10);
 
 	return isis_vty_lsp_mtu_set(vty, lsp_mtu);
 }
@@ -734,9 +711,13 @@ DEFUN (isis_passive,
        PROTO_HELP
        "Configure the passive mode for interface\n")
 {
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
+
+	if (!circuit) {
+		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	CMD_FERR_RETURN(isis_circuit_passive_set(circuit, 1),
 			"Cannot set passive: $ERR");
@@ -750,9 +731,11 @@ DEFUN (no_isis_passive,
        PROTO_HELP
        "Configure the passive mode for interface\n")
 {
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
+
 	if (!circuit)
-		return CMD_ERR_NO_MATCH;
+		return CMD_SUCCESS;
 
 	CMD_FERR_RETURN(isis_circuit_passive_set(circuit, 0),
 			"Cannot set no passive: $ERR");
@@ -770,11 +753,14 @@ DEFUN (isis_passwd,
 {
 	int idx_encryption = 2;
 	int idx_word = 3;
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
 	ferr_r rv;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
 
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
+	if (!circuit) {
+		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	if (argv[idx_encryption]->arg[0] == 'm')
 		rv = isis_circuit_passwd_hmac_md5_set(circuit,
@@ -797,9 +783,11 @@ DEFUN (no_isis_passwd,
        "Cleartext password\n"
        "Circuit password\n")
 {
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
+
 	if (!circuit)
-		return CMD_ERR_NO_MATCH;
+		return CMD_SUCCESS;
 
 	CMD_FERR_RETURN(isis_circuit_passwd_unset(circuit),
 			"Failed to unset circuit password: $ERR");
@@ -813,13 +801,14 @@ DEFUN (isis_metric,
        "Set default metric for circuit\n"
        "Default metric value\n")
 {
-	int idx_number = 2;
-	int met;
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
+	int met = atoi(argv[2]->arg);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
 
-	met = atoi(argv[idx_number]->arg);
+	if (!circuit) {
+		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	/* RFC3787 section 5.1 */
 	if (circuit->area && circuit->area->oldmetric == 1
@@ -854,9 +843,11 @@ DEFUN (no_isis_metric,
        "Set default metric for circuit\n"
        "Default metric value\n")
 {
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
+
 	if (!circuit)
-		return CMD_ERR_NO_MATCH;
+		return CMD_SUCCESS;
 
 	CMD_FERR_RETURN(isis_circuit_metric_set(circuit, IS_LEVEL_1,
 						DEFAULT_CIRCUIT_METRIC),
@@ -875,9 +866,13 @@ DEFUN (isis_hello_interval,
        "Holdtime 1 seconds, interval depends on multiplier\n")
 {
 	uint32_t interval = atoi(argv[2]->arg);
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
+
+	if (!circuit) {
+		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	uint32_t old_interval_l1 = circuit->hello_interval[0];
 	uint32_t old_interval_l2 = circuit->hello_interval[1];
@@ -901,9 +896,11 @@ DEFUN (no_isis_hello_interval,
        "Set Hello interval\n"
        "Holdtime 1 second, interval depends on multiplier\n")
 {
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
+
 	if (!circuit)
-		return CMD_ERR_NO_MATCH;
+		return CMD_SUCCESS;
 
 	circuit->hello_interval[0] = DEFAULT_HELLO_INTERVAL;
 	circuit->hello_interval[1] = DEFAULT_HELLO_INTERVAL;
@@ -919,9 +916,13 @@ DEFUN (isis_hello_multiplier,
        "Hello multiplier value\n")
 {
 	uint16_t mult = atoi(argv[2]->arg);
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
+
+	if (!circuit) {
+		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	circuit->hello_multiplier[0] = mult;
 	circuit->hello_multiplier[1] = mult;
@@ -937,9 +938,11 @@ DEFUN (no_isis_hello_multiplier,
        "Set multiplier for Hello holding time\n"
        "Hello multiplier value\n")
 {
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
+
 	if (!circuit)
-		return CMD_ERR_NO_MATCH;
+		return CMD_SUCCESS;
 
 	circuit->hello_multiplier[0] = DEFAULT_HELLO_MULTIPLIER;
 	circuit->hello_multiplier[1] = DEFAULT_HELLO_MULTIPLIER;
@@ -955,9 +958,13 @@ DEFUN (csnp_interval,
        "CSNP interval value\n")
 {
 	uint16_t interval = atoi(argv[2]->arg);
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
+
+	if (!circuit) {
+		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	circuit->csnp_interval[0] = interval;
 	circuit->csnp_interval[1] = interval;
@@ -973,9 +980,11 @@ DEFUN (no_csnp_interval,
        "Set CSNP interval in seconds\n"
        "CSNP interval value\n")
 {
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
+
 	if (!circuit)
-		return CMD_ERR_NO_MATCH;
+		return CMD_SUCCESS;
 
 	circuit->csnp_interval[0] = DEFAULT_CSNP_INTERVAL;
 	circuit->csnp_interval[1] = DEFAULT_CSNP_INTERVAL;
@@ -991,9 +1000,13 @@ DEFUN (psnp_interval,
        "PSNP interval value\n")
 {
 	uint16_t interval = atoi(argv[2]->arg);
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
+
+	if (!circuit) {
+		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	circuit->psnp_interval[0] = interval;
 	circuit->psnp_interval[1] = interval;
@@ -1009,9 +1022,11 @@ DEFUN (no_psnp_interval,
        "Set PSNP interval in seconds\n"
        "PSNP interval value\n")
 {
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
+
 	if (!circuit)
-		return CMD_ERR_NO_MATCH;
+		return CMD_SUCCESS;
 
 	circuit->psnp_interval[0] = DEFAULT_PSNP_INTERVAL;
 	circuit->psnp_interval[1] = DEFAULT_PSNP_INTERVAL;
@@ -1026,11 +1041,15 @@ DEFUN (circuit_topology,
        "Configure interface IS-IS topologies\n"
        ISIS_MT_DESCRIPTIONS)
 {
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
 	const char *arg = argv[2]->arg;
 	uint16_t mtid = isis_str2mtid(arg);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
+
+	if (!circuit) {
+		vty_out(vty, "ISIS is not enabled on circuit %s\n", ifp->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	if (circuit->area && circuit->area->oldmetric) {
 		vty_out(vty,
@@ -1054,11 +1073,13 @@ DEFUN (no_circuit_topology,
        "Configure interface IS-IS topologies\n"
        ISIS_MT_DESCRIPTIONS)
 {
-	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	if (!circuit)
-		return CMD_ERR_NO_MATCH;
 	const char *arg = argv[3]->arg;
 	uint16_t mtid = isis_str2mtid(arg);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct isis_circuit *circuit = circuit_scan_by_ifp(ifp);
+
+	if (!circuit)
+		return CMD_SUCCESS;
 
 	if (circuit->area && circuit->area->oldmetric) {
 		vty_out(vty,

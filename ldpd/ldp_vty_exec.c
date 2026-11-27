@@ -1865,8 +1865,10 @@ ldp_vty_show_binding(struct vty *vty, const char *af_str, const char *prefix,
 	if (ldp_vty_connect(&ibuf) < 0)
 		return (CMD_WARNING);
 
-	if (ldp_vty_get_af(af_str, &af) < 0)
-		return (CMD_ERR_NO_MATCH);
+	if (ldp_vty_get_af(af_str, &af) < 0) {
+		vty_out(vty, "%% Unknown address family\n");
+		return (CMD_WARNING);
+	}
 
 	memset(&params, 0, sizeof(params));
 	params.family = af;
@@ -1880,7 +1882,7 @@ ldp_vty_show_binding(struct vty *vty, const char *af_str, const char *prefix,
 	    (inet_pton(AF_INET, neighbor, &params.lib.neighbor) != 1 ||
 	     bad_addr_v4(params.lib.neighbor))) {
 		vty_out (vty, "%% Malformed address\n");
-		return (CMD_SUCCESS);
+		return (CMD_WARNING);
 	}
 	params.lib.local_label = local_label;
 	params.lib.remote_label = remote_label;
@@ -1905,8 +1907,10 @@ ldp_vty_show_discovery(struct vty *vty, const char *af_str, const char *detail,
 	if (ldp_vty_connect(&ibuf) < 0)
 		return (CMD_WARNING);
 
-	if (ldp_vty_get_af(af_str, &af) < 0)
-		return (CMD_ERR_NO_MATCH);
+	if (ldp_vty_get_af(af_str, &af) < 0) {
+		vty_out(vty, "%% Unknown address family\n");
+		return (CMD_WARNING);
+	}
 
 	memset(&params, 0, sizeof(params));
 	params.family = af;
@@ -1936,8 +1940,10 @@ ldp_vty_show_interface(struct vty *vty, const char *af_str, const char *json)
 	if (ldp_vty_connect(&ibuf) < 0)
 		return (CMD_WARNING);
 
-	if (ldp_vty_get_af(af_str, &af) < 0)
-		return (CMD_ERR_NO_MATCH);
+	if (ldp_vty_get_af(af_str, &af) < 0) {
+		vty_out(vty, "%% Unknown address family\n");
+		return (CMD_WARNING);
+	}
 
 	memset(&params, 0, sizeof(params));
 	params.family = af;
@@ -2020,7 +2026,7 @@ ldp_vty_show_neighbor(struct vty *vty, const char *lsr_id, int capabilities,
 	    (inet_pton(AF_INET, lsr_id, &params.neighbor.lsr_id) != 1 ||
 	     bad_addr_v4(params.neighbor.lsr_id))) {
 		vty_out (vty, "%% Malformed address\n");
-		return (CMD_SUCCESS);
+		return (CMD_WARNING);
 	}
 
 	if (params.neighbor.capabilities)
@@ -2066,7 +2072,7 @@ ldp_vty_show_atom_binding(struct vty *vty, const char *peer,
 	    (inet_pton(AF_INET, peer, &params.l2vpn.peer) != 1 ||
 	     bad_addr_v4(params.l2vpn.peer))) {
 		vty_out (vty, "%% Malformed address\n");
-		return (CMD_SUCCESS);
+		return (CMD_WARNING);
 	}
 	params.l2vpn.local_label = local_label;
 	params.l2vpn.remote_label = remote_label;
@@ -2091,7 +2097,7 @@ ldp_vty_show_atom_vc(struct vty *vty, const char *peer, const char *ifname,
 	    (inet_pton(AF_INET, peer, &params.l2vpn.peer) != 1 ||
 	     bad_addr_v4(params.l2vpn.peer))) {
 		vty_out (vty, "%% Malformed address\n");
-		return (CMD_SUCCESS);
+		return (CMD_WARNING);
 	}
 	if (ifname)
 		strlcpy(params.l2vpn.ifname, ifname,

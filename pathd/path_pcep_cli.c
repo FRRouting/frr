@@ -195,7 +195,7 @@ static struct cmd_node pcep_pce_config_node = {
 			vty_out(vty,                                           \
 				"%% Invalid value %ld in range [%d - %d]",     \
 				arg_val, min_value, max_value);                \
-			return CMD_WARNING;                                    \
+			return CMD_WARNING_CONFIG_FAILED;                      \
 		}                                                              \
 		arg_store = arg_val;                                           \
 	}
@@ -556,7 +556,7 @@ static int path_pcep_cli_pcep_pce_config(struct vty *vty,
 				"%% Cannot create pce-config, as the Maximum limit of %d pce-config has been reached.\n",
 				MAX_PCE);
 			XFREE(MTYPE_PCEP, pce_config);
-			return CMD_WARNING;
+			return CMD_WARNING_CONFIG_FAILED;
 		}
 	} else {
 		vty_out(vty,
@@ -574,16 +574,13 @@ static int path_pcep_cli_pcep_pce_config_delete(struct vty *vty,
 {
 	struct pcep_config_group_opts *pce_config =
 		pcep_cli_find_pcep_pce_config(pcep_pce_config);
-	if (pce_config == NULL) {
-		vty_out(vty,
-			"%% Cannot delete pce-config, since it does not exist.\n");
-		return CMD_WARNING;
-	}
+	if (pce_config == NULL)
+		return CMD_SUCCESS;
 
 	if (pcep_cli_is_pcep_pce_config_used(pce_config->name)) {
 		vty_out(vty,
 			"%% Cannot delete pce-config, since it is in use by a peer.\n");
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	pcep_cli_delete_pcep_pce_config(pce_config->name);
@@ -645,7 +642,7 @@ static int path_pcep_cli_pce(struct vty *vty, const char *pce_peer_name)
 				"%% Cannot create PCE, as the Maximum limit of %d PCEs has been reached.\n",
 				MAX_PCE);
 			XFREE(MTYPE_PCEP, pce_opts_cli);
-			return CMD_WARNING;
+			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
 
@@ -658,10 +655,8 @@ static int path_pcep_cli_pce(struct vty *vty, const char *pce_peer_name)
 static int path_pcep_cli_pce_delete(struct vty *vty, const char *pce_peer_name)
 {
 	struct pce_opts_cli *pce_opts_cli = pcep_cli_find_pce(pce_peer_name);
-	if (pce_opts_cli == NULL) {
-		vty_out(vty, "%% PCC peer does not exist.\n");
-		return CMD_WARNING;
-	}
+	if (pce_opts_cli == NULL)
+		return CMD_SUCCESS;
 
 	/* To better work with frr-reload, go ahead and delete it if its in use
 	 */
@@ -749,7 +744,7 @@ static int path_pcep_cli_peer_sr_draft07(struct vty *vty, bool reset)
 	} else if (vty->node == PCEP_PCE_CONFIG_NODE) {
 		pce_config = current_pcep_config_group_opts_g;
 	} else {
-		return CMD_ERR_NO_MATCH;
+		assert(0);
 	}
 
 	pce_config->draft07 = reset ? DEFAULT_SR_DRAFT07 : true;
@@ -775,7 +770,7 @@ static int path_pcep_cli_peer_pce_initiated(struct vty *vty, bool reset)
 	} else if (vty->node == PCEP_PCE_CONFIG_NODE) {
 		pce_config = current_pcep_config_group_opts_g;
 	} else {
-		return CMD_ERR_NO_MATCH;
+		assert(0);
 	}
 
 	pce_config->pce_initiated = reset ? DEFAULT_PCE_INITIATED : true;
@@ -803,7 +798,7 @@ static int path_pcep_cli_peer_tcp_md5_auth(struct vty *vty,
 	} else if (vty->node == PCEP_PCE_CONFIG_NODE) {
 		pce_config = current_pcep_config_group_opts_g;
 	} else {
-		return CMD_ERR_NO_MATCH;
+		assert(0);
 	}
 
 	if (reset)
@@ -832,7 +827,7 @@ static int path_pcep_cli_peer_address(struct vty *vty, const char *ip_str,
 		pce_opts = &current_pce_opts_g->pce_opts;
 		current_pce_opts_g->merged = false;
 	} else {
-		return CMD_ERR_NO_MATCH;
+		assert(0);
 	}
 
 	if (ipv6_str != NULL) {
@@ -843,7 +838,7 @@ static int path_pcep_cli_peer_address(struct vty *vty, const char *ip_str,
 		pce_opts->addr.ipa_type = IPADDR_V4;
 		memcpy(&pce_opts->addr.ipaddr_v4, ip, sizeof(struct in_addr));
 	} else {
-		return CMD_ERR_NO_MATCH;
+		return CMD_ERR_INCOMPLETE;
 	}
 
 	/* Handle the optional port */
@@ -872,7 +867,7 @@ static int path_pcep_cli_peer_source_address(struct vty *vty,
 	} else if (vty->node == PCEP_PCE_CONFIG_NODE) {
 		pce_config = current_pcep_config_group_opts_g;
 	} else {
-		return CMD_ERR_NO_MATCH;
+		assert(0);
 	}
 
 	if (reset) {
@@ -912,7 +907,7 @@ static int path_pcep_cli_peer_pcep_pce_config_ref(struct vty *vty,
 		 * connection */
 		current_pce_opts_g->merged = false;
 	} else {
-		return CMD_ERR_NO_MATCH;
+		assert(0);
 	}
 
 	struct pcep_config_group_opts *pce_config =
@@ -920,7 +915,7 @@ static int path_pcep_cli_peer_pcep_pce_config_ref(struct vty *vty,
 	if (pce_config == NULL) {
 		vty_out(vty, "%% pce-config [%s] does not exist.\n",
 			config_group_name);
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	strlcpy(current_pce_opts_g->config_group_name, config_group_name,
@@ -951,18 +946,20 @@ static int path_pcep_cli_peer_timers(
 	} else if (vty->node == PCEP_PCE_CONFIG_NODE) {
 		pce_config = current_pcep_config_group_opts_g;
 	} else {
-		return CMD_ERR_NO_MATCH;
+		assert(0);
 	}
 
-	if (min_peer_keep_alive && max_peer_keep_alive)
-		if (min_peer_keep_alive >= max_peer_keep_alive) {
-			return CMD_ERR_NO_MATCH;
-		}
+	if (min_peer_keep_alive && max_peer_keep_alive
+	    && (min_peer_keep_alive >= max_peer_keep_alive)) {
+		vty_out(vty, "%% min-peer-keep-alive must be less than max-peer-keep-alive.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-	if (min_peer_dead_timer && max_peer_dead_timer)
-		if (min_peer_dead_timer >= max_peer_dead_timer) {
-			return CMD_ERR_NO_MATCH;
-		}
+	if (min_peer_dead_timer && max_peer_dead_timer
+	    && (min_peer_dead_timer >= max_peer_dead_timer)) {
+		vty_out(vty, "%% min-peer-dead-timer must be less than max-peer-dead-timer.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	/* Handle the arguments */
 	PCEP_VTYSH_INT_ARG_CHECK(keep_alive_str, keep_alive,
@@ -1063,7 +1060,7 @@ static int path_pcep_cli_pcc_pcc_peer(struct vty *vty, const char *peer_name,
 	struct pce_opts_cli *pce_opts_cli = pcep_cli_find_pce(peer_name);
 	if (pce_opts_cli == NULL) {
 		vty_out(vty, "%% PCE [%s] does not exist.\n", peer_name);
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 	struct pce_opts *pce_opts = &pce_opts_cli->pce_opts;
 
@@ -1071,7 +1068,7 @@ static int path_pcep_cli_pcc_pcc_peer(struct vty *vty, const char *peer_name,
 	if (pcep_cli_pcc_has_pce(peer_name)) {
 		vty_out(vty, "%% The peer [%s] has already been configured.\n",
 			peer_name);
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	/* Get the optional precedence argument */
@@ -1091,7 +1088,7 @@ static int path_pcep_cli_pcc_pcc_peer(struct vty *vty, const char *peer_name,
 		vty_out(vty,
 			"%% The peer [%s] does not have an IP set and cannot be used until it does.\n",
 			peer_name);
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	/* Update the pcc_opts with the source ip, port, and msd */
@@ -1103,7 +1100,7 @@ static int path_pcep_cli_pcc_pcc_peer(struct vty *vty, const char *peer_name,
 	pcc_opts_copy->msd = pcc_msd_g;
 	pcc_opts_copy->port = pce_opts_cli->pce_opts.config_opts.source_port;
 	if (pcep_ctrl_update_pcc_options(pcep_g->fpt, pcc_opts_copy)) {
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	/* Send a copy of the pce_opts, this one is only used for the CLI */
@@ -1111,7 +1108,7 @@ static int path_pcep_cli_pcc_pcc_peer(struct vty *vty, const char *peer_name,
 		XMALLOC(MTYPE_PCEP, sizeof(struct pce_opts));
 	memcpy(pce_opts_copy, pce_opts, sizeof(struct pce_opts));
 	if (pcep_ctrl_update_pce_options(pcep_g->fpt, pce_opts_copy)) {
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	return CMD_SUCCESS;
@@ -1123,12 +1120,8 @@ static int path_pcep_cli_pcc_pcc_peer_delete(struct vty *vty,
 					     long precedence)
 {
 	/* Check if the pcc-peer is connected to the PCC */
-	if (!pcep_cli_pcc_has_pce(peer_name)) {
-		vty_out(vty,
-			"%% WARN: The peer [%s] is not connected to the PCC.\n",
-			peer_name);
-		return CMD_WARNING;
-	}
+	if (!pcep_cli_pcc_has_pce(peer_name))
+		return CMD_SUCCESS;
 
 	struct pce_opts_cli *pce_opts_cli = pcep_cli_find_pce(peer_name);
 	pcep_cli_remove_pce_connection(&pce_opts_cli->pce_opts);
