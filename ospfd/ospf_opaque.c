@@ -550,6 +550,8 @@ register_opaque_info_per_id(struct opaque_info_per_type *oipt,
 static struct opaque_info_per_id *
 lookup_opaque_info_by_id(struct opaque_info_per_type *oipt,
 			 struct ospf_lsa *lsa);
+static void ospf_opaque_lsa_flush_oipt(struct opaque_info_per_type *oipt,
+				       struct ospf_lsa *lsa0);
 static struct opaque_info_per_id *register_opaque_lsa(struct ospf_lsa *new);
 
 
@@ -621,7 +623,7 @@ static void free_opaque_info_per_type(struct opaque_info_per_type *oipt,
 			continue;
 		if (IS_LSA_MAXAGE(lsa))
 			continue;
-		ospf_opaque_lsa_flush_schedule(lsa);
+		ospf_opaque_lsa_flush_oipt(oipt, lsa);
 	}
 
 	event_cancel(&oipt->t_opaque_lsa_self);
@@ -2121,17 +2123,16 @@ static void ospf_opaque_lsa_refresh_timer(struct event *t)
 				(*functab->lsa_refresher)(lsa);
 }
 
-void ospf_opaque_lsa_flush_schedule(struct ospf_lsa *lsa0)
+static void ospf_opaque_lsa_flush_oipt(struct opaque_info_per_type *oipt,
+				       struct ospf_lsa *lsa0)
 {
-	struct opaque_info_per_type *oipt;
 	struct opaque_info_per_id *oipi;
 	struct ospf_lsa *lsa;
 	struct ospf *top;
 
 	top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 
-	if ((oipt = lookup_opaque_info_by_type(lsa0)) == NULL
-	    || (oipi = lookup_opaque_info_by_id(oipt, lsa0)) == NULL) {
+	if ((oipi = lookup_opaque_info_by_id(oipt, lsa0)) == NULL) {
 		flog_warn(EC_OSPF_LSA, "%s: Invalid parameter?", __func__);
 		goto out;
 	}
@@ -2188,6 +2189,19 @@ void ospf_opaque_lsa_flush_schedule(struct ospf_lsa *lsa0)
 
 out:
 	return;
+}
+
+void ospf_opaque_lsa_flush_schedule(struct ospf_lsa *lsa0)
+{
+	struct opaque_info_per_type *oipt;
+
+	oipt = lookup_opaque_info_by_type(lsa0);
+	if (oipt == NULL) {
+		flog_warn(EC_OSPF_LSA, "%s: Invalid parameter?", __func__);
+		return;
+	}
+
+	ospf_opaque_lsa_flush_oipt(oipt, lsa0);
 }
 
 void ospf_opaque_self_originated_lsa_received(struct ospf_neighbor *nbr,
