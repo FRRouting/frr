@@ -2257,8 +2257,16 @@ static void pim_cand_rp_adv(struct event *t)
 	pim_msg_build_header(scope->cand_rp_addrsel.run_addr, scope->current_bsr,
 			     buf, sizeof(buf), PIM_MSG_TYPE_CANDIDATE, false);
 
-	if (pim_msg_send(scope->unicast_sock, scope->cand_rp_addrsel.run_addr, scope->current_bsr,
-			 buf, sizeof(buf), ifp)) {
+	/*
+	 * The southbound routes it in the VRF of the device it comes with:
+	 * without the VRF device (yet) it would go out in the default VRF.
+	 */
+	if (pim_southbound.own_sockets && scope->pim->vrf->vrf_id != VRF_DEFAULT && !ifp) {
+		if (PIM_DEBUG_BSM)
+			zlog_debug("Candidate-RP advertisement not sent: no VRF %s device",
+				   scope->pim->vrf->name);
+	} else if (pim_msg_send(scope->unicast_sock, scope->cand_rp_addrsel.run_addr,
+				scope->current_bsr, buf, sizeof(buf), ifp)) {
 		zlog_warn("failed to send Cand-RP message: %m");
 	}
 

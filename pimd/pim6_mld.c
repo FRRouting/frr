@@ -1185,6 +1185,9 @@ static void gm_handle_v1_leave(struct gm_if *gm_ifp,
 
 	/* nothing more to do here, pass2 is no-op for leaves */
 	gm_subscriber_drop(&subscriber);
+
+	/* Replay static GMP join groups */
+	pim_sb_interface_join(gm_ifp->ifp);
 }
 
 /* for each general query received (or sent), a timer is started to expire
@@ -1240,6 +1243,9 @@ static void gm_t_expire(struct event *t)
 
 	if (PIM_DEBUG_GM_EVENTS)
 		zlog_debug(log_ifp("next general expiry waiting for query"));
+
+	/* Replay static GMP join groups */
+	pim_sb_interface_join(gm_ifp->ifp);
 }
 
 /* NB: the receive handlers will also run when sending packets, since we
@@ -1623,6 +1629,12 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 		gm_ifp->querier = pkt_src->sin6_addr;
 	}
 
+	/*
+	 * Listeners answer every query (the S bit only suppresses the router
+	 * side): replay static GMP join groups.
+	 */
+	pim_sb_interface_join(gm_ifp->ifp);
+
 	if (len == sizeof(struct mld_v1_pkt)) {
 		timers.qrv = gm_ifp->cur_qrv;
 		timers.max_resp_ms = ntohs(hdr->max_resp_code);
@@ -1695,31 +1707,10 @@ static void gm_handle_query(struct gm_if *gm_ifp,
 	}
 }
 
-static void gm_rx_process(struct gm_if *gm_ifp,
-			  const struct sockaddr_in6 *pkt_src, pim_addr *pkt_dst,
-			  void *data, size_t pktlen)
+void gm_rx_process(struct gm_if *gm_ifp, const struct sockaddr_in6 *pkt_src, pim_addr *pkt_dst,
+		   void *data, size_t pktlen)
 {
 	struct icmp6_plain_hdr *icmp6 = data;
-	uint16_t pkt_csum, ref_csum;
-	struct ipv6_ph ph6 = {
-		.src = pkt_src->sin6_addr,
-		.dst = *pkt_dst,
-		.ulpl = htonl(pktlen),
-		.next_hdr = IPPROTO_ICMPV6,
-	};
-
-	pkt_csum = icmp6->icmp6_cksum;
-	icmp6->icmp6_cksum = 0;
-	ref_csum = in_cksum_with_ph6(&ph6, data, pktlen);
-
-	if (pkt_csum != ref_csum) {
-		zlog_warn(
-			log_pkt_src(
-				"(dst %pPA) packet RX checksum failure, expected %04hx, got %04hx"),
-			pkt_dst, pkt_csum, ref_csum);
-		gm_ifp->stats.rx_drop_csum++;
-		return;
-	}
 
 	data = (icmp6 + 1);
 	pktlen -= sizeof(*icmp6);
@@ -1740,8 +1731,7 @@ static void gm_rx_process(struct gm_if *gm_ifp,
 	}
 }
 
-static bool ip6_check_hopopts_ra(uint8_t *hopopts, size_t hopopt_len,
-				 uint16_t alert_type)
+bool ip6_check_hopopts_ra(uint8_t *hopopts, size_t hopopt_len, uint16_t alert_type)
 {
 	uint8_t *hopopt_end;
 
@@ -1787,6 +1777,8 @@ static void gm_t_recv(struct event *t)
 	} cmsgbuf;
 	struct cmsghdr *cmsg;
 	struct in6_pktinfo *pktinfo = NULL;
+	struct icmp6_plain_hdr *icmp6;
+	uint16_t pkt_csum, ref_csum;
 	uint8_t *hopopts = NULL;
 	size_t hopopt_len = 0;
 	int *hoplimit = NULL;
@@ -1796,6 +1788,7 @@ static void gm_t_recv(struct event *t)
 	struct sockaddr_in6 pkt_src[1] = {};
 	ssize_t nread;
 	size_t pktlen;
+	struct ipv6_ph ph6;
 
 	event_add_read(router->master, gm_t_recv, pim, pim->gm_socket,
 		       &pim->t_gm_recv);
@@ -1848,8 +1841,7 @@ static void gm_t_recv(struct event *t)
 	}
 
 	/* Prefer pktinfo as that also works in case of VRF */
-	ifindex_t ifindex = pktinfo ? pktinfo->ipi6_ifindex
-	                            : pkt_src->sin6_scope_id;
+	ifindex_t ifindex = pktinfo ? pktinfo->ipi6_ifindex : pkt_src->sin6_scope_id;
 	struct interface *ifp;
 
 	ifp = if_lookup_by_index(ifindex, pim->vrf->vrf_id);
@@ -1859,7 +1851,11 @@ static void gm_t_recv(struct event *t)
 	struct pim_interface *pim_ifp = ifp->info;
 	struct gm_if *gm_ifp = pim_ifp->mld;
 
-	if (!gm_ifp)
+	/*
+	 * When the data plane owns the interface the southbound hands us its
+	 * MLD packets: the OS socket would only deliver copies.
+	 */
+	if (!gm_ifp || pim_sb_owns_interface(ifp))
 		goto out_free;
 
 	if (!pktinfo || !hoplimit) {
@@ -1899,6 +1895,26 @@ static void gm_t_recv(struct event *t)
 	if (pktlen < sizeof(struct icmp6_plain_hdr)) {
 		zlog_warn(log_pkt_src("truncated packet"));
 		gm_ifp->stats.rx_drop_malformed++;
+		goto out_free;
+	}
+
+	ph6 = (struct ipv6_ph){
+		.src = pkt_src->sin6_addr,
+		.dst = pktinfo->ipi6_addr,
+		.ulpl = htonl(pktlen),
+		.next_hdr = IPPROTO_ICMPV6,
+	};
+
+	icmp6 = iov->iov_base;
+	pkt_csum = icmp6->icmp6_cksum;
+	icmp6->icmp6_cksum = 0;
+	ref_csum = in_cksum_with_ph6(&ph6, iov->iov_base, pktlen);
+
+	if (pkt_csum != ref_csum) {
+		zlog_warn(log_pkt_src(
+				  "(dst %pI6) packet RX checksum failure, expected %04hx, got %04hx"),
+			  &pktinfo->ipi6_addr, pkt_csum, ref_csum);
+		gm_ifp->stats.rx_drop_csum++;
 		goto out_free;
 	}
 
@@ -2025,8 +2041,20 @@ static void gm_send_query(struct gm_if *gm_ifp, pim_addr grp,
 	pktinfo->ipi6_ifindex = gm_ifp->ifp->ifindex;
 	pktinfo->ipi6_addr = gm_ifp->cur_ll_lowest;
 
-	frr_with_privs (&pimd_privs) {
-		ret = sendmsg(gm_ifp->pim->gm_socket, mh, 0);
+	if (pim_sb_owns_interface(gm_ifp->ifp)) {
+		uint8_t *buf = XMALLOC(MTYPE_GM_PACKET, expect_ret);
+
+		memcpy(buf, iov[1].iov_base, iov[1].iov_len);
+		if (iov_len == 3)
+			memcpy(buf + iov[1].iov_len, iov[2].iov_base, iov[2].iov_len);
+
+		ret = pim_southbound.send(gm_ifp->ifp, &gm_ifp->cur_ll_lowest, &dstaddr.sin6_addr,
+					  IPPROTO_ICMPV6, 1, buf, expect_ret);
+		XFREE(MTYPE_GM_PACKET, buf);
+	} else {
+		frr_with_privs (&pimd_privs) {
+			ret = sendmsg(gm_ifp->pim->gm_socket, mh, 0);
+		}
 	}
 
 	if (ret != expect_ret) {
@@ -2302,6 +2330,9 @@ static void gm_start(struct interface *ifp)
 	gm_grp_pends_init(gm_ifp->grp_pends);
 	gm_gsq_pends_init(gm_ifp->gsq_pends);
 
+	if (pim_sb_owns_interface(ifp))
+		return;
+
 	frr_with_privs (&pimd_privs) {
 		struct ipv6_mreq mreq;
 		int ret;
@@ -2378,19 +2409,20 @@ void gm_ifp_teardown(struct interface *ifp)
 	event_cancel(&gm_ifp->t_other_querier);
 	event_cancel(&gm_ifp->t_expire);
 
-	frr_with_privs (&pimd_privs) {
-		struct ipv6_mreq mreq;
-		int ret;
+	if (!pim_sb_owns_interface(ifp)) {
+		frr_with_privs (&pimd_privs) {
+			struct ipv6_mreq mreq;
+			int ret;
 
-		/* all-MLDv2 group */
-		mreq.ipv6mr_multiaddr = gm_all_routers;
-		mreq.ipv6mr_interface = ifp->ifindex;
-		ret = setsockopt(gm_ifp->pim->gm_socket, SOL_IPV6,
-				 IPV6_LEAVE_GROUP, &mreq, sizeof(mreq));
-		if (ret)
-			zlog_err(
-				"(%s) failed to leave ff02::16 (all-MLDv2): %m",
-				ifp->name);
+			/* all-MLDv2 group */
+			mreq.ipv6mr_multiaddr = gm_all_routers;
+			mreq.ipv6mr_interface = ifp->ifindex;
+			ret = setsockopt(gm_ifp->pim->gm_socket, SOL_IPV6, IPV6_LEAVE_GROUP, &mreq,
+					 sizeof(mreq));
+			if (ret)
+				zlog_err("(%s) failed to leave ff02::16 (all-MLDv2): %m",
+					 ifp->name);
+		}
 	}
 
 	gm_vrf_socket_decref(gm_ifp->pim);
@@ -2402,6 +2434,11 @@ void gm_ifp_teardown(struct interface *ifp)
 	gm_packet_expires_fini(gm_ifp->expires);
 	gm_subscribers_fini(gm_ifp->subscribers);
 	gm_sgs_fini(gm_ifp->sgs);
+
+#ifdef PIM_SOUTHBOUND_COMMON
+	/* The southbound static join timer holds a pointer to this interface. */
+	event_cancel(&gm_ifp->join_event);
+#endif /* PIM_SOUTHBOUND_COMMON */
 
 	XFREE(MTYPE_GM_IFACE, gm_ifp);
 	pim_ifp->mld = NULL;

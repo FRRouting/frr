@@ -354,9 +354,27 @@ struct gm_if {
 
 	struct timeval started;
 	struct gm_if_stats stats;
+
+#ifdef PIM_SOUTHBOUND_COMMON
+	/*
+	 * Static join reports timer: coalesces the `pim_southbound.interface_join()`
+	 * calls made before it triggers.
+	 */
+	struct event *join_event;
+#endif /* PIM_SOUTHBOUND_COMMON */
 };
 
 #if PIM_IPV == 6
+extern bool ip6_check_hopopts_ra(uint8_t *hopopts, size_t hopopt_len, uint16_t alert_type);
+/*
+ * Processes a received MLD packet (`data` is the ICMPv6 message): the caller
+ * must have checked it is at least an ICMPv6 header long and comes from a
+ * link-local source, and its checksum and hop limit (the southbound leaves
+ * those two to the data plane).
+ */
+extern void gm_rx_process(struct gm_if *gm_ifp, const struct sockaddr_in6 *pkt_src,
+			  pim_addr *pkt_dst, void *data, size_t pktlen);
+
 extern void gm_ifp_update(struct interface *ifp);
 extern void gm_ifp_teardown(struct interface *ifp);
 extern void gm_group_delete(struct interface *ifp);

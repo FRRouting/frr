@@ -253,6 +253,14 @@ tests_lib_test_mgmt_msg_SOURCES = tests/lib/test_mgmt_msg.c
 EXTRA_DIST += tests/lib/test_mgmt_msg.py
 
 
+check_PROGRAMS += tests/lib/test_ip_assembly
+tests_lib_test_ip_assembly_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_ip_assembly_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_ip_assembly_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_ip_assembly_SOURCES = tests/lib/test_ip_assembly.c
+EXTRA_DIST += tests/lib/test_ip_assembly.py
+
+
 check_PROGRAMS += tests/lib/test_memory
 tests_lib_test_memory_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_memory_CPPFLAGS = $(TESTS_CPPFLAGS)

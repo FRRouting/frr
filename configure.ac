@@ -862,6 +862,11 @@ AC_ARG_ENABLE([version_build_config],
 AC_ARG_ENABLE([python_runtime],
   AS_HELP_STRING([--disable-python-runtime], [do not install python scripts or have python runtime dependency]))
 
+AC_ARG_ENABLE([pim_southbound],
+  AS_HELP_STRING([--disable-pim-southbound], [do not build vendor PIM southbound support]))
+AC_ARG_ENABLE([pim6_southbound],
+  AS_HELP_STRING([--disable-pim6-southbound], [do not build vendor PIMv6 southbound support]))
+
 ##
 ## gperftools tcmalloc version, more complete than "minimal"
 ##
@@ -1316,6 +1321,8 @@ case "$host_os" in
     dnl how to fix it but no real progress on implementation
     dnl when they fix it, remove this
     AC_DEFINE([IPV6_MINHOPCOUNT], [73], [Linux ipv6 Min Hop Count])
+    AC_DEFINE([IPV6_FLOWINFO], [11], [Linux IPv6 flow identification])
+    AC_DEFINE([IPV6_FLOWINFO_SEND], [33], [Linux send IPv6 flow identification])
 
     is_linux=true
     ;;
@@ -2217,6 +2224,57 @@ case "$host_os" in
     ;;
 esac
 fi
+
+dnl ------------------------------------
+dnl PIM southbound needs zebra's FPM (Linux only)
+dnl
+dnl Built by default when supported, explicitly asking for it
+dnl (--enable-pim-southbound) fails when it is not.
+dnl ------------------------------------
+if test "$enable_pim_southbound" != "no"; then
+  AC_MSG_CHECKING([for PIM southbound support])
+  if test "$enable_pimd" = "no"; then
+    AC_MSG_RESULT([no (pimd disabled)])
+    if test "$enable_pim_southbound" = "yes"; then
+      AC_MSG_ERROR([--enable-pim-southbound requires pimd])
+    fi
+    enable_pim_southbound="no"
+  else
+    case "$host_os" in
+      linux*)
+        AC_MSG_RESULT([yes])
+        enable_pim_southbound="yes"
+        ;;
+      *)
+        AC_MSG_RESULT([no])
+        if test "$enable_pim_southbound" = "yes"; then
+          AC_MSG_ERROR([--enable-pim-southbound is only supported on Linux])
+        fi
+        enable_pim_southbound="no"
+        ;;
+    esac
+  fi
+fi
+if test "$enable_pim_southbound" = "yes"; then
+  AC_DEFINE([PIM_SOUTHBOUND_COMMON], [1], [PIM southbound common code])
+fi
+if test "$enable_pim6_southbound" != "no"; then
+  dnl pim6d is only enabled on Linux.
+  AC_MSG_CHECKING([for PIMv6 southbound support])
+  if test "$enable_pim6d" = "no"; then
+    AC_MSG_RESULT([no (pim6d disabled)])
+    if test "$enable_pim6_southbound" = "yes"; then
+      AC_MSG_ERROR([--enable-pim6-southbound requires pim6d (Linux only)])
+    fi
+    enable_pim6_southbound="no"
+  else
+    AC_MSG_RESULT([yes])
+    enable_pim6_southbound="yes"
+    AC_DEFINE([PIM_SOUTHBOUND_COMMON], [1], [PIM southbound common code])
+  fi
+fi
+AM_CONDITIONAL([PIM_SOUTHBOUND], [test "$enable_pim_southbound" = "yes"])
+AM_CONDITIONAL([PIM6_SOUTHBOUND], [test "$enable_pim6_southbound" = "yes"])
 
 dnl -------------------------------------
 dnl VRRP is only supported on linux

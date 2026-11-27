@@ -2065,6 +2065,7 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 		uint8_t family;
 		uint64_t change_flags;
 		uint32_t cchanges;
+		ifindex_t vif_index;
 
 		/* If VRF, create or update the VRF structure itself. */
 		if (zif_type == ZEBRA_IF_VRF && !vrf_is_backend_netns()) {
@@ -2166,6 +2167,11 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 
 			/* Update interface type */
 			ifp->zif_type = zif_type;
+
+			/* Save virtual interface index. */
+			if (dplane_ctx_get_intf_vif_index(ctx))
+				ifp->vif_index =
+					dplane_ctx_get_intf_vif_index(ctx);
 
 			/* Inform clients, install any configured addresses. */
 			if_add_update(ifp);
@@ -2405,6 +2411,13 @@ static void zebra_if_dplane_ifp_handling(struct zebra_dplane_ctx *ctx)
 						IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(
 							zif));
 			}
+		}
+
+		/* Update (or clear) virtual interface index if necessary. */
+		vif_index = dplane_ctx_get_intf_vif_index(ctx);
+		if (ifp->vif_index != vif_index) {
+			ifp->vif_index = vif_index;
+			zebra_interface_add_update(ifp);
 		}
 
 		zif = ifp->info;
@@ -2903,12 +2916,25 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		vty_out(vty, "  pseudo interface\n");
 		return;
 	} else if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
-		vty_out(vty, "  index %d inactive interface\n", ifp->ifindex);
+		if (ifp->vif_index)
+			vty_out(vty,
+				"  index %d virtual index %d inactive interface\n",
+				ifp->ifindex, ifp->vif_index);
+		else
+			vty_out(vty, "  index %d inactive interface\n",
+				ifp->ifindex);
 		return;
 	}
 
-	vty_out(vty, "  index %d metric %d mtu %d speed %u txqlen %u",
-		ifp->ifindex, ifp->metric, ifp->mtu, ifp->speed, ifp->txqlen);
+	if (ifp->vif_index)
+		vty_out(vty,
+			"  index %d virtual index %d metric %d mtu %d speed %u txqlen %u",
+			ifp->ifindex, ifp->vif_index, ifp->metric, ifp->mtu,
+			ifp->speed, ifp->txqlen);
+	else
+		vty_out(vty, "  index %d metric %d mtu %d speed %u txqlen %u",
+			ifp->ifindex, ifp->metric, ifp->mtu, ifp->speed,
+			ifp->txqlen);
 	if (ifp->mtu6 != ifp->mtu)
 		vty_out(vty, "mtu6 %d ", ifp->mtu6);
 	vty_out(vty, "\n  flags: %s\n", if_flag_dump(ifp->flags));

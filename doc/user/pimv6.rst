@@ -238,6 +238,93 @@ PIMv6 Router
    all state.
 
 
+.. _pimv6-southbound:
+
+Southbound (vendor data plane) module
+=====================================
+
+The *pim6d* southbound module (``pim6d_southbound``) is the PIMv6 counterpart
+of the *pimd* southbound module: it replaces the Linux kernel IPv6 multicast
+data plane used by *pim6d* with an external (vendor) data plane. Multicast
+routes are installed through *zebra* FPM and data plane events arrive on a
+stream connection. See :ref:`PIM southbound module <pim-southbound>` for the
+complete description, the address types, the data plane requirements, the
+event format and the *zebra* FPM requirements, which are the same for both
+modules (the connection is not authenticated either).
+
+It is loaded with ``-M southbound:<type>:<address>[:<port>]`` like the IPv4
+module (each daemon loads its own).
+
+Differences from the IPv4 module:
+
+- It is built by default (unless FRR is configured with
+  :option:`configure --disable-pim6-southbound`).
+- The default TCP port is ``2651``.
+- MLD packets (queries, reports and dones) and link-local multicast PIM
+  packets are exchanged with the data plane through raw sockets using IPv6
+  next header ``240`` (MLD) and ``252`` (PIM). The real interface index is
+  carried in the IPv6 flow label (*pim6d* turns the automatic flow labels off
+  on its sockets, so ``net.ipv6.auto_flowlabels`` must not be ``3``, which
+  forces them), while the packet output interface may be a data plane
+  virtual interface. The data plane delivers these packets to the
+  loopback address ``::1``, so the original destination is rebuilt from the
+  packet: the MLD group for queries and MLDv1 reports (``ff02::1`` for
+  general queries), ``ff02::2`` for MLDv1 dones, ``ff02::16`` for MLDv2
+  reports, and ``ff02::d`` for PIM.
+- MLD packets delivered to *pim6d* must start with a block shaped like an
+  IPv6 hop-by-hop options header (8 bytes or more, the length taken from its
+  second byte as in a real hop-by-hop header) followed by the ICMPv6 message.
+  If the original packet carried the MLD Router Alert, the block must have
+  next header ``58`` (ICMPv6) and contain the Router Alert option; otherwise
+  it should be all zeros (only its length byte is used). Packets sent by *pim6d* use a real hop-by-hop options
+  header instead.
+- *pim6d* does not verify the ICMPv6 checksum of MLD packets or the PIM
+  checksum of link-local multicast PIM packets it receives through the
+  encapsulation: the data plane must validate both before delivering the
+  packets. The original hop limit is not carried either, so the data plane
+  must also drop MLD packets whose hop limit is not ``1`` (RFC 3810), like
+  the kernel path does.
+- *pim6d* loops its own multicast MLD packets (queries, and the reports and
+  dones of its static groups) back to itself, as the kernel does: the data
+  plane must not deliver the packets *pim6d* sends back to it.
+- Like with IGMP, loopback interfaces keep their MLD with the operating
+  system, and static groups (:clicmd:`ipv6 mld join X:X::X:X [Y:Y::Y:Y]`) are
+  only announced on interfaces with MLD enabled.
+- Unicast PIMv6 packets are sent through the same encapsulation. The ones to
+  a neighbor (an address on the link) are sent with their interface; the
+  other ones (registers, register-stops and Candidate-RP advertisements) are
+  sent without an interface in the default VRF (flow label zero), so the data
+  plane must route them (in other VRFs they carry the VRF device index). In
+  every VRF, the ones to the router itself (e.g. when it is also the elected
+  BSR) are sent through the operating system instead (it delivers them to the
+  router itself), and so are the Candidate-RP withdrawals, which have no
+  source address: the operating system picks one.
+  Unicast
+  PIMv6 packets are received from the operating system as plain IPv6 PIM
+  packets (their checksum is verified by *pim6d*): the data plane must
+  deliver them to the host IPv6 stack, on the interface they arrived on.
+
+Example connecting to a data plane on ``::1`` port ``2651`` (quote the
+brackets, shells treat them as patterns)::
+
+   pim6d -M 'southbound:ipv6c:[::1]'
+
+The following debug commands show the southbound activity:
+
+- :clicmd:`debug mld packets`: MLD packets exchanged with the data plane.
+- :clicmd:`debug mld trace [detail]`: static groups not announced (no MLD on
+  the interface).
+- :clicmd:`debug pimv6 packets`: PIMv6 packets exchanged with the data plane.
+- :clicmd:`debug mroute6`: events received from the data plane (including the
+  ones ignored for their addresses or interface) and the routes sent to
+  *zebra*.
+- :clicmd:`debug mroute6 detail`: data plane connection details and malformed
+  messages.
+- :clicmd:`debug zebra dplane [detailed]` (in *zebra*): the ``detailed``
+  form logs the multicast routes queued to the data plane.
+- :clicmd:`debug zebra fpm` (in *zebra*): the FPM connection state.
+
+
 .. _pimv6-interface-configuration:
 
 PIMv6 Interface Configuration

@@ -34,6 +34,15 @@
 
 struct event *send_test_packet_timer = NULL;
 
+/*
+ * Returns whether `pimreg` must not be an output interface because we are the
+ * RP and the data plane forwards our own sources natively.
+ */
+bool pim_register_skip_rp(struct pim_instance *pim, pim_addr group)
+{
+	return pim_southbound.no_register_on_rp && I_am_RP(pim, group);
+}
+
 void pim_register_join(struct pim_upstream *up)
 {
 	struct pim_instance *pim = up->pim;
@@ -43,6 +52,12 @@ void pim_register_join(struct pim_upstream *up)
 		if (PIM_DEBUG_PIM_EVENTS)
 			zlog_debug("(%s:%u:%u)%s register setup skipped as group is SSM",
 				   PIM_DEBUG_VRF(up->pim->vrf), up->sg_str);
+		return;
+	}
+
+	if (pim_register_skip_rp(pim, up->sg.grp)) {
+		if (PIM_DEBUG_PIM_EVENTS)
+			zlog_debug("%s register setup skipped as we are RP", up->sg_str);
 		return;
 	}
 
@@ -720,10 +735,14 @@ int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
 				pim_mroute_update_counters(
 					upstream->channel_oil);
 				/*
-				 * Have we seen packets?
+				 * Have we seen packets? Data planes without
+				 * per route counters report the traffic
+				 * instead.
 				 */
-				if (upstream->channel_oil->cc.oldpktcnt
-				    < upstream->channel_oil->cc.pktcnt)
+				if (pim_southbound.mroute_update_counters
+					    ? upstream->channel_oil->cc.oldpktcnt <
+						      upstream->channel_oil->cc.pktcnt
+					    : pim_upstream_data_started(upstream))
 					pim_upstream_set_sptbit(
 						upstream,
 						upstream->rpf.source_nexthop

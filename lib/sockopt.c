@@ -213,6 +213,86 @@ int setsockopt_ipv6_tclass(int sock, int tclass)
 	return ret;
 }
 
+/**
+ * This socket option enables receiving the ancillary data with the
+ * flow information. See the helper function:
+ * `getsockopt_ipv6_flowlabel`.
+ */
+int setsockopt_ipv6_flowinfo(int fd, int value)
+{
+	int ret;
+
+#ifdef IPV6_FLOWINFO
+	ret = setsockopt(fd, IPPROTO_IPV6, IPV6_FLOWINFO, &value, sizeof(value));
+	if (ret == -1)
+		flog_err(EC_LIB_SOCKET, "Can't set IPV6_FLOWINFO option for fd %d to %#x: %s", fd,
+			 value, safe_strerror(errno));
+#else
+	ret = -1;
+	errno = ENOTSUP;
+	flog_err(EC_LIB_SOCKET, "Can't set IPV6_FLOWINFO option for fd %d to %#x: %s", fd,
+		 value, safe_strerror(errno));
+#endif /* IPV6_FLOWINFO */
+
+	return ret;
+}
+
+/* Macro that defines the flow label mask of the flow information field. */
+#ifndef IPV6_FLOWINFO_FLOWLABEL
+#define IPV6_FLOWINFO_FLOWLABEL 0xFFFFF
+#endif
+
+/**
+ * Reads the IPV6_FLOWINFO auxiliary data, masks the flow label part
+ * and returns in host byte order.
+ *
+ * Returns `true` if the ancillary data exists otherwise `false` (and
+ * `flow_label` is set to zero).
+ */
+bool getsockopt_ipv6_flowlabel(struct msghdr *msg, uint32_t *flow_label)
+{
+	uint32_t *flow_info = NULL;
+
+#ifdef IPV6_FLOWINFO
+	flow_info = getsockopt_cmsg_data(msg, IPPROTO_IPV6, IPV6_FLOWINFO);
+#endif /* IPV6_FLOWINFO */
+	if (!flow_info) {
+		*flow_label = 0;
+		return false;
+	}
+
+	memcpy(flow_label, flow_info, sizeof(*flow_label));
+	*flow_label = ntohl(*flow_label) & IPV6_FLOWINFO_FLOWLABEL;
+	return true;
+}
+
+/**
+ * Enable the usage of the `sin6_flowinfo` field from
+ * `struct sockaddr_in6`. Remember to always set that field before
+ * calling `sendmsg` otherwise the system call will use garbage values
+ * from the stack.
+ *
+ * This only affects IPv6 packet sending.
+ */
+int setsockopt_ipv6_flowinfo_send(int fd, int value)
+{
+	int ret;
+
+#ifdef IPV6_FLOWINFO_SEND
+	ret = setsockopt(fd, IPPROTO_IPV6, IPV6_FLOWINFO_SEND, &value, sizeof(value));
+	if (ret == -1)
+		flog_err(EC_LIB_SOCKET, "Can't set IPV6_FLOWINFO_SEND option for fd %d to %#x: %s",
+			 fd, value, safe_strerror(errno));
+#else
+	ret = -1;
+	errno = ENOTSUP;
+	flog_err(EC_LIB_SOCKET, "Can't set IPV6_FLOWINFO_SEND option for fd %d to %#x: %s", fd,
+		 value, safe_strerror(errno));
+#endif /* IPV6_FLOWINFO_SEND */
+
+	return ret;
+}
+
 /*
  * Process multicast socket options for IPv4 in an OS-dependent manner.
  * Supported options are IP_{ADD,DROP}_MEMBERSHIP.

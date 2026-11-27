@@ -25,10 +25,11 @@ static void on_trace(const char *label, struct interface *ifp,
 		zlog_debug("%s: from %pI4s on %s", label, &from, ifp->name);
 }
 
-int igmp_v2_send_query(struct gm_group *group, int fd, const char *ifname, char *query_buf,
-		       struct in_addr dst_addr, struct in_addr group_addr,
-		       int query_max_response_time_dsec)
+int igmp_v2_send_query(struct gm_group *group, int fd, const struct interface *ifp,
+		       struct in_addr src_addr, char *query_buf, struct in_addr dst_addr,
+		       struct in_addr group_addr, int query_max_response_time_dsec)
 {
+	const char *ifname = ifp->name;
 	ssize_t msg_size = 8;
 	uint8_t max_resp_code;
 	ssize_t sent;
@@ -61,8 +62,11 @@ int igmp_v2_send_query(struct gm_group *group, int fd, const char *ifname, char 
 	to.sin_addr = dst_addr;
 	tolen = sizeof(to);
 
-	sent = sendto(fd, query_buf, msg_size, MSG_DONTWAIT,
-		      (struct sockaddr *)&to, tolen);
+	if (pim_sb_owns_interface(ifp))
+		sent = pim_southbound.send(ifp, &src_addr, &dst_addr, PIM_IP_PROTO_IGMP, 1,
+					   query_buf, msg_size);
+	else
+		sent = sendto(fd, query_buf, msg_size, MSG_DONTWAIT, (struct sockaddr *)&to, tolen);
 	if (sent != (ssize_t)msg_size) {
 		if (sent < 0) {
 			zlog_warn("Send IGMPv2 QUERY failed due to %pI4s on %s: group=%pI4s msg_size=%zd: errno=%d: %s",

@@ -17,6 +17,7 @@
 
 #include "pimd/pim_addr.h"
 #include "pimd/pim_rpf.h"
+#include "pimd/pim_southbound.h"
 #include "pimd/pim_str.h"
 
 struct interface;
@@ -94,6 +95,12 @@ struct prefix_list;
 
 #define PIM_UPSTREAM_DM_FLAG_MASK_PRUNE                (1 << 23)
 
+/*
+ * DATA_START flag: it is set when the southbound reports the traffic of a
+ * particular upstream started (see `pim_upstream_data_start`). Unset when it
+ * stops or new upstream.
+ */
+#define PIM_UPSTREAM_FLAG_MASK_DATA_START (1 << 24)
 
 #define PIM_UPSTREAM_FLAG_ALL 0xFFFFFFFF
 
@@ -291,7 +298,42 @@ struct pim_upstream {
 #define PIM_MSDP_REG_RXED_PERIOD (3 * (1.5 * router->register_suppress_time))
 
 	int64_t state_transition; /* Record current state uptime */
+
+#ifdef PIM_SOUTHBOUND_COMMON
+	/* Address to send the register to. */
+	pim_addr sb_register_to;
+	/* Address to send the register from. */
+	pim_addr sb_register_from;
+#endif /* PIM_SOUTHBOUND_COMMON */
 };
+
+/*
+ * Records that traffic started flowing for this upstream.
+ *
+ * Data planes without per route counters (no `mroute_update_counters`) report
+ * the traffic activity this way instead (DATA_START/DATA_STOP events): it
+ * replaces the counters when deciding whether the source is still active.
+ * With route counters nothing uses it, so it isn't recorded either.
+ */
+static inline void pim_upstream_data_start(struct pim_upstream *up)
+{
+	if (pim_southbound.mroute_update_counters)
+		return;
+
+	SET_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_DATA_START);
+}
+
+/* Records that the traffic of this upstream stopped. */
+static inline void pim_upstream_data_stop(struct pim_upstream *up)
+{
+	UNSET_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_DATA_START);
+}
+
+/* Tells whether the data plane reported traffic for this upstream. */
+static inline bool pim_upstream_data_started(const struct pim_upstream *up)
+{
+	return CHECK_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_DATA_START);
+}
 
 static inline bool pim_upstream_is_kat_running(struct pim_upstream *up)
 {

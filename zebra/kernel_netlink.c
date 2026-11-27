@@ -1540,6 +1540,8 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_RULE_UPDATE:
 		return netlink_put_rule_update_msg(bth, ctx);
 
+	case DPLANE_OP_MROUTE_INSTALL:
+	case DPLANE_OP_MROUTE_DELETE:
 	case DPLANE_OP_SYS_ROUTE_ADD:
 	case DPLANE_OP_SYS_ROUTE_DELETE:
 	case DPLANE_OP_ROUTE_NOTIFY:

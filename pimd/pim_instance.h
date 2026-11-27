@@ -21,6 +21,7 @@
 #include "pim_autorp.h"
 #include "pim_nht.h"
 #include "pim_static.h"
+#include "pim_southbound.h"
 
 enum pim_spt_switchover {
 	PIM_SPT_IMMEDIATE,

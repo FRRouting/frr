@@ -43,6 +43,7 @@
 #include "zebra/zebra_netns_notify.h"
 #include "zebra/zebra_rnh.h"
 #include "zebra/zebra_pbr.h"
+#include "zebra/zebra_mroute.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_nb.h"
@@ -246,6 +247,8 @@ void zebra_finalize(struct event *dummy)
 	zebra_mpls_terminate();
 
 	zebra_pw_terminate();
+
+	zebra_mroute_terminate();
 
 	zebra_srv6_terminate();
 
@@ -533,6 +536,7 @@ int main(int argc, char **argv)
 	zebra_mpls_vty_init();
 	zebra_pw_vty_init();
 	zebra_pbr_init();
+	zebra_mroute_init();
 	zebra_opaque_init();
 	zebra_srte_init();
 	zebra_srv6_init();

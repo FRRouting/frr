@@ -2376,10 +2376,10 @@ int lib_interface_pim_address_family_pim_enable_modify(struct nb_cb_modify_args 
 		if (ifp && ifp->info)
 			break;
 
-		if (pim_interface_num_get(if_dnode) >= MAXVIFS) {
+		if (pim_interface_num_get(if_dnode) >= pim_southbound.interface_max) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "Max multicast interfaces(%d) reached.",
-				 MAXVIFS);
+				 pim_southbound.interface_max);
 			return NB_ERR_VALIDATION;
 		}
 		break;
@@ -4824,12 +4824,11 @@ int lib_interface_gmp_address_family_enable_modify(
 		if (ifp && ifp->info)
 			break;
 
-		if (pim_interface_num_get(if_dnode) >= MAXVIFS) {
+		if (pim_interface_num_get(if_dnode) >= pim_southbound.interface_max) {
 			ifp_name = yang_dnode_get_string(if_dnode, "name");
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"Max multicast interfaces(%d) Reached. Could not enable %s on interface %s",
-				MAXVIFS, GM, ifp_name);
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Max multicast interfaces(%d) Reached. Could not enable %s on interface %s",
+				 pim_southbound.interface_max, GM, ifp_name);
 			return NB_ERR_VALIDATION;
 		}
 		break;

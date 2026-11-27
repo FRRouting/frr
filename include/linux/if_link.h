@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+// SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 #ifndef _UAPI_LINUX_IF_LINK_H
 #define _UAPI_LINUX_IF_LINK_H
 
@@ -171,6 +171,7 @@ enum {
 	IFLA_ALT_IFNAME, /* Alternative ifname */
 	IFLA_PERM_ADDRESS,
 	IFLA_PROTO_DOWN_REASON,
+	IFLA_VIF = 56,
 	__IFLA_MAX
 };
 

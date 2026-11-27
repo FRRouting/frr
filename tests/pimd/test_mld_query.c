@@ -17,6 +17,8 @@
 static struct pim_router test_router;
 struct pim_router *router = &test_router;
 struct zebra_privs_t pimd_privs;
+/* Without own_sockets the queries go out of the OS socket (sendmsg() below) */
+struct pim_sb_cbs pim_southbound;
 
 /* Stubs for pimd functions pim6_mld.c references */
 void json_object_pim_ifp_add(struct json_object *json, struct interface *ifp)

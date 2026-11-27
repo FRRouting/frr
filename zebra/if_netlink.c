@@ -1428,6 +1428,10 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup, void *ar
 	dplane_ctx_set_ifp_family(ctx, ifi->ifi_family);
 	dplane_ctx_set_intf_txqlen(ctx, txqlen);
 	dplane_ctx_set_intf_carrier_changes(ctx, cchanges);
+	/* Save virtual interface index. */
+	if (tb[IFLA_VIF])
+		dplane_ctx_set_intf_vif_index(
+			ctx, if_nametoindex(RTA_DATA(tb[IFLA_VIF])));
 
 	/* We are interested in some AF_BRIDGE notifications. */
 #ifndef AF_BRIDGE

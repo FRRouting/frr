@@ -1702,6 +1702,12 @@ void kernel_update_multi(struct dplane_ctx_list_head *ctx_list)
 			res = ZEBRA_DPLANE_REQUEST_SUCCESS;
 			break;
 
+		/* Multicast southbound is only consumed by FPM - no-op here */
+		case DPLANE_OP_MROUTE_INSTALL:
+		case DPLANE_OP_MROUTE_DELETE:
+			res = ZEBRA_DPLANE_REQUEST_SUCCESS;
+			break;
+
 		case DPLANE_OP_INTF_NETCONFIG:
 			res = kernel_intf_netconf_update(ctx);
 			break;

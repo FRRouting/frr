@@ -75,8 +75,10 @@ static bool pim_static_if_vif_ready(struct interface *ifp)
 	if (!ifp || !ifp->info)
 		return false;
 
+	/* `pim_southbound.interface_max` means the data plane has no such interface. */
 	pim_ifp = ifp->info;
-	return pim_ifp->mroute_vif_index > 0;
+	return pim_ifp->mroute_vif_index > 0 &&
+	       pim_ifp->mroute_vif_index < pim_southbound.interface_max;
 }
 
 /*
@@ -228,7 +230,7 @@ static int pim_static_add_install(struct pim_instance *pim, struct interface *ii
 
 	s_route->c_oil.pim = pim;
 
-	if (pim_mroute_add(&s_route->c_oil, __func__)) {
+	if (pim_southbound.mroute_install(&s_route->c_oil, __func__)) {
 		zlog_warn("%s %s: Unable to add static route(iif=%d,oif=%d,group=%pPAs,source=%pPAs)",
 			  __FILE__, __func__, iif_index, oif_index, &group, &source);
 
@@ -303,8 +305,9 @@ static int pim_static_del_install(struct pim_instance *pim, struct interface *ii
 		 * If there are no more outputs then delete the whole route,
 		 * otherwise update the route with the remaining outputs.
 		 */
-		if (s_route->c_oil.oil_ref_count <= 0 ? pim_mroute_del(&s_route->c_oil, __func__)
-						      : pim_mroute_add(&s_route->c_oil, __func__)) {
+		if (s_route->c_oil.oil_ref_count <= 0
+			    ? pim_southbound.mroute_uninstall(&s_route->c_oil, __func__)
+			    : pim_southbound.mroute_install(&s_route->c_oil, __func__)) {
 			zlog_warn("%s %s: Unable to remove static route(iif=%d,oif=%d,group=%pPAs,source=%pPAs)",
 				  __FILE__, __func__, iif_index, oif_index, &group, &source);
 
@@ -438,7 +441,7 @@ int pim_static_nocache_resolve(struct pim_instance *pim, struct interface *ifp, 
 	if (!s_route)
 		return 1;
 
-	if (pim_mroute_add(&s_route->c_oil, __func__)) {
+	if (pim_southbound.mroute_install(&s_route->c_oil, __func__)) {
 		if (PIM_DEBUG_MROUTE)
 			zlog_debug("%s: failed to reinstall static mroute (%s:%u:%u)%pSG on %s",
 				   __func__, PIM_DEBUG_VRF(pim->vrf), sg, ifp->name);

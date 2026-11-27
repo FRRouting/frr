@@ -88,6 +88,10 @@ static void sock_close(struct interface *ifp)
 			   pim_ifp->pim_sock_fd, ifp->name);
 	}
 
+	/* The southbound PIM socket is shared by every interface: keep it open. */
+	if (pim_southbound.own_sockets)
+		pim_ifp->pim_sock_fd = -1;
+
 	/*
 	 * If the fd is already deleted no need to do anything here
 	 */
@@ -140,8 +144,8 @@ static bool pim_pkt_dst_addr_ok(enum pim_msg_type type, pim_addr addr)
 	return true;
 }
 
-int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
-		   pim_sgaddr sg, bool is_mcast)
+static int pim_pim_packet_process(struct interface *ifp, uint8_t *buf, size_t len, pim_sgaddr sg,
+				  bool is_mcast, bool verify_checksum)
 {
 	struct iovec iov[2], *iovp = iov;
 #if PIM_IPV == 4
@@ -268,12 +272,15 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 
 	/* save received checksum */
 	pim_checksum = header->checksum;
+	checksum = pim_checksum;
 
 	/* for computing checksum */
 	header->checksum = 0;
 	no_fwd = header->Nbit;
 
-	if (header->type == PIM_MSG_TYPE_REGISTER) {
+	if (!verify_checksum) {
+		/* Already validated by whoever delivered the packet. */
+	} else if (header->type == PIM_MSG_TYPE_REGISTER) {
 		if (pim_msg_len < PIM_MSG_REGISTER_LEN) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug("PIM Register Message size=%d shorther than min length %d",
@@ -443,6 +450,17 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 		}
 		return -1;
 	}
+}
+
+int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len, pim_sgaddr sg, bool is_mcast)
+{
+	return pim_pim_packet_process(ifp, buf, len, sg, is_mcast, true);
+}
+
+int pim_pim_packet_nocksum(struct interface *ifp, uint8_t *buf, size_t len, pim_sgaddr sg,
+			   bool is_mcast)
+{
+	return pim_pim_packet_process(ifp, buf, len, sg, is_mcast, false);
 }
 
 int pim_sock_read_helper(int fd, struct pim_instance *pim, bool is_mcast)
@@ -651,11 +669,103 @@ void pim_sock_reset(struct interface *ifp)
 static uint16_t ip_id = 0;
 #endif
 
-#if PIM_IPV == 4
-static int pim_msg_send_frame(int fd, char *buf, size_t len,
-			      struct sockaddr *dst, size_t salen,
-			      const char *ifname)
+/* Tells whether `dst` is a multicast address. */
+static bool pim_msg_dst_multicast(pim_addr dst)
 {
+#if PIM_IPV == 4
+	return IN_MULTICAST(ntohl(dst.s_addr));
+#else
+	return IN6_IS_ADDR_MULTICAST(&dst);
+#endif /* PIM_IPV == 4 */
+}
+
+/* Tells whether `dst` is on the link of `ifp` (e.g. a PIM neighbor). */
+static bool pim_msg_dst_on_link(struct interface *ifp, pim_addr dst)
+{
+#if PIM_IPV == 6
+	if (IN6_IS_ADDR_LINKLOCAL(&dst))
+		return true;
+#endif /* PIM_IPV == 6 */
+
+	return pim_if_connected_to_source(ifp, dst) != NULL;
+}
+
+/*
+ * Tells whether the message goes through the southbound and, when it does, the
+ * interface to hand it with (`sb_ifp`):
+ *  - multicast messages and unicast ones to a neighbor (on the link) go out
+ *    of `ifp`;
+ *  - the other unicast messages (Register, Register-Stop, Candidate-RP
+ *    advertisement) are routed by the data plane: `ifp` (the interface
+ *    towards the RP, the one the Register arrived on, the VRF device or
+ *    none) needn't lead to their destination. They go without interface in
+ *    the default VRF and with the VRF device in the others (`ifp` NULL
+ *    means the default VRF: callers in other VRFs must pass an interface).
+ *
+ * Unicast messages go through the operating system instead when:
+ *  - they are sent to one of our own addresses (e.g. we are the elected BSR):
+ *    they never reach the data plane, so the operating system delivers them;
+ *  - they are routed but have no source address (Candidate-RP withdrawals):
+ *    the operating system picks one, the data plane would send them as is.
+ */
+static bool pim_msg_southbound(struct interface *ifp, pim_addr src, pim_addr dst,
+			       const struct interface **sb_ifp)
+{
+	vrf_id_t vrf_id = ifp ? ifp->vrf->vrf_id : VRF_DEFAULT;
+
+	if (!pim_southbound.own_sockets)
+		return false;
+
+	if (pim_msg_dst_multicast(dst)) {
+		*sb_ifp = ifp;
+		return true;
+	}
+
+	if (if_address_is_local(&dst, PIM_AF, vrf_id))
+		return false;
+
+	if (ifp && !if_is_vrf(ifp) && pim_msg_dst_on_link(ifp, dst)) {
+		*sb_ifp = ifp;
+		return true;
+	}
+
+	if (pim_addr_is_any(src))
+		return false;
+
+	if (vrf_id == VRF_DEFAULT)
+		*sb_ifp = NULL;
+	else if (if_is_vrf(ifp))
+		*sb_ifp = ifp;
+	else
+		/* Without the VRF device (yet) keep the interface. */
+		*sb_ifp = if_lookup_by_name(ifp->vrf->name, vrf_id) ?: ifp;
+
+	return true;
+}
+
+#if PIM_IPV == 4
+static int pim_msg_send_frame(int fd, char *buf, size_t len, struct sockaddr *dst, size_t salen,
+			      struct interface *ifp)
+{
+	const struct ipv4_header *ipv4 = (const struct ipv4_header *)buf;
+	const struct interface *sb_ifp = NULL;
+
+	if (pim_msg_southbound(ifp, ipv4->source, ipv4->destination, &sb_ifp)) {
+		const size_t header_length = ipv4_header_length(ipv4);
+		ssize_t result;
+
+		result = pim_southbound.send(sb_ifp, &ipv4->source, &ipv4->destination,
+					     ipv4->protocol, ipv4->ttl, buf + header_length,
+					     len - header_length);
+		if (result < 0) {
+			zlog_warn("%s: southbound send failure to %pI4: iface=%s msg_size=%zu: %m",
+				  __func__, &ipv4->destination, sb_ifp ? sb_ifp->name : "*", len);
+			return -1;
+		}
+
+		return 0;
+	}
+
 	if (sendto(fd, buf, len, MSG_DONTWAIT, dst, salen) >= 0)
 		return 0;
 
@@ -670,14 +780,14 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 		/* Too small to fragment further */
 		if (newlen1 < hdrsize) {
 			zlog_warn("%s: cannot fragment %zu byte packet to %pSU on %s", __func__,
-				  len, dst, ifname);
+				  len, dst, ifp ? ifp->name : "*");
 			return -1;
 		}
 
 		ip->ip_len = htons(sendlen);
 		ip->ip_off = htons(offset | IP_MF);
 
-		ret = pim_msg_send_frame(fd, buf, sendlen, dst, salen, ifname);
+		ret = pim_msg_send_frame(fd, buf, sendlen, dst, salen, ifp);
 		if (ret)
 			return ret;
 
@@ -689,20 +799,19 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 		memcpy(ip2, ip, hdrsize);
 		ip2->ip_len = htons(sendlen);
 		ip2->ip_off = htons(offset + (newlen1 >> 3));
-		return pim_msg_send_frame(fd, (char *)ip2, sendlen, dst, salen,
-					  ifname);
+		return pim_msg_send_frame(fd, (char *)ip2, sendlen, dst, salen, ifp);
 	}
 
-	zlog_warn(
-		"%s: sendto() failure to %pSU: iface=%s fd=%d msg_size=%zd: %m",
-		__func__, dst, ifname, fd, len);
+	zlog_warn("%s: sendto() failure to %pSU: iface=%s fd=%d msg_size=%zd: %m", __func__, dst,
+		  ifp ? ifp->name : "*", fd, len);
 	return -1;
 }
 
 #else
-static int pim_msg_send_frame(pim_addr src, pim_addr dst, ifindex_t ifindex,
+static int pim_msg_send_frame(pim_addr src, pim_addr dst, struct interface *ifp,
 			      struct iovec *message, int fd)
 {
+	ifindex_t ifindex = ifp ? ifp->ifindex : 0;
 	int retval;
 	struct msghdr smsghdr = {};
 	struct cmsghdr *scmsgp;
@@ -712,8 +821,30 @@ static int pim_msg_send_frame(pim_addr src, pim_addr dst, ifindex_t ifindex,
 	};
 	struct in6_pktinfo *pktinfo;
 	struct sockaddr_in6 dst_sin6 = {};
+	const struct interface *sb_ifp = NULL;
 
 	union cmsgbuf cmsg_buf = {};
+
+	if (pim_msg_southbound(ifp, src, dst, &sb_ifp)) {
+		/*
+		 * Link-local multicast messages stay on the link, unicast ones
+		 * (e.g. register, candidate RP) may cross routers.
+		 */
+		const uint8_t hop_limit = IN6_IS_ADDR_MULTICAST(&dst) ? 1 : 64;
+		ssize_t result;
+
+		result = pim_southbound.send(sb_ifp, &src, &dst, PIM_IP_PROTO_PIM, hop_limit,
+					     message->iov_base, message->iov_len);
+		if (result < 0) {
+			flog_err(EC_LIB_SOCKET,
+				 "southbound send failed: source: %pI6 Dest: %pI6 ifindex: %d: %s (%d)",
+				 &src, &dst, sb_ifp ? sb_ifp->ifindex : 0, safe_strerror(errno),
+				 errno);
+			return -1;
+		}
+
+		return 0;
+	}
 
 	/* destination address */
 	dst_sin6.sin6_family = AF_INET6;
@@ -862,9 +993,7 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 		pim_pkt_dump(__func__, pim_msg, pim_msg_size);
 	}
 
-	return pim_msg_send_frame(fd, (char *)buffer, sendlen,
-				  (struct sockaddr *)&to, tolen,
-				  ifp ? ifp->name : "*");
+	return pim_msg_send_frame(fd, (char *)buffer, sendlen, (struct sockaddr *)&to, tolen, ifp);
 
 #else
 	struct iovec iovector[2];
@@ -872,8 +1001,7 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	iovector[0].iov_base = pim_msg;
 	iovector[0].iov_len = pim_msg_size;
 
-	return pim_msg_send_frame(src, dst, ifp ? ifp->ifindex : 0,
-				  &iovector[0], fd);
+	return pim_msg_send_frame(src, dst, ifp, &iovector[0], fd);
 #endif
 }
 
@@ -1097,17 +1225,29 @@ int pim_sock_add(struct interface *ifp)
 		return -1;
 	}
 
-	pim_ifp->pim_sock_fd = pim_sock_open(ifp);
-	if (pim_ifp->pim_sock_fd < 0) {
-		if (PIM_DEBUG_PIM_PACKETS)
-			zlog_debug("Could not open PIM socket on interface %s",
-				   ifp->name);
-		return -2;
+	/* Southbound owns the socket (and reads it), skip the normal handlers. */
+	if (pim_southbound.own_sockets) {
+		if (pim_southbound.pim_fd < 0) {
+			if (PIM_DEBUG_PIM_PACKETS)
+				zlog_debug("Southbound PIM socket not available for interface %s",
+					   ifp->name);
+			return -2;
+		}
+
+		pim_ifp->pim_sock_fd = pim_southbound.pim_fd;
+	} else {
+		pim_ifp->pim_sock_fd = pim_sock_open(ifp);
+		if (pim_ifp->pim_sock_fd < 0) {
+			if (PIM_DEBUG_PIM_PACKETS)
+				zlog_debug("Could not open PIM socket on interface %s", ifp->name);
+			return -2;
+		}
+
+		pim_socket_ip_hdr(pim_ifp->pim_sock_fd);
+
+		event_cancel(&pim_ifp->t_pim_sock_read);
 	}
 
-	pim_socket_ip_hdr(pim_ifp->pim_sock_fd);
-
-	event_cancel(&pim_ifp->t_pim_sock_read);
 	pim_ifp->pim_sock_creation = pim_time_monotonic_sec();
 
 	/*
@@ -1129,7 +1269,8 @@ int pim_sock_add(struct interface *ifp)
 	/*
 	 * Start receiving PIM messages
 	 */
-	pim_sock_read_on(ifp);
+	if (!pim_southbound.own_sockets)
+		pim_sock_read_on(ifp);
 
 	/*
 	 * Start sending PIM hello's

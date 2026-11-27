@@ -25,6 +25,9 @@ extern int setsockopt_ipv6_multicast_loop(int sock, int val);
 extern int setsockopt_ipv6_tclass(int sock, int tclass);
 extern int setsockopt_ipv6_freebind(int sock, int val);
 extern int setsockopt_so_bindtodevice(int sock, const char *ifname);
+extern int setsockopt_ipv6_flowinfo(int fd, int value);
+extern bool getsockopt_ipv6_flowlabel(struct msghdr *msg, uint32_t *flow_label);
+extern int setsockopt_ipv6_flowinfo_send(int fd, int value);
 
 #define SOPT_SIZE_CMSG_PKTINFO_IPV6() (sizeof(struct in6_pktinfo));
 

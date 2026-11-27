@@ -43,6 +43,7 @@
 #include "zebra/zebra_evpn_mac.h"
 #include "zebra/kernel_netlink.h"
 #include "zebra/rt_netlink.h"
+#include "zebra/zebra_mroute.h"
 #include "fpm/fpm.h"
 
 #include "zebra/dplane_fpm_nl_clippy.c"
@@ -1013,6 +1014,19 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		nl_buf_len += (size_t)rv;
 		break;
 
+	case DPLANE_OP_MROUTE_INSTALL:
+	case DPLANE_OP_MROUTE_DELETE:
+		rv = netlink_mroute_encode(ctx, nl_buf, sizeof(nl_buf));
+		if (rv <= 0) {
+			flog_err(EC_ZEBRA_FPM_ENCODE_FAIL, "%s: netlink_mroute_encode failed",
+				 __func__);
+			dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
+			return 0;
+		}
+
+		nl_buf_len += (size_t)rv;
+		break;
+
 	case DPLANE_OP_MAC_INSTALL:
 	case DPLANE_OP_MAC_DELETE:
 		rv = netlink_macfdb_update_ctx(ctx, nl_buf, sizeof(nl_buf));
@@ -1306,6 +1320,7 @@ static void fpm_rib_send(struct event *t)
 	rib_dest_t *dest;
 	struct route_node *rn;
 	struct route_table *rt;
+	struct vrf *vrf;
 	struct zebra_dplane_ctx *ctx;
 	rib_tables_iter_t rt_iter;
 
@@ -1344,6 +1359,10 @@ static void fpm_rib_send(struct event *t)
 
 	/* Free the temporary allocated context. */
 	dplane_ctx_fini(&ctx);
+
+	/* Ask PIM to send the multicast routes again. */
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+		zmroute_sync(vrf->vrf_id);
 
 	/* All RIB routes sent! */
 	WALK_FINISH(fnc, FNE_RIB_FINISHED);

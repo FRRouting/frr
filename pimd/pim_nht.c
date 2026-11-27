@@ -991,6 +991,9 @@ static void pim_update_rp_nh(struct pim_instance *pim,
 		if (!ifp && rp_info->rp.source_nexthop.interface)
 			pim_vxlan_rp_info_is_alive(pim, &rp_info->rp);
 	}
+
+	/* The register destination depends on the RP reachability. */
+	pim_rp_sb_register_update(pim);
 }
 
 /* Update Upstream nexthop info based on Nexthop update received from Zebra.*/

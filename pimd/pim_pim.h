@@ -48,6 +48,13 @@ void pim_hello_restart_triggered(struct interface *ifp);
 
 int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 		   pim_sgaddr sg, bool is_mcast);
+/*
+ * Same as `pim_pim_packet` without checksum verification: for data planes
+ * that validate the packet before handing it over (and may rewrite the
+ * checksum for their own encapsulation).
+ */
+int pim_pim_packet_nocksum(struct interface *ifp, uint8_t *buf, size_t len, pim_sgaddr sg,
+			   bool is_mcast);
 
 int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 		 int pim_msg_size, struct interface *ifp);
