@@ -95,6 +95,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_ns.c \
 	zebra/zebra_opaque.c \
 	zebra/zebra_pbr.c \
+	zebra/zebra_pbr_tc.c \
 	zebra/zebra_ptm.c \
 	zebra/zebra_ptm_redistribute.c \
 	zebra/zebra_pw.c \
@@ -179,6 +180,7 @@ nobase_pkginclude_HEADERS += \
 	zebra/zebra_ns.h \
 	zebra/zebra_opaque.h \
 	zebra/zebra_pbr.h \
+	zebra/zebra_pbr_tc.h \
 	zebra/zebra_ptm.h \
 	zebra/zebra_ptm_redistribute.h \
 	zebra/zebra_pw.h \

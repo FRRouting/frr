@@ -30,6 +30,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_vxlan_if.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_pbr_tc.h"
 
 /* definitions */
 
@@ -494,6 +495,9 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 
 		zebra_l2_unmap_slave_from_bridge(&zif->brslave_info);
 	}
+
+	/* bridge ports get extra (802.1Q) traffic-class classifier shapes */
+	zebra_pbr_tc_interface_update(ifp);
 }
 
 void zebra_l2if_update_bond_slave(struct interface *ifp, ifindex_t bond_ifindex,

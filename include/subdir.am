@@ -24,4 +24,5 @@ noinst_HEADERS += \
 	include/linux/seg6_iptunnel.h \
 	include/linux/seg6_local.h \
 	include/linux/pkt_cls.h \
+	include/linux/tc_act/tc_skbedit.h \
 	# end

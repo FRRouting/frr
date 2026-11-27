@@ -100,6 +100,7 @@ struct pbr_action {
 #define PBR_ACTION_DSCP			(1 << 9)
 #define PBR_ACTION_ECN			(1 << 10)
 #define PBR_ACTION_DROP			(1 << 11) /* nexthop == blackhole */
+#define PBR_ACTION_TRAFFIC_CLASS	(1 << 12) /* classify into a TC */
 
 	uint32_t table;
 	uint32_t queue_id;
@@ -119,7 +120,42 @@ struct pbr_action {
 	/* Differentiated Services field  */
 	uint8_t dscp; /* stored here already shifted to upper 6 bits */
 	uint8_t ecn;  /* stored here as lower 2 bits */
+
+	/*
+	 * Traffic class (QoS 2.21).  On Linux the class is carried in
+	 * skb->priority and, when tc_mark_mask is not 0, also in the
+	 * skb->mark bits selected by tc_mark_mask (TC << lowest set bit).
+	 */
+	uint8_t traffic_class;
+	uint32_t tc_mark_mask;
 };
+
+/* Traffic class model */
+#define PBR_TC_COUNT	      8
+#define PBR_TC_MAX	      (PBR_TC_COUNT - 1)
+#define PBR_TC_DEFAULT	      0
+#define PBR_TC_MARK_MASK_DFLT 0x00070000u
+
+/*
+ * Is @mask a usable traffic-class mark mask: 0 (mark carrier off) or
+ * exactly three contiguous bits.
+ */
+static inline bool pbr_tc_mark_mask_valid(uint32_t mask)
+{
+	if (mask == 0)
+		return true;
+
+	return (mask >> __builtin_ctz(mask)) == 0x7;
+}
+
+/* skb->mark value for traffic class @tc under @mask */
+static inline uint32_t pbr_tc_mark(uint8_t tc, uint32_t mask)
+{
+	if (mask == 0)
+		return 0;
+
+	return ((uint32_t)tc << __builtin_ctz(mask)) & mask;
+}
 
 /*
  * A PBR rule
