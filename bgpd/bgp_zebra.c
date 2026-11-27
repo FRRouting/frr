@@ -210,10 +210,36 @@ static int bgp_ifp_destroy(struct interface *ifp)
 	 * lib frees an unconfigured ifp once this hook returns. BGP views use
 	 * the default VRF's interfaces without being its vrf->info.
 	 */
-	for (ALL_LIST_ELEMENTS_RO(bm->bgp, bnode, nbgp))
-		for (ALL_LIST_ELEMENTS_RO(nbgp->peer, node, peer))
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, bnode, nbgp)) {
+		bool same_netns = true;
+
+		switch (vrf_get_backend()) {
+		case VRF_BACKEND_NETNS:
+			/* Interface indexes are local to a network namespace. */
+			same_netns = nbgp->vrf_id == ifp->vrf->vrf_id;
+			break;
+		case VRF_BACKEND_VRF_LITE:
+			break;
+		}
+
+		for (ALL_LIST_ELEMENTS_RO(nbgp->peer, node, peer)) {
+			/*
+			 * A socket bound to a device that is gone can never
+			 * work again. Reset the session now instead of waiting
+			 * for the hold timer. Sockets that are not bound to
+			 * this device are left alone.
+			 */
+			if (same_netns && peer->connection->fd >= 0 &&
+			    ifp->ifindex != IFINDEX_INTERNAL &&
+			    peer->connection->socket_binding_ifindex == ifp->ifindex) {
+				peer_set_last_reset(peer, PEER_DOWN_BOUND_IF_DEL);
+				BGP_EVENT_ADD(peer->connection, BGP_Stop);
+			}
+
 			if (peer->nexthop.ifp == ifp)
 				peer->nexthop.ifp = NULL;
+		}
+	}
 
 	if (bgp) {
 		bgp_update_interface_nbrs(bgp, ifp, NULL);

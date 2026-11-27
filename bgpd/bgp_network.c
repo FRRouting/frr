@@ -38,7 +38,7 @@
 
 extern struct zebra_privs_t bgpd_privs;
 
-static char *bgp_get_bound_name(struct peer_connection *connection);
+static char *bgp_get_bound_name(struct peer_connection *connection, ifindex_t *ifindex);
 
 void bgp_dump_listener_info(struct vty *vty)
 {
@@ -433,6 +433,8 @@ static void bgp_accept(struct event *event)
 	char buf[SU_ADDRSTRLEN];
 	struct bgp *bgp = NULL;
 	enum bgp_peer_active active;
+	ifindex_t ifindex = IFINDEX_INTERNAL;
+	const char *bound_name;
 
 	sockunion_init(&su);
 
@@ -554,8 +556,9 @@ static void bgp_accept(struct event *event)
 				sockopt_tcp_mss_set(bgp_sock, dynamic_peer->tcp_mss);
 
 			frr_with_privs (&bgpd_privs) {
-				vrf_bind(dynamic_peer->bgp->vrf_id, bgp_sock,
-					 bgp_get_bound_name(incoming));
+				bound_name = bgp_get_bound_name(incoming, &ifindex);
+				if (vrf_bind(dynamic_peer->bgp->vrf_id, bgp_sock, bound_name) == 0)
+					incoming->socket_binding_ifindex = ifindex;
 			}
 			bgp_peer_connection_reg_with_nht(incoming);
 			bgp_fsm_change_status(incoming, Active);
@@ -714,7 +717,9 @@ static void bgp_accept(struct event *event)
 				   doppelganger->host);
 
 	frr_with_privs(&bgpd_privs) {
-		vrf_bind(bgp->vrf_id, bgp_sock, bgp_get_bound_name(incoming));
+		bound_name = bgp_get_bound_name(incoming, &ifindex);
+		if (vrf_bind(bgp->vrf_id, bgp_sock, bound_name) == 0)
+			incoming->socket_binding_ifindex = ifindex;
 	}
 	bgp_peer_connection_reg_with_nht(incoming);
 	bgp_fsm_change_status(incoming, Active);
@@ -752,11 +757,18 @@ static void bgp_accept(struct event *event)
 	bgp_nht_interface_events(doppelganger);
 }
 
-/* BGP socket bind. */
-static char *bgp_get_bound_name(struct peer_connection *connection)
+/*
+ * BGP socket bind. Returns the name of the device the socket is to be bound to
+ * (NULL if none) and, when that device is known, its index in *ifindex. The
+ * caller initializes *ifindex to IFINDEX_INTERNAL.
+ */
+static char *bgp_get_bound_name(struct peer_connection *connection, ifindex_t *ifindex)
 {
 	struct peer *peer = connection->peer;
+	struct vrf *vrf = vrf_lookup_by_id(peer->bgp->vrf_id);
+	struct interface *ifp;
 	struct connected *c;
+	char *name = NULL;
 
 	if (connection->su.sa.sa_family != AF_INET &&
 	    connection->su.sa.sa_family != AF_INET6)
@@ -767,10 +779,9 @@ static char *bgp_get_bound_name(struct peer_connection *connection)
 	 * VRF are the situations to bind.
 	 */
 	if (connection->su.sa.sa_family == AF_INET6 && peer->conf_if)
-		return peer->conf_if;
-
-	if (peer->ifname)
-		return peer->ifname;
+		name = peer->conf_if;
+	else if (peer->ifname)
+		name = peer->ifname;
 
 	/*
 	 * If a v6 neighbors address is covered by an interfaces connected prefix,
@@ -779,18 +790,42 @@ static char *bgp_get_bound_name(struct peer_connection *connection)
 	 * some random source address to be chosen.
 	 * Skip link-local neighbors: they match every interface.
 	 */
-	if (connection->su.sa.sa_family == AF_INET6 &&
+	if (!name && connection->su.sa.sa_family == AF_INET6 &&
 	    !IN6_IS_ADDR_LINKLOCAL(&connection->su.sin6.sin6_addr)) {
 		c = if_lookup_address(&connection->su.sin6.sin6_addr, connection->su.sa.sa_family,
 				      peer->bgp->vrf_id);
 		if (c)
-			return c->ifp->name;
+			name = c->ifp->name;
 	}
 
-	if (peer->bgp->inst_type == BGP_INSTANCE_TYPE_VIEW || peer->bgp->vrf_id == VRF_DEFAULT)
-		return NULL;
+	/*
+	 * The netns backend has no VRF
+	 * device (the VRF is a namespace and the socket is already created inside
+	 * it), and neither do the default VRF and views, so there is nothing to
+	 * bind to in those cases.
+	 */
+	if (!name && peer->bgp->inst_type != BGP_INSTANCE_TYPE_VIEW &&
+	    peer->bgp->vrf_id != VRF_DEFAULT && !vrf_is_backend_netns())
+		name = peer->bgp->name;
 
-	return peer->bgp->name;
+	if (!name || !vrf)
+		return name;
+
+	ifp = if_lookup_by_name(name, vrf->vrf_id);
+	/* A VRF master device can belong to the default VRF. */
+	if (!ifp && !vrf_is_backend_netns())
+		ifp = if_lookup_by_name(name, VRF_DEFAULT);
+#ifdef SO_BINDTODEVICE
+	/*
+	 * SO_BINDTODEVICE is what ties the socket to the device. Where it is
+	 * unavailable the socket stays unbound, so there is no bound ifindex
+	 * to record.
+	 */
+	if (ifp)
+		*ifindex = ifp->ifindex;
+#endif
+
+	return name;
 }
 
 int bgp_update_address(struct interface *ifp, const union sockunion *dst,
@@ -857,6 +892,8 @@ static int bgp_update_source(struct peer_connection *connection)
 enum connect_result bgp_connect(struct peer_connection *connection)
 {
 	struct peer *peer = connection->peer;
+	ifindex_t ifindex = IFINDEX_INTERNAL;
+	const char *bound_name;
 
 	assert(!CHECK_FLAG(connection->thread_flags, PEER_THREAD_WRITES_ON));
 	assert(!CHECK_FLAG(connection->thread_flags, PEER_THREAD_READS_ON));
@@ -876,11 +913,15 @@ enum connect_result bgp_connect(struct peer_connection *connection)
 		return connect_error;
 	}
 	frr_with_privs(&bgpd_privs) {
+		bound_name = bgp_get_bound_name(connection, &ifindex);
+
 		/* Make socket for the peer. */
-		connection->fd =
-			vrf_sockunion_socket(&connection->su, peer->bgp->vrf_id,
-					     bgp_get_bound_name(connection));
+		connection->fd = vrf_sockunion_socket(&connection->su, peer->bgp->vrf_id,
+						      bound_name);
 		connection->dir = CONNECTION_OUTGOING;
+		/* A valid fd means the bind, if any, succeeded. */
+		if (connection->fd >= 0)
+			connection->socket_binding_ifindex = ifindex;
 	}
 	if (connection->fd < 0) {
 		peer_set_last_reset(peer, PEER_DOWN_SOCKET_ERROR);
