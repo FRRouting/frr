@@ -92,6 +92,10 @@ int main(int argc, char **argv)
 	CU_add_test(test_socket_comm_loop_suite,
 		    "test_handle_reads_read_message_close",
 		    test_handle_reads_read_message_close);
+	CU_add_test(test_socket_comm_loop_suite, "test_handle_reads_teardown_during_read",
+		    test_handle_reads_teardown_during_read);
+	CU_add_test(test_socket_comm_loop_suite, "test_handle_reads_close_during_read",
+		    test_handle_reads_close_during_read);
 
 	/*
 	 * Run the tests and cleanup.

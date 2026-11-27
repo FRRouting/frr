@@ -142,17 +142,10 @@ void test_session_logic_msg_ready_handler()
 	memset(&session, 0, sizeof(pcep_session));
 	session.session_id = 100;
 	CU_ASSERT_EQUAL(session_logic_msg_ready_handler(&session, fd), 0);
-	CU_ASSERT_EQUAL(session_logic_handle_->session_event_queue->num_entries,
-			1);
-	pcep_event *e = queue_dequeue(session_logic_event_queue_->event_queue);
-	CU_ASSERT_EQUAL(PCE_CLOSED_SOCKET, e->event_type);
-	pceplib_free(PCEPLIB_INFRA, e);
-	pcep_session_event *socket_event = (pcep_session_event *)queue_dequeue(
-		session_logic_handle_->session_event_queue);
-	CU_ASSERT_PTR_NOT_NULL(socket_event);
-	assert(socket_event != NULL);
-	CU_ASSERT_TRUE(socket_event->socket_closed);
-	pceplib_free(PCEPLIB_INFRA, socket_event);
+	/* Socket comm reports the closed socket through conn_except */
+	CU_ASSERT_EQUAL(session_logic_handle_->session_event_queue->num_entries, 0);
+	CU_ASSERT_EQUAL(session_logic_event_queue_->event_queue->num_entries, 0);
+	pcep_session_event *socket_event;
 
 	/* A pcep_session_event should be created */
 	struct pcep_versioning *versioning = create_default_pcep_versioning();
@@ -170,7 +163,7 @@ void test_session_logic_msg_ready_handler()
 		session_logic_handle_->session_event_queue);
 	CU_ASSERT_PTR_NOT_NULL(socket_event);
 	assert(socket_event != NULL);
-	CU_ASSERT_FALSE(socket_event->socket_closed);
+	CU_ASSERT_EQUAL(socket_event->type, PCEP_SESSION_EVENT_MSG_RCVD);
 	CU_ASSERT_PTR_EQUAL(socket_event->session, &session);
 	CU_ASSERT_EQUAL(socket_event->expired_timer_id, TIMER_ID_NOT_SET);
 	CU_ASSERT_PTR_NOT_NULL(socket_event->received_msg_list);
@@ -199,12 +192,35 @@ void test_session_logic_conn_except_notifier()
 		session_logic_handle_->session_event_queue);
 	CU_ASSERT_PTR_NOT_NULL_FATAL(socket_event);
 	assert(socket_event != NULL);
-	CU_ASSERT_TRUE(socket_event->socket_closed);
+	CU_ASSERT_EQUAL(socket_event->type, PCEP_SESSION_EVENT_SOCKET_CLOSED);
 	CU_ASSERT_PTR_EQUAL(socket_event->session, &session);
 	CU_ASSERT_EQUAL(socket_event->expired_timer_id, TIMER_ID_NOT_SET);
 	CU_ASSERT_PTR_NULL(socket_event->received_msg_list);
 
 	pceplib_free(PCEPLIB_INFRA, socket_event);
+}
+
+
+void test_session_logic_message_sent_handler(void)
+{
+	/* Just testing that it does not core dump */
+	session_logic_message_sent_handler(NULL, 10);
+
+	/* Only an event for the session logic thread is created */
+	pcep_session session;
+
+	memset(&session, 0, sizeof(pcep_session));
+	session.session_id = 100;
+	session_logic_message_sent_handler(&session, 10);
+	CU_ASSERT_EQUAL(session_logic_handle_->session_event_queue->num_entries, 1);
+	pcep_session_event *sent_event =
+		(pcep_session_event *)queue_dequeue(session_logic_handle_->session_event_queue);
+	CU_ASSERT_PTR_NOT_NULL_FATAL(sent_event);
+	assert(sent_event != NULL);
+	CU_ASSERT_EQUAL(sent_event->type, PCEP_SESSION_EVENT_MSG_SENT);
+	CU_ASSERT_PTR_EQUAL(sent_event->session, &session);
+
+	pceplib_free(PCEPLIB_INFRA, sent_event);
 }
 
 
@@ -224,10 +240,52 @@ void test_session_logic_timer_expire_handler()
 		session_logic_handle_->session_event_queue);
 	CU_ASSERT_PTR_NOT_NULL_FATAL(socket_event);
 	assert(socket_event != NULL);
-	CU_ASSERT_FALSE(socket_event->socket_closed);
+	CU_ASSERT_EQUAL(socket_event->type, PCEP_SESSION_EVENT_TIMER);
 	CU_ASSERT_PTR_EQUAL(socket_event->session, &session);
 	CU_ASSERT_EQUAL(socket_event->expired_timer_id, 42);
 	CU_ASSERT_PTR_NULL(socket_event->received_msg_list);
 
 	pceplib_free(PCEPLIB_INFRA, socket_event);
+}
+
+
+/* A message for a destroyed session is freed with its discarded event */
+void test_session_logic_loop_discarded_msg(void)
+{
+	struct pceplib_memory_type *infra = PCEPLIB_INFRA;
+	struct pceplib_memory_type *msgs = PCEPLIB_MESSAGES;
+	uint32_t infra_allocs = infra->num_allocates;
+	uint32_t infra_frees = infra->num_frees;
+	uint32_t msg_allocs = msgs->num_allocates;
+	uint32_t msg_frees = msgs->num_frees;
+	pcep_session session; /* not on the session list */
+	pcep_session_event *event = pceplib_malloc(PCEPLIB_INFRA, sizeof(*event));
+	pthread_t thread;
+	bool done = false;
+
+	memset(&session, 0, sizeof(session));
+	memset(event, 0, sizeof(*event));
+	event->type = PCEP_SESSION_EVENT_MSG_RCVD;
+	event->session = &session;
+	event->received_msg_list = dll_initialize();
+	dll_append(event->received_msg_list, pcep_msg_create_keepalive());
+	queue_enqueue(session_logic_handle_->session_event_queue, event);
+
+	pthread_create(&thread, NULL, session_logic_loop, session_logic_handle_);
+	for (int i = 0; i < 200 && !done; i++) {
+		usleep(10000);
+		pthread_mutex_lock(&(session_logic_handle_->session_logic_mutex));
+		done = session_logic_handle_->session_event_queue->num_entries == 0;
+		pthread_mutex_unlock(&(session_logic_handle_->session_logic_mutex));
+	}
+	pthread_mutex_lock(&(session_logic_handle_->session_logic_mutex));
+	session_logic_handle_->active = false;
+	session_logic_handle_->session_logic_condition = true;
+	pthread_cond_signal(&(session_logic_handle_->session_logic_cond_var));
+	pthread_mutex_unlock(&(session_logic_handle_->session_logic_mutex));
+	pthread_join(thread, NULL);
+
+	CU_ASSERT_TRUE(done);
+	CU_ASSERT_EQUAL(msgs->num_allocates - msg_allocs, msgs->num_frees - msg_frees);
+	CU_ASSERT_EQUAL(infra->num_allocates - infra_allocs, infra->num_frees - infra_frees);
 }

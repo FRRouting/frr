@@ -94,7 +94,7 @@ void pcep_session_logic_states_test_setup()
 	session.num_unknown_messages_time_queue = queue_initialize();
 
 	memset(&event, 0, sizeof(pcep_session_event));
-	event.socket_closed = false;
+	event.type = PCEP_SESSION_EVENT_MSG_RCVD;
 	event.session = &session;
 
 	setup_mock_socket_comm_info();
@@ -194,7 +194,10 @@ void test_handle_timer_event_keep_alive()
 
 void test_handle_timer_event_open_keep_wait()
 {
-	/* Open Keep Wait timer expired */
+	/* Open Keep Wait timer expired: PCErr 1/2, then close TCP */
+	mock_socket_comm_info *mock_info = get_mock_socket_comm_info();
+
+	mock_info->send_message_save_message = true;
 	event.expired_timer_id = session.timer_id_open_keep_wait = 300;
 	session.session_state = SESSION_STATE_PCEP_CONNECTING;
 	handle_timer_event(&event);
@@ -203,7 +206,22 @@ void test_handle_timer_event_open_keep_wait()
 	CU_ASSERT_EQUAL(session.session_state, SESSION_STATE_INITIALIZED);
 	CU_ASSERT_EQUAL(session_logic_event_queue_->event_queue->num_entries,
 			1);
-	verify_socket_comm_times_called(0, 0, 0, 0, 1, 0, 0);
+	verify_socket_comm_times_called(0, 0, 0, 1, 1, 0, 0);
+	uint8_t *encoded_msg = dll_delete_first_node(mock_info->sent_message_list);
+
+	CU_ASSERT_PTR_NOT_NULL_FATAL(encoded_msg);
+	assert(encoded_msg != NULL);
+	struct pcep_message *msg = pcep_decode_message(encoded_msg);
+
+	CU_ASSERT_PTR_NOT_NULL_FATAL(msg);
+	assert(msg != NULL);
+	CU_ASSERT_EQUAL(PCEP_TYPE_ERROR, msg->msg_header->type);
+	struct pcep_object_error *error_obj = msg->obj_list->head->data;
+
+	CU_ASSERT_EQUAL(PCEP_ERRT_SESSION_FAILURE, error_obj->error_type);
+	CU_ASSERT_EQUAL(PCEP_ERRV_OPENWAIT_TIMED_OUT, error_obj->error_value);
+	pcep_msg_free_message(msg);
+	pceplib_free(PCEPLIB_MESSAGES, encoded_msg);
 
 	pcep_event *e = queue_dequeue(session_logic_event_queue_->event_queue);
 	CU_ASSERT_EQUAL(PCE_OPEN_KEEP_WAIT_TIMER_EXPIRED, e->event_type);
@@ -282,7 +300,7 @@ void test_handle_socket_comm_event_null_params()
 
 void test_handle_socket_comm_event_close()
 {
-	event.socket_closed = true;
+	event.type = PCEP_SESSION_EVENT_SOCKET_CLOSED;
 	handle_socket_comm_event(&event);
 
 	CU_ASSERT_EQUAL(session.session_state, SESSION_STATE_INITIALIZED);
@@ -931,7 +949,7 @@ void test_connection_failure(void)
 	/* Send a socket close while connecting, which should
 	 * generate a PCC_CONNECTION_FAILURE event */
 	reset_mock_socket_comm_info();
-	event.socket_closed = true;
+	event.type = PCEP_SESSION_EVENT_SOCKET_CLOSED;
 	event.received_msg_list = NULL;
 
 	handle_socket_comm_event(&event);
@@ -948,4 +966,103 @@ void test_connection_failure(void)
 	e = queue_dequeue(session_logic_event_queue_->event_queue);
 	CU_ASSERT_EQUAL(PCC_CONNECTION_FAILURE, e->event_type);
 	pceplib_free(PCEPLIB_INFRA, e);
+}
+
+
+/* A read that decodes no message counts as an unknown message, and the
+ * session logic thread sends the one Close at max_unknown_messages.
+ */
+void test_handle_socket_comm_event_undecodable_msg(void)
+{
+	mock_socket_comm_info *mock_info = get_mock_socket_comm_info();
+
+	mock_info->send_message_save_message = true;
+
+	event.received_msg_list = dll_initialize();
+	handle_socket_comm_event(&event);
+	CU_ASSERT_EQUAL(session.num_unknown_messages_time_queue->num_entries, 1);
+	CU_ASSERT_EQUAL(session_logic_event_queue_->event_queue->num_entries, 0);
+	verify_socket_comm_times_called(0, 0, 0, 0, 0, 0, 0);
+
+	/* max_unknown_messages = 2 */
+	event.received_msg_list = dll_initialize();
+	handle_socket_comm_event(&event);
+	verify_socket_comm_times_called(0, 0, 0, 1, 1, 0, 0);
+	CU_ASSERT_EQUAL(session_logic_event_queue_->event_queue->num_entries, 1);
+	pcep_event *e = queue_dequeue(session_logic_event_queue_->event_queue);
+
+	CU_ASSERT_EQUAL(PCC_RCVD_MAX_UNKOWN_MSGS, e->event_type);
+	pceplib_free(PCEPLIB_INFRA, e);
+
+	uint8_t *encoded_msg = dll_delete_first_node(mock_info->sent_message_list);
+
+	CU_ASSERT_PTR_NOT_NULL_FATAL(encoded_msg);
+	assert(encoded_msg != NULL);
+	struct pcep_message *msg = pcep_decode_message(encoded_msg);
+
+	CU_ASSERT_PTR_NOT_NULL_FATAL(msg);
+	assert(msg != NULL);
+	CU_ASSERT_EQUAL(PCEP_TYPE_CLOSE, msg->msg_header->type);
+	pcep_msg_free_message(msg);
+	pceplib_free(PCEPLIB_MESSAGES, encoded_msg);
+	event.received_msg_list = NULL;
+}
+
+
+/* Keepalive, unknown messages, then an Open in one read: the messages after
+ * the Close are not handled, so the Open does not connect the session again
+ */
+void test_handle_socket_comm_event_msgs_after_close(void)
+{
+	mock_socket_comm_info *mock_info = get_mock_socket_comm_info();
+	enum pcep_message_types types[] = { PCEP_TYPE_KEEPALIVE, PCEP_TYPE_START_TLS,
+					    PCEP_TYPE_START_TLS, PCEP_TYPE_OPEN,
+					    PCEP_TYPE_START_TLS };
+	int closes = 0, max_unknown = 0, connected = 0;
+	uint8_t *encoded_msg;
+	pcep_event *e;
+
+	mock_info->send_message_save_message = true;
+	session.session_state = SESSION_STATE_PCEP_CONNECTING;
+	event.received_msg_list = dll_initialize();
+	for (size_t i = 0; i < sizeof(types) / sizeof(types[0]); i++) {
+		struct pcep_message *msg = types[i] == PCEP_TYPE_OPEN
+						   ? pcep_msg_create_open(1, 1, 1)
+						   : pcep_msg_create_keepalive();
+
+		msg->msg_header->type = types[i];
+		dll_append(event.received_msg_list, msg);
+	}
+
+	handle_socket_comm_event(&event);
+	event.received_msg_list = NULL;
+
+	CU_ASSERT_TRUE(session.close_sent);
+	CU_ASSERT_NOT_EQUAL(session.session_state, SESSION_STATE_PCEP_CONNECTED);
+	while ((e = queue_dequeue(session_logic_event_queue_->event_queue)) != NULL) {
+		max_unknown += e->event_type == PCC_RCVD_MAX_UNKOWN_MSGS;
+		connected += e->event_type == PCC_CONNECTED_TO_PCE;
+		if (e->event_type == MESSAGE_RECEIVED)
+			pcep_msg_free_message(e->message);
+		pceplib_free(PCEPLIB_INFRA, e);
+	}
+	while ((encoded_msg = dll_delete_first_node(mock_info->sent_message_list))) {
+		struct pcep_message *msg = pcep_decode_message(encoded_msg);
+
+		closes += msg != NULL && msg->msg_header->type == PCEP_TYPE_CLOSE;
+		if (msg != NULL)
+			pcep_msg_free_message(msg);
+		pceplib_free(PCEPLIB_MESSAGES, encoded_msg);
+	}
+	CU_ASSERT_EQUAL(closes, 1);
+	CU_ASSERT_EQUAL(max_unknown, 1);
+	CU_ASSERT_EQUAL(connected, 0);
+
+	/* A later read is not handled either */
+	event.received_msg_list = dll_initialize();
+	dll_append(event.received_msg_list, pcep_msg_create_open(1, 1, 1));
+	handle_socket_comm_event(&event);
+	event.received_msg_list = NULL;
+	CU_ASSERT_NOT_EQUAL(session.session_state, SESSION_STATE_PCEP_CONNECTED);
+	CU_ASSERT_EQUAL(session_logic_event_queue_->event_queue->num_entries, 0);
 }

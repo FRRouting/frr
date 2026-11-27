@@ -29,28 +29,24 @@
  * expire_handler, and free the timer. */
 void walk_and_process_timers(pcep_timers_context *timers_context)
 {
-	pthread_mutex_lock(&timers_context->timer_list_lock);
-
-	bool keep_walking = true;
-	ordered_list_node *timer_node = timers_context->timer_list->head;
 	time_t now = time(NULL);
 	pcep_timer *timer_data;
 
-	/* the timers are sorted by expire_time, so we will only
-	 * remove the top node each time through the loop */
-	while (timer_node != NULL && keep_walking) {
-		timer_data = (pcep_timer *)timer_node->data;
-		if (timer_data->expire_time <= now) {
-			timer_node = timer_node->next_node;
-			ordered_list_remove_first_node(
-				timers_context->timer_list);
-			/* call the timer expired handler */
-			timers_context->expire_handler(timer_data->data,
-						       timer_data->timer_id);
-			pceplib_free(PCEPLIB_INFRA, timer_data);
-		} else {
-			keep_walking = false;
-		}
+	pthread_mutex_lock(&timers_context->timer_list_lock);
+
+	/* the timers are sorted by expire_time, so only the head can expire */
+	while (timers_context->timer_list->head != NULL) {
+		timer_data = (pcep_timer *)timers_context->timer_list->head->data;
+		if (timer_data->expire_time > now)
+			break;
+
+		ordered_list_remove_first_node(timers_context->timer_list);
+
+		/* The handler takes other pceplib locks, so call it unlocked */
+		pthread_mutex_unlock(&timers_context->timer_list_lock);
+		timers_context->expire_handler(timer_data->data, timer_data->timer_id);
+		pceplib_free(PCEPLIB_INFRA, timer_data);
+		pthread_mutex_lock(&timers_context->timer_list_lock);
 	}
 
 	pthread_mutex_unlock(&timers_context->timer_list_lock);

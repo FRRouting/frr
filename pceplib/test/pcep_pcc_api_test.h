@@ -24,6 +24,8 @@ void test_connect_pce(void);
 void test_connect_pce_ipv6(void);
 void test_connect_pce_with_src_ip(void);
 void test_disconnect_pce(void);
+void test_destroy_pcc_after_disconnect(void);
+void test_disconnect_pce_unknown_messages_stress(void);
 void test_send_message(void);
 void test_event_queue(void);
 void test_get_event_type_str(void);

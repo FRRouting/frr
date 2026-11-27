@@ -181,110 +181,82 @@ void handle_reads(pcep_socket_comm_handle *socket_comm_handle)
 	 * comm module to write messages which could be a deadlock. */
 	pthread_mutex_lock(&(socket_comm_handle->socket_comm_mutex));
 	ordered_list_node *node = socket_comm_handle->read_list->head;
-	pthread_mutex_unlock(&(socket_comm_handle->socket_comm_mutex));
 
 	while (node != NULL) {
 		pcep_socket_comm_session *comm_session =
 			(pcep_socket_comm_session *)node->data;
 
-		pthread_mutex_lock(&(socket_comm_handle->socket_comm_mutex));
 		node = node->next_node;
 		if (!comm_session_exists(socket_comm_handle, comm_session)) {
 			/* This comm_session has been deleted, move on to the
 			 * next one */
-			pthread_mutex_unlock(
-				&(socket_comm_handle->socket_comm_mutex));
 			continue;
 		}
 
-		int is_set = FD_ISSET(comm_session->socket_fd,
-				      &(socket_comm_handle->read_master_set));
-		/* Upon read failure, the comm_session might be free'd, so we
-		 * cant store the received_bytes in the comm_session, until we
-		 * know the read was successful. */
-		int received_bytes = 0;
+		int socket_fd = comm_session->socket_fd;
+
+		if (!FD_ISSET(socket_fd, &(socket_comm_handle->read_master_set)))
+			continue;
+
+		FD_CLR(socket_fd, &(socket_comm_handle->read_master_set));
+		/* Teardown leaves closing and freeing it to us until the read is done */
+		socket_comm_handle->reading_session = comm_session;
+		socket_comm_handle->reading_session_torn_down = false;
+		socket_comm_handle->reading_session_fd_to_close = -1;
 		pthread_mutex_unlock(&(socket_comm_handle->socket_comm_mutex));
 
-		if (is_set) {
-			FD_CLR(comm_session->socket_fd,
-			       &(socket_comm_handle->read_master_set));
+		void *session_data = comm_session->session_data;
+		int received_bytes = 0;
 
-			/* either read the message locally, or call the
-			 * message_ready_handler to read it */
-			if (comm_session->message_handler != NULL) {
-				received_bytes = read_message(
-					comm_session->socket_fd,
-					comm_session->received_message,
-					MAX_RECVD_MSG_SIZE);
-				if (received_bytes > 0) {
-					/* Send the received message to the
-					 * handler */
-					comm_session->received_bytes =
-						received_bytes;
-					comm_session->message_handler(
-						comm_session->session_data,
-						comm_session->received_message,
-						comm_session->received_bytes);
-				}
-			} else {
-				/* Tell the handler a message is ready to be
-				 * read. The comm_session may be destroyed in
-				 * this call, if
-				 * there is an error reading or if the socket is
-				 * closed. */
-				received_bytes =
-					comm_session
-						->message_ready_to_read_handler(
-							comm_session
-								->session_data,
-							comm_session
-								->socket_fd);
-			}
-
-			/* handle the read results */
-			if (received_bytes == 0) {
-				if (comm_session_exists_locking(
-					    socket_comm_handle, comm_session)) {
-					comm_session->received_bytes = 0;
-					/* the socket was closed */
-					/* TODO should we define a socket except
-					 * enum? or will the only time we call
-					 * this is when the socket is closed??
-					 */
-					if (comm_session->conn_except_notifier
-					    != NULL) {
-						comm_session->conn_except_notifier(
-							comm_session
-								->session_data,
-							comm_session
-								->socket_fd);
-					}
-
-					/* stop reading from the socket if its
-					 * closed */
-					pthread_mutex_lock(
-						&(socket_comm_handle
-							  ->socket_comm_mutex));
-					ordered_list_remove_first_node_equals(
-						socket_comm_handle->read_list,
-						comm_session);
-					pthread_mutex_unlock(
-						&(socket_comm_handle
-							  ->socket_comm_mutex));
-				}
-			} else if (received_bytes < 0) {
-				/* TODO should we call conn_except_notifier()
-				 * here ? */
-				pcep_log(
-					LOG_WARNING,
-					"%s: Error on socket fd [%d] : errno [%d][%s]",
-					__func__, comm_session->socket_fd,
-					errno, strerror(errno));
-			} else {
+		/* Read the message here, or have the handler read it */
+		if (comm_session->message_handler != NULL) {
+			received_bytes = read_message(socket_fd, comm_session->received_message,
+						      MAX_RECVD_MSG_SIZE);
+			if (received_bytes > 0) {
+				/* Send the received message to the handler */
 				comm_session->received_bytes = received_bytes;
+				comm_session->message_handler(session_data,
+							      comm_session->received_message,
+							      received_bytes);
 			}
+		} else {
+			/* Tell the handler a message is ready to be read */
+			received_bytes = comm_session->message_ready_to_read_handler(session_data,
+										     socket_fd);
 		}
+
+		pthread_mutex_lock(&(socket_comm_handle->socket_comm_mutex));
+		bool torn_down = socket_comm_handle->reading_session_torn_down;
+
+		pthread_mutex_unlock(&(socket_comm_handle->socket_comm_mutex));
+
+		/* the socket was closed */
+		if (received_bytes == 0 && !torn_down && comm_session->conn_except_notifier != NULL)
+			comm_session->conn_except_notifier(session_data, socket_fd);
+		else if (received_bytes < 0)
+			pcep_log(LOG_WARNING, "%s: Error on socket fd [%d] : errno [%d][%s]",
+				 __func__, socket_fd, errno, strerror(errno));
+
+		pthread_mutex_lock(&(socket_comm_handle->socket_comm_mutex));
+		socket_comm_handle->reading_session = NULL;
+		if (socket_comm_handle->reading_session_fd_to_close >= 0)
+			close(socket_comm_handle->reading_session_fd_to_close);
+		if (socket_comm_handle->reading_session_torn_down) {
+			pceplib_free(PCEPLIB_INFRA, comm_session);
+		} else if (received_bytes == 0) {
+			/* stop reading from the socket if its closed */
+			comm_session->received_bytes = 0;
+			ordered_list_remove_first_node_equals(socket_comm_handle->read_list,
+							      comm_session);
+		} else if (received_bytes > 0) {
+			comm_session->received_bytes = received_bytes;
+		}
+
+		/* Restart: the list may have changed, and read sessions were cleared */
+		node = socket_comm_handle->read_list->head;
 	}
+
+	pthread_mutex_unlock(&(socket_comm_handle->socket_comm_mutex));
 }
 
 
@@ -364,15 +336,18 @@ void handle_writes(pcep_socket_comm_handle *socket_comm_handle)
 
 		if (comm_session->message_sent_handler != NULL
 		    && msg_written == true) {
-			/* Unlocking to allow the message_sent_handler to
-			 * make calls like destroy_socket_comm_session */
+			/* comm_session may be torn down once unlocked */
+			message_sent_notifier sent_handler = comm_session->message_sent_handler;
+			void *session_data = comm_session->session_data;
+			int socket_fd = comm_session->socket_fd;
+
 			pthread_mutex_unlock(
 				&(socket_comm_handle->socket_comm_mutex));
-			comm_session->message_sent_handler(
-				comm_session->session_data,
-				comm_session->socket_fd);
+			sent_handler(session_data, socket_fd);
 			pthread_mutex_lock(
 				&(socket_comm_handle->socket_comm_mutex));
+			/* so may the next node: restart, written ones were removed */
+			node = socket_comm_handle->write_list->head;
 		}
 	}
 

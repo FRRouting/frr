@@ -13,8 +13,10 @@
 #include "config.h"
 #endif
 
+#include <fcntl.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include <CUnit/CUnit.h>
 
@@ -183,4 +185,87 @@ void test_handle_reads_read_message_close()
 	CU_ASSERT_EQUAL(test_comm_session->received_bytes,
 			read_handler_info.bytes_read);
 	CU_ASSERT_PTR_NULL(test_socket_comm_handle->read_list->head);
+}
+
+
+/* Tears its own comm session down, as another thread could during a read */
+static int test_loop_teardown_read_handler(void *session_data, int socket_fd)
+{
+	(void)session_data;
+
+	read_handler_info.handler_called = true;
+	CU_ASSERT_TRUE(socket_comm_session_teardown(test_comm_session));
+	/* Not freed yet, and its socket is closed by handle_reads() */
+	CU_ASSERT_EQUAL(test_comm_session->socket_fd, -1);
+	CU_ASSERT_NOT_EQUAL(fcntl(socket_fd, F_GETFD), -1);
+
+	return 1;
+}
+
+
+/* Closes its own socket, then tears its comm session down */
+static int test_loop_close_read_handler(void *session_data, int socket_fd)
+{
+	(void)session_data;
+
+	read_handler_info.handler_called = true;
+	CU_ASSERT_TRUE(socket_comm_session_close_tcp(test_comm_session));
+	/* Still open: handle_reads() closes it, so its number is not reused */
+	CU_ASSERT_NOT_EQUAL(fcntl(socket_fd, F_GETFD), -1);
+	CU_ASSERT_TRUE(socket_comm_session_teardown(test_comm_session));
+	CU_ASSERT_NOT_EQUAL(fcntl(socket_fd, F_GETFD), -1);
+
+	return 1;
+}
+
+
+void test_handle_reads_teardown_during_read(void)
+{
+	int fds[2];
+
+	CU_ASSERT_EQUAL_FATAL(pipe(fds), 0);
+	socket_comm_handle_ = test_socket_comm_handle;
+	test_comm_session->socket_fd = fds[0];
+	test_comm_session->message_queue = queue_initialize();
+	test_comm_session->message_ready_to_read_handler = test_loop_teardown_read_handler;
+	test_socket_comm_handle->num_active_sessions = 1;
+	ordered_list_add_node(test_socket_comm_handle->read_list, test_comm_session);
+	FD_SET(fds[0], &test_socket_comm_handle->read_master_set);
+
+	handle_reads(test_socket_comm_handle);
+
+	CU_ASSERT_TRUE(read_handler_info.handler_called);
+	CU_ASSERT_PTR_NULL(test_socket_comm_handle->session_list->head);
+	CU_ASSERT_PTR_NULL(test_socket_comm_handle->read_list->head);
+	CU_ASSERT_PTR_NULL(test_socket_comm_handle->reading_session);
+	/* handle_reads() closed the socket and freed the comm session */
+	CU_ASSERT_EQUAL(fcntl(fds[0], F_GETFD), -1);
+	test_comm_session = NULL;
+	socket_comm_handle_ = NULL;
+	close(fds[1]);
+}
+
+
+void test_handle_reads_close_during_read(void)
+{
+	int fds[2];
+
+	CU_ASSERT_EQUAL_FATAL(pipe(fds), 0);
+	socket_comm_handle_ = test_socket_comm_handle;
+	test_comm_session->socket_fd = fds[0];
+	test_comm_session->message_queue = queue_initialize();
+	test_comm_session->message_ready_to_read_handler = test_loop_close_read_handler;
+	test_socket_comm_handle->num_active_sessions = 1;
+	ordered_list_add_node(test_socket_comm_handle->read_list, test_comm_session);
+	FD_SET(fds[0], &test_socket_comm_handle->read_master_set);
+
+	handle_reads(test_socket_comm_handle);
+
+	CU_ASSERT_TRUE(read_handler_info.handler_called);
+	CU_ASSERT_PTR_NULL(test_socket_comm_handle->session_list->head);
+	/* handle_reads() closed the socket once and freed the comm session */
+	CU_ASSERT_EQUAL(fcntl(fds[0], F_GETFD), -1);
+	test_comm_session = NULL;
+	socket_comm_handle_ = NULL;
+	close(fds[1]);
 }
