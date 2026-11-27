@@ -233,6 +233,50 @@ def test_bgp_extcomm_list_reset_limit_match():
     assert result is None, "Failed to check that 4 routes have been received on R3"
 
 
+def test_bgp_extcomm_list_delete_reevaluate():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    router = tgen.gears["r3"]
+
+    def _rmap_timer_idle():
+        output = json.loads(router.vtysh_cmd("show bgp router json"))
+        expected = {"bgpRmapDelayTimerRemaining": 0}
+        return topotest.json_cmp(output, expected)
+
+    step("Wait for pending route-map updates on R3")
+    test_func = functools.partial(_rmap_timer_idle)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Route-map update timer is still running on R3"
+
+    router.vtysh_cmd(
+        """
+        configure terminal
+        no bgp extcommunity-list 2 seq 10 permit rt 65001:12
+        """
+    )
+
+    def _bgp_count():
+        output = json.loads(router.vtysh_cmd("show bgp ipv4 json"))
+        expected = {
+            "routes": {
+                "172.16.255.4/32": [{"prefix": "172.16.255.4", "prefixLen": 32}],
+            },
+            "totalRoutes": 5,
+            "totalPaths": 5,
+        }
+        return topotest.json_cmp(output, expected)
+
+    step("Check that 172.16.255.4/32 is accepted after deleting extcommunity-list")
+    test_func = functools.partial(_bgp_count)
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert (
+        result is None
+    ), "Route-map was not re-applied after deleting extcommunity-list on R3"
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
