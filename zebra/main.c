@@ -361,7 +361,7 @@ void zebra_main_router_started(void)
 	 * (e.g., BGP) to signal GR is complete else we wait for specified
 	 * duration.
 	 */
-	zrouter.startup_time = monotime(NULL);
+	zrouter.startup_time = monotime(&zrouter.startup_time_tv);
 	zrouter.rib_sweep_time = 0;
 	zrouter.graceful_restart = zebra_di.graceful_restart;
 	if (!zrouter.graceful_restart)

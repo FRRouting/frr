@@ -44,6 +44,7 @@ struct zebra_vtep {
 	 * tunnel type advertised by the remote VTEP
 	 */
 	int flood_control;
+	uint8_t flags;
 
 	/* Links. */
 	struct zebra_vtep *next;
@@ -54,7 +55,11 @@ struct zebra_vtep {
 	 * This field is used to do GR stale entry cleanup
 	 */
 	uint64_t gr_refresh_time;
+	/* Last RT-3 refresh; retained kernel HREP entries leave this unset. */
+	struct timeval gr_imet_refresh_time;
 };
+
+#define ZEBRA_VTEP_SWEEP_ORPHAN (1 << 0) /* transient, set during vtep sweep */
 
 /* for parsing evpn and vni contexts */
 struct zebra_from_svi_param {
@@ -111,7 +116,14 @@ static inline struct interface *zevpn_map_to_svi(struct zebra_evpn *zevpn, bool 
 struct l2vni_walk_ctx {
 	bool gr_stale_cleanup;
 	uint64_t gr_cleanup_time;
+	struct timeval gr_imet_cleanup_time;
 };
+
+static inline bool zebra_evpn_vtep_gr_imet_refreshed_after(const struct timeval *refresh_time,
+							   const struct timeval *cleanup_time)
+{
+	return timercmp(refresh_time, cleanup_time, >);
+}
 
 int advertise_gw_macip_enabled(struct zebra_evpn *zevpn);
 int advertise_svi_macip_enabled(struct zebra_evpn *zevpn);
@@ -169,6 +181,8 @@ void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr, uint16_t
 void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr, uint16_t ipa_len,
 			      const struct ipaddr *ipaddr, struct ipaddr *vtep_ip);
 void zebra_evpn_cfg_cleanup(struct hash_bucket *bucket, void *ctxt);
+void zebra_evpn_vtep_sweep_start(void);
+void zebra_evpn_vtep_sweep_stop(void);
 
 #ifdef __cplusplus
 }

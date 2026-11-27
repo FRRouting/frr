@@ -196,8 +196,8 @@ def test_bgp_evpn_flooding_per_vni_local():
         assert result is None, "%s: unexpected %s" % (step, command)
 
     def _relearn_remote_vteps(step):
-        # zebra installs the flood entries of the remote VTEPs as they come,
-        # with the mode it has for their VNI at that time.
+        # Replay IMET routes with each VNI's current flooding mode after the
+        # periodic sweep reclaims the withdrawn, unreferenced remote VTEPs.
         r1.vtysh_cmd(
             """
             configure terminal
@@ -206,10 +206,24 @@ def test_bgp_evpn_flooding_per_vni_local():
             """
         )
         _expect_json(
-            "show evpn vni json",
-            {str(vni): {"numRemoteVteps": 0} for vni in (10, 20, 30)},
-            step + ", remote VTEPs withdrawn",
+            "show bgp l2vpn evpn json",
+            {f"192.168.1.2:{rd}": None for rd in (2, 3, 4)},
+            step + ", remote IMET routes withdrawn",
         )
+        _expect_flooded_vnis([], step + ", remote flooding withdrawn")
+
+        def _remote_vteps_swept():
+            output = r1.vtysh_cmd("show evpn vni json", isjson=True)
+            for vni in (10, 20, 30):
+                if str(vni) not in output:
+                    return f"VNI {vni} missing from Zebra"
+                if "192.168.1.2" in output[str(vni)].get("remoteVteps", []):
+                    return f"VNI {vni} still has remote VTEP 192.168.1.2"
+            return None
+
+        # Allow the 120-second sweep interval plus scheduling margin.
+        _, result = topotest.run_and_expect(_remote_vteps_swept, None, count=50, wait=3)
+        assert result is None, f"{step}, orphan remote VTEPs not swept: {result}"
         r1.vtysh_cmd(
             """
             configure terminal
@@ -218,9 +232,9 @@ def test_bgp_evpn_flooding_per_vni_local():
             """
         )
         _expect_json(
-            "show evpn vni json",
-            {str(vni): {"numRemoteVteps": 1} for vni in (10, 20, 30)},
-            step + ", remote VTEPs learnt again",
+            "show bgp l2vpn evpn json",
+            {f"192.168.1.2:{rd}": {"rd": f"192.168.1.2:{rd}"} for rd in (2, 3, 4)},
+            step + ", remote IMET routes learnt again",
         )
 
     def _expect_vni_config(vni, line, step):

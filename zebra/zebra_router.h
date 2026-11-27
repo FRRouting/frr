@@ -211,6 +211,7 @@ struct zebra_router {
 	 * zebra start time and time of sweeping RIB of old routes
 	 */
 	time_t startup_time;
+	struct timeval startup_time_tv;
 	time_t rib_sweep_time;
 
 	/* FRR fast/graceful restart info */
@@ -218,6 +219,11 @@ struct zebra_router {
 	int gr_cleanup_time;
 #define ZEBRA_GR_DEFAULT_RIB_SWEEP_TIME 500
 	struct event *t_rib_sweep;
+	struct event *t_evpn_vtep_sweep;
+	bool evpn_vtep_sweep_started;
+	vrf_id_t evpn_vtep_sweep_vrf_id;
+	unsigned int evpn_vtep_sweep_hash_index;
+	vni_t evpn_vtep_sweep_vni;
 
 	/*
 	 * The hash of nexthop groups associated with this router
