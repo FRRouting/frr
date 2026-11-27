@@ -1187,12 +1187,11 @@ insta-help, and VTY session management.
    line.  Typing :kbd:`?` at any point in the line will show possible
    completions.
 
-Pipe Actions
-^^^^^^^^^^^^
+Filtering CLI Output
+^^^^^^^^^^^^^^^^^^^^
 
-VTY supports optional modifiers at the end of commands that perform
-postprocessing on command output or modify the action of commands. These do not
-show up in the :kbd:`?` or :kbd:`TAB` suggestion lists.
+VTY supports optional modifiers at the end of ``show`` commands that allow
+users to filter the output of a command.
 
 ``... | include REGEX``
    Filters the output of the preceding command, including only lines which

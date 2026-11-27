@@ -69,6 +69,8 @@ ASNUM           ASNUM
 {VARIABLE}      {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return VARIABLE;}
 {WORD}          {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return WORD;}
 {RANGE}         {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return RANGE;}
+\\\|            {yylval->string = XSTRDUP(MTYPE_LEX, "|"); return WORD;}
+\|              {yylval->string = NULL; return PIPE;}
 !\[             {yylval->string = NULL; return EXCL_BRACKET;}
 .               {return yytext[0];}
 %%
