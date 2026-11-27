@@ -140,11 +140,27 @@ bool initialize_socket_comm_loop(void)
 }
 
 
+/* Stop the socket comm thread, keeping the handle for the session
+ * teardowns. destroy_socket_comm_loop() frees the handle.
+ */
+bool stop_socket_comm_loop(void)
+{
+	if (socket_comm_handle_ == NULL)
+		return true;
+
+	if (socket_comm_handle_->thread_stopped == false) {
+		socket_comm_handle_->active = false;
+		pthread_join(socket_comm_handle_->socket_comm_thread, NULL);
+		socket_comm_handle_->thread_stopped = true;
+	}
+
+	return true;
+}
+
 bool destroy_socket_comm_loop(void)
 {
-	socket_comm_handle_->active = false;
+	stop_socket_comm_loop();
 
-	pthread_join(socket_comm_handle_->socket_comm_thread, NULL);
 	ordered_list_destroy(socket_comm_handle_->read_list);
 	ordered_list_destroy(socket_comm_handle_->write_list);
 	ordered_list_destroy(socket_comm_handle_->session_list);
@@ -590,6 +606,36 @@ bool socket_comm_session_connect_tcp(
 }
 
 
+bool socket_comm_session_write_pending(pcep_socket_comm_session *socket_comm_session)
+{
+	bool pending;
+
+	if (socket_comm_session == NULL || socket_comm_handle_ == NULL)
+		return false;
+
+	pthread_mutex_lock(&(socket_comm_handle_->socket_comm_mutex));
+	pending = socket_comm_session->message_queue->num_entries > 0;
+	pthread_mutex_unlock(&(socket_comm_handle_->socket_comm_mutex));
+
+	return pending;
+}
+
+
+bool socket_comm_session_closed(pcep_socket_comm_session *socket_comm_session)
+{
+	bool closed;
+
+	if (socket_comm_session == NULL || socket_comm_handle_ == NULL)
+		return true;
+
+	pthread_mutex_lock(&(socket_comm_handle_->socket_comm_mutex));
+	closed = socket_comm_session->socket_fd < 0;
+	pthread_mutex_unlock(&(socket_comm_handle_->socket_comm_mutex));
+
+	return closed;
+}
+
+
 bool socket_comm_session_close_tcp(
 	pcep_socket_comm_session *socket_comm_session)
 {
@@ -611,8 +657,7 @@ bool socket_comm_session_close_tcp(
 	ordered_list_remove_first_node_equals(socket_comm_handle_->write_list,
 					      socket_comm_session);
 	// TODO should it be close() or shutdown()??
-	close(socket_comm_session->socket_fd);
-	socket_comm_session->socket_fd = -1;
+	socket_comm_session_close_fd(socket_comm_handle_, socket_comm_session);
 	pthread_mutex_unlock(&(socket_comm_handle_->socket_comm_mutex));
 
 	return true;
@@ -638,6 +683,25 @@ bool socket_comm_session_close_tcp_after_write(
 }
 
 
+/* Called locked: a socket being read is only shut down, handle_reads()
+ * closes it once the read is done, so its number is not reused meanwhile.
+ */
+void socket_comm_session_close_fd(pcep_socket_comm_handle *socket_comm_handle,
+				  pcep_socket_comm_session *socket_comm_session)
+{
+	if (socket_comm_session->socket_fd < 0)
+		return;
+
+	if (socket_comm_handle->reading_session == socket_comm_session) {
+		shutdown(socket_comm_session->socket_fd, SHUT_RDWR);
+		socket_comm_handle->reading_session_fd_to_close = socket_comm_session->socket_fd;
+	} else {
+		close(socket_comm_session->socket_fd);
+	}
+	socket_comm_session->socket_fd = -1;
+}
+
+
 bool socket_comm_session_teardown(pcep_socket_comm_session *socket_comm_session)
 {
 	if (socket_comm_handle_ == NULL) {
@@ -653,21 +717,15 @@ bool socket_comm_session_teardown(pcep_socket_comm_session *socket_comm_session)
 		return false;
 	}
 
-	if (comm_session_exists_locking(socket_comm_handle_,
-					socket_comm_session)
-	    == false) {
+	pthread_mutex_lock(&(socket_comm_handle_->socket_comm_mutex));
+	if (comm_session_exists(socket_comm_handle_, socket_comm_session) == false) {
+		pthread_mutex_unlock(&(socket_comm_handle_->socket_comm_mutex));
 		pcep_log(LOG_WARNING,
 			 "%s: Cannot teardown session that does not exist",
 			 __func__);
 		return false;
 	}
 
-	if (socket_comm_session->socket_fd >= 0) {
-		shutdown(socket_comm_session->socket_fd, SHUT_RDWR);
-		close(socket_comm_session->socket_fd);
-	}
-
-	pthread_mutex_lock(&(socket_comm_handle_->socket_comm_mutex));
 	queue_destroy(socket_comm_session->message_queue);
 	ordered_list_remove_first_node_equals(socket_comm_handle_->session_list,
 					      socket_comm_session);
@@ -676,7 +734,6 @@ bool socket_comm_session_teardown(pcep_socket_comm_session *socket_comm_session)
 	ordered_list_remove_first_node_equals(socket_comm_handle_->write_list,
 					      socket_comm_session);
 	socket_comm_handle_->num_active_sessions--;
-	pthread_mutex_unlock(&(socket_comm_handle_->socket_comm_mutex));
 
 	pcep_log(
 		LOG_INFO,
@@ -684,6 +741,16 @@ bool socket_comm_session_teardown(pcep_socket_comm_session *socket_comm_session)
 		__func__, time(NULL), pthread_self(),
 		socket_comm_session->socket_fd,
 		socket_comm_handle_->num_active_sessions);
+
+	socket_comm_session_close_fd(socket_comm_handle_, socket_comm_session);
+
+	/* The socket comm thread is reading it: it frees it */
+	if (socket_comm_handle_->reading_session == socket_comm_session) {
+		socket_comm_handle_->reading_session_torn_down = true;
+		pthread_mutex_unlock(&(socket_comm_handle_->socket_comm_mutex));
+		return true;
+	}
+	pthread_mutex_unlock(&(socket_comm_handle_->socket_comm_mutex));
 
 	pceplib_free(PCEPLIB_INFRA, socket_comm_session);
 

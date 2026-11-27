@@ -144,6 +144,8 @@ typedef struct pcep_session_ {
 	queue_handle *num_unknown_messages_time_queue;
 	/* set this flag when finalizing the session */
 	bool destroy_session_after_write;
+	/* A Close was sent, no other message may follow (RFC 5440 6.9) */
+	bool close_sent;
 	pcep_socket_comm_session *socket_comm_session;
 	/* Configuration sent from the PCC to the PCE */
 	pcep_configuration pcc_config;
@@ -258,6 +260,11 @@ pcep_session *create_pcep_session_ipv6(pcep_configuration *config,
 
 /* Send a PCEP close for this pcep_session */
 void close_pcep_session(pcep_session *session);
+/* Asynchronous: the session logic thread closes and destroys the session */
+void session_logic_disconnect(pcep_session *session);
+/* Send on a session that still exists and sent no Close */
+bool session_logic_send_message(pcep_session *session, struct pcep_message *msg,
+				bool free_after_send);
 void close_pcep_session_with_reason(pcep_session *session,
 				    enum pcep_close_reason);
 

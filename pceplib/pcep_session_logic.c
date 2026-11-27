@@ -60,6 +60,8 @@ static bool run_session_logic_common(void)
 	/* Initialize the event queue */
 	session_logic_event_queue_ =
 		pceplib_malloc(PCEPLIB_INFRA, sizeof(pcep_event_queue));
+	/* No event_callback unless initialized with an infra config */
+	memset(session_logic_event_queue_, 0, sizeof(pcep_event_queue));
 	session_logic_event_queue_->event_queue = queue_initialize();
 	if (pthread_mutex_init(&(session_logic_event_queue_->event_queue_mutex),
 			       NULL)
@@ -244,7 +246,6 @@ bool stop_session_logic(void)
 	}
 
 	session_logic_handle_->active = false;
-	teardown_timers();
 
 	pthread_mutex_lock(&(session_logic_handle_->session_logic_mutex));
 	session_logic_handle_->session_logic_condition = true;
@@ -252,12 +253,46 @@ bool stop_session_logic(void)
 	pthread_mutex_unlock(&(session_logic_handle_->session_logic_mutex));
 	pthread_join(session_logic_handle_->session_logic_thread, NULL);
 
+	/* Stop the socket comm thread before the session state it calls
+	 * into is destroyed. destroy_socket_comm_loop() below frees the
+	 * rest.
+	 */
+	stop_socket_comm_loop();
+
+	/* A session whose destroy was deferred until its Close message was
+	 * written is destroyed by the session logic thread, which has
+	 * stopped. Destroy any session still on the list.
+	 */
+	while (session_logic_handle_->session_list->head != NULL)
+		destroy_pcep_session(session_logic_handle_->session_list->head->data);
+
+	/* Destroying the sessions cancels their timers, so only now */
+	teardown_timers();
+
+	/* Free any events still queued, with the messages they carry */
+	pcep_session_event *event = queue_dequeue(session_logic_handle_->session_event_queue);
+
+	while (event != NULL) {
+		if (event->received_msg_list != NULL)
+			pcep_msg_free_message_list(event->received_msg_list);
+		pceplib_free(PCEPLIB_INFRA, event);
+		event = queue_dequeue(session_logic_handle_->session_event_queue);
+	}
+
 	pthread_mutex_destroy(&(session_logic_handle_->session_logic_mutex));
 	pthread_mutex_destroy(&(session_logic_handle_->session_list_mutex));
 	ordered_list_destroy(session_logic_handle_->session_list);
 	queue_destroy(session_logic_handle_->session_event_queue);
 
-	/* destroy the event_queue */
+	/* destroy the event_queue, freeing the events not yet retrieved */
+	pcep_event *pcep_ev = queue_dequeue(session_logic_event_queue_->event_queue);
+
+	while (pcep_ev != NULL) {
+		if (pcep_ev->event_type == MESSAGE_RECEIVED && pcep_ev->message != NULL)
+			pcep_msg_free_message(pcep_ev->message);
+		pceplib_free(PCEPLIB_INFRA, pcep_ev);
+		pcep_ev = queue_dequeue(session_logic_event_queue_->event_queue);
+	}
 	pthread_mutex_destroy(&(session_logic_event_queue_->event_queue_mutex));
 	queue_destroy(session_logic_event_queue_->event_queue);
 	pceplib_free(PCEPLIB_INFRA, session_logic_event_queue_);
@@ -280,6 +315,12 @@ void close_pcep_session(pcep_session *session)
 void close_pcep_session_with_reason(pcep_session *session,
 				    enum pcep_close_reason reason)
 {
+	if (session->close_sent) {
+		pcep_log(LOG_INFO, "%s: Close already sent for session [%d]", __func__,
+			 session->session_id);
+		return;
+	}
+
 	struct pcep_message *close_msg = pcep_msg_create_close(reason);
 
 	pcep_log(
@@ -290,6 +331,7 @@ void close_pcep_session_with_reason(pcep_session *session,
 	session_send_message(session, close_msg);
 	socket_comm_session_close_tcp_after_write(session->socket_comm_session);
 	session->session_state = SESSION_STATE_INITIALIZED;
+	session->close_sent = true;
 }
 
 
@@ -305,6 +347,13 @@ void destroy_pcep_session(pcep_session *session)
 	 * destroy with the session_logic_loop, so that no in-flight events
 	 * will be handled now that the session is destroyed. */
 	pthread_mutex_lock(&(session_logic_handle_->session_list_mutex));
+	destroy_pcep_session_locked(session);
+	pthread_mutex_unlock(&(session_logic_handle_->session_list_mutex));
+}
+
+/* The caller holds session_list_mutex */
+void destroy_pcep_session_locked(pcep_session *session)
+{
 	ordered_list_remove_first_node_equals(
 		session_logic_handle_->session_list, session);
 	pcep_log(LOG_DEBUG,
@@ -328,9 +377,8 @@ void destroy_pcep_session(pcep_session *session)
 
 	int session_id = session->session_id;
 	pceplib_free(PCEPLIB_INFRA, session);
-	pcep_log(LOG_INFO, "%s: [%ld-%ld] session [%d] destroyed", __func__,
-		 time(NULL), pthread_self(), session_id);
-	pthread_mutex_unlock(&(session_logic_handle_->session_list_mutex));
+	pcep_log(LOG_INFO, "%s: [%ld-%ld] session [%d] destroyed", __func__, time(NULL),
+		 pthread_self(), session_id);
 }
 
 void pcep_session_cancel_timers(pcep_session *session)
@@ -549,6 +597,35 @@ void session_send_message(pcep_session *session, struct pcep_message *message)
 	 * Setting to NULL here so pcep_msg_free_message() does not free it */
 	message->encoded_message = NULL;
 	pcep_msg_free_message(message);
+}
+
+
+bool session_logic_send_message(pcep_session *session, struct pcep_message *msg,
+				bool free_after_send)
+{
+	if (session_logic_handle_ == NULL)
+		return false;
+
+	/* The session logic thread closes and destroys sessions under this lock */
+	pthread_mutex_lock(&(session_logic_handle_->session_list_mutex));
+	if (ordered_list_find(session_logic_handle_->session_list, session) == NULL ||
+	    session->close_sent) {
+		pthread_mutex_unlock(&(session_logic_handle_->session_list_mutex));
+		return false;
+	}
+
+	pcep_encode_message(msg, session->pcc_config.pcep_msg_versioning);
+	socket_comm_session_send_message(session->socket_comm_session, (char *)msg->encoded_message,
+					 msg->encoded_message_length, free_after_send);
+	increment_message_tx_counters(session, msg);
+	pthread_mutex_unlock(&(session_logic_handle_->session_list_mutex));
+
+	if (free_after_send) {
+		msg->encoded_message = NULL;
+		pcep_msg_free_message(msg);
+	}
+
+	return true;
 }
 
 

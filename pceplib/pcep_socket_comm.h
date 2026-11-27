@@ -170,6 +170,11 @@ void socket_comm_session_send_message(
 	const char *encoded_message, unsigned int msg_length,
 	bool free_after_send);
 
+/* True while messages are queued to be written */
+bool socket_comm_session_write_pending(pcep_socket_comm_session *socket_comm_session);
+/* True once the socket is closed, or for a NULL session */
+bool socket_comm_session_closed(pcep_socket_comm_session *socket_comm_session);
+
 /* If an external Socket infra like FRR is used, then these functions will
  * be called when a socket is ready to read/write in the external infra.
  * Implemented in pcep_socket_comm_loop.c */
@@ -179,6 +184,7 @@ int pceplib_external_socket_write(int fd, void *payload);
 /* the socket comm loop is started internally by
  * socket_comm_session_initialize()
  * but needs to be explicitly stopped with this call. */
+bool stop_socket_comm_loop(void);
 bool destroy_socket_comm_loop(void);
 
 int socket_fd_node_compare(void *list_entry, void *new_entry);

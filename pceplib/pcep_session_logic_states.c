@@ -725,8 +725,9 @@ void increment_unknown_message(pcep_session *session)
 		}
 	}
 
-	if ((int)session->num_unknown_messages_time_queue->num_entries
-	    >= session->pcc_config.max_unknown_messages) {
+	if ((int)session->num_unknown_messages_time_queue->num_entries >=
+		    session->pcc_config.max_unknown_messages &&
+	    !session->close_sent) {
 		pcep_log(
 			LOG_INFO,
 			"%s: [%ld-%ld] Max unknown messages reached [%d] closing session [%d]",
@@ -864,6 +865,9 @@ void handle_timer_event(pcep_session_event *event)
 			increment_event_counters(
 				session,
 				PCEP_EVENT_COUNTER_ID_TIMER_OPENKEEPWAIT);
+			/* RFC 5440 4.2.7: PCErr 1/2, not a Close, then close TCP */
+			send_pcep_error(session, PCEP_ERRT_SESSION_FAILURE,
+					PCEP_ERRV_OPENWAIT_TIMED_OUT);
 			socket_comm_session_close_tcp_after_write(
 				session->socket_comm_session);
 			session->session_state = SESSION_STATE_INITIALIZED;
@@ -909,6 +913,59 @@ void handle_timer_event(pcep_session_event *event)
 	}
 }
 
+/* A message was written: destroy a drained session or re-arm the keep alive */
+void handle_msg_sent_event(pcep_session_event *event)
+{
+	pcep_session *session = event->session;
+
+	if (session->destroy_session_after_write) {
+		if (!socket_comm_session_write_pending(session->socket_comm_session))
+			destroy_pcep_session_locked(session);
+		return;
+	}
+
+	if (session->timer_id_keep_alive == TIMER_ID_NOT_SET) {
+		pcep_log(LOG_INFO,
+			 "%s: [%ld-%ld] pcep_session_logic set keep alive timer [%d secs] for session [%d]",
+			 __func__, time(NULL), pthread_self(),
+			 session->pcc_config.keep_alive_pce_negotiated_timer_seconds,
+			 session->session_id);
+		session->timer_id_keep_alive =
+			create_timer(session->pcc_config.keep_alive_pce_negotiated_timer_seconds,
+				     session);
+	} else {
+		pcep_log(LOG_INFO,
+			 "%s: [%ld-%ld] pcep_session_logic reset keep alive timer [%d secs] for session [%d]",
+			 __func__, time(NULL), pthread_self(),
+			 session->pcc_config.keep_alive_pce_negotiated_timer_seconds,
+			 session->session_id);
+		reset_timer(session->timer_id_keep_alive);
+	}
+}
+
+/* disconnect_pce(): send one Close on an established session, and destroy
+ * the session once nothing is left to write.
+ */
+void handle_disconnect_event(pcep_session_event *event)
+{
+	pcep_session *session = event->session;
+
+	if (socket_comm_session_closed(session->socket_comm_session)) {
+		destroy_pcep_session_locked(session);
+		return;
+	}
+
+	session->destroy_session_after_write = true;
+	if (session->session_state == SESSION_STATE_PCEP_CONNECTED && !session->close_sent) {
+		/* Destroyed by handle_msg_sent_event() once written */
+		close_pcep_session(session);
+		return;
+	}
+
+	if (!socket_comm_session_write_pending(session->socket_comm_session))
+		destroy_pcep_session_locked(session);
+}
+
 /* State machine handling for received messages.
  * This event was created in session_logic_msg_ready_handler() in
  * pcep_session_logic_loop.c */
@@ -922,24 +979,23 @@ void handle_socket_comm_event(pcep_session_event *event)
 
 	pcep_session *session = event->session;
 
-	pcep_log(
-		LOG_INFO,
-		"%s: [%ld-%ld] pcep_session_logic handle_socket_comm_event: session [%d] num messages [%d] socket_closed [%d]",
-		__func__, time(NULL), pthread_self(), session->session_id,
-		(event->received_msg_list == NULL
-			 ? -1
-			 : (int)event->received_msg_list->num_entries),
-		event->socket_closed);
+	pcep_log(LOG_INFO,
+		 "%s: [%ld-%ld] pcep_session_logic handle_socket_comm_event: session [%d] num messages [%d] socket_closed [%d]",
+		 __func__, time(NULL), pthread_self(), session->session_id,
+		 (event->received_msg_list == NULL ? -1
+						   : (int)event->received_msg_list->num_entries),
+		 event->type == PCEP_SESSION_EVENT_SOCKET_CLOSED);
 
 	/*
 	 * independent of the session state
 	 */
-	if (event->socket_closed) {
+	if (event->type == PCEP_SESSION_EVENT_SOCKET_CLOSED) {
 		pcep_log(
 			LOG_INFO,
 			"%s: handle_socket_comm_event socket closed for session [%d]",
 			__func__, session->session_id);
 		socket_comm_session_close_tcp(session->socket_comm_session);
+		pcep_session_cancel_timers(session);
 		enqueue_event(session, PCE_CLOSED_SOCKET, NULL);
 		if (session->session_state == SESSION_STATE_PCEP_CONNECTING) {
 			enqueue_event(session, PCC_CONNECTION_FAILURE, NULL);
@@ -947,6 +1003,20 @@ void handle_socket_comm_event(pcep_session_event *event)
 		session->session_state = SESSION_STATE_INITIALIZED;
 		increment_event_counters(session,
 					 PCEP_EVENT_COUNTER_ID_PCE_DISCONNECT);
+		return;
+	}
+
+	/* Nothing is handled once this side sent a Close */
+	if (session->close_sent) {
+		if (event->received_msg_list != NULL)
+			pcep_msg_free_message_list(event->received_msg_list);
+		return;
+	}
+
+	/* A read that decoded no message */
+	if (event->received_msg_list != NULL && event->received_msg_list->num_entries == 0) {
+		increment_unknown_message(session);
+		dll_destroy(event->received_msg_list);
 		return;
 	}
 
@@ -960,6 +1030,13 @@ void handle_socket_comm_event(pcep_session_event *event)
 	double_linked_list_node *msg_node;
 	for (msg_node = event->received_msg_list->head; msg_node != NULL;
 	     msg_node = msg_node->next_node) {
+		/* A message before it closed the session: drop the rest */
+		if (session->close_sent) {
+			for (; msg_node != NULL; msg_node = msg_node->next_node)
+				pcep_msg_free_message(msg_node->data);
+			break;
+		}
+
 		bool message_enqueued = false;
 		struct pcep_message *msg =
 			(struct pcep_message *)msg_node->data;
