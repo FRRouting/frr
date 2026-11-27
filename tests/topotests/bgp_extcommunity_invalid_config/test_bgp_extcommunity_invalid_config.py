@@ -50,9 +50,10 @@ EXPECTED_SET_CLAUSES = {
 }
 
 # The rt, soo and nt values are plain strings in the YANG model, so only
-# the northbound validation callback can reject them. The color value
-# matches the YANG color-list pattern (it is read as "01:100" followed by
-# "01:5"), so it also gets as far as the validation callback.
+# the northbound validation callback can reject them. The color value is
+# rejected by the CLI syntax check, or by the northbound callback in builds
+# without that check, where the YANG pattern accepts adjacent colors
+# ("01:100" followed by "01:5").
 MALFORMED_SET_VALUES = [
     ("rt", "1.2.3"),
     ("rt", "100"),
@@ -200,9 +201,12 @@ def test_bgp_route_map_set_extcommunity_malformed(kind, value, seq):
     )
 
     assert rc != 0, "{} was accepted (exit status 0):\n{}".format(what, output)
-    assert (
-        "Malformed extcommunity {} value".format(kind) in output
-    ), "{} was not rejected by validation:\n{}".format(what, output)
+    expected_errors = ["Malformed extcommunity {} value".format(kind)]
+    if kind == "color":
+        expected_errors.append("Malformed color extended community {}".format(value))
+    assert any(
+        error in output for error in expected_errors
+    ), "{} was not rejected:\n{}".format(what, output)
 
     _check_unchanged(r1, baseline, what)
 

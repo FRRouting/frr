@@ -288,6 +288,16 @@ static struct str_segment {
 		     { "rt 192.168.1.1", NULL },
 		     { "rt 100", NULL },
 		     { "rt 100:", NULL },
+		     /* values must not overflow 32 bits */
+		     { "rt 65001:4294967295", "rt 65001:4294967295" },
+		     { "rt 65001:4294967296", NULL },
+		     { "rt 192.168.1.1:4294967296", NULL },
+		     { "rt 4200000000:4294967296", NULL },
+		     /* color without CO bits is encoded with CO bits 00 */
+		     { "color 100", "color 00:100" },
+		     { "color 4294967295", "color 00:4294967295" },
+		     { "color 4294967296", NULL },
+		     { "color 01:4294967296", NULL },
 		     { NULL, NULL } };
 
 static void str_test(struct str_segment *t)
