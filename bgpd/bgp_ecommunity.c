@@ -566,10 +566,12 @@ bool ecommunity_node_target_match(struct ecommunity *ecom,
 		sub_type = *pnt++;
 
 		if (ecommunity_is_node_target(type, sub_type)) {
-			/* Node Target ID is encoded as A.B.C.D:0 */
-			if (IPV4_ADDR_SAME((struct in_addr *)pnt, local_id))
+			struct in_addr node_id;
+
+			/* Node Target ID is encoded as A.B.C.D:0, unaligned */
+			memcpy(&node_id, pnt, sizeof(node_id));
+			if (IPV4_ADDR_SAME(&node_id, local_id))
 				match = true;
-			(void)pnt;
 		}
 	}
 
@@ -586,17 +588,15 @@ static void ecommunity_node_target_str(char *buf, size_t bufsz, uint8_t *ptr,
 	 *  | Target BGP Identifier (cont.) |           Reserved            |
 	 *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 	 */
-	struct in_addr node_id = {};
+	struct in_addr node_id;
 
-	IPV4_ADDR_COPY(&node_id, (struct in_addr *)ptr);
-
+	/* ptr is not aligned for struct in_addr */
+	memcpy(&node_id, ptr, sizeof(node_id));
 
 	snprintfrr(buf, bufsz, "%s%pI4%s",
 		   format == ECOMMUNITY_FORMAT_COMMUNITY_LIST ? "nt " : "NT:",
 		   &node_id,
 		   format == ECOMMUNITY_FORMAT_COMMUNITY_LIST ? ":0" : "");
-
-	(void)ptr; /* consume value */
 }
 
 static int ecommunity_encode_internal(uint8_t type, uint8_t sub_type,
