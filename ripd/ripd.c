@@ -55,6 +55,7 @@ DEFINE_MTYPE_STATIC(RIPD, RIP_VRF_NAME, "RIP VRF name");
 DEFINE_MTYPE_STATIC(RIPD, RIP_INFO, "RIP route info");
 DEFINE_MTYPE(RIPD, RIP_INFO_LIST, "RIP route info list");
 DEFINE_MTYPE_STATIC(RIPD, RIP_DISTANCE, "RIP distance");
+DEFINE_MTYPE_STATIC(RIPD, RIP_CHANGED_ROUTE, "RIP changed route");
 
 /* Prototypes. */
 static void rip_output_process(struct connected *, struct sockaddr_in *, int,
@@ -2064,7 +2065,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 	struct rip *rip;
 	int ret;
 	struct stream *s;
-	struct route_node *rp;
+	struct route_node *rp = NULL;
 	struct rip_info *rinfo;
 	struct rip_interface *ri;
 	struct prefix_ipv4 *p;
@@ -2079,6 +2080,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 	int rtemax;
 	int subnetted = 0;
 	struct rip_info_list_head *list = NULL;
+	struct rip_changed_route *changed = NULL;
 
 	/* Logging output event. */
 	if (IS_RIP_DEBUG_EVENT) {
@@ -2135,14 +2137,36 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 			subnetted = 1;
 	}
 
-	for (rp = route_top(rip->table); rp; rp = route_next(rp)) {
+	/* A triggered update considers only the routes marked as changed
+	 * since the last one, collected once per round by
+	 * rip_triggered_update(); a periodic or requested update walks the
+	 * whole table.  In both cases output filters, split horizon and the
+	 * RIPv1 mask rules below apply per route exactly as before.
+	 */
+	if (route_type == rip_changed_route)
+		changed = changed_route_list_first(&rip->changed_routes);
+	else
+		rp = route_top(rip->table);
+
+	for (;;) {
+		if (route_type == rip_changed_route) {
+			if (changed == NULL)
+				break;
+			rp = changed->node;
+			changed = changed_route_list_next(&rip->changed_routes,
+							  changed);
+		} else {
+			if (rp == NULL)
+				break;
+		}
+
 		list = rp->info;
 
 		if (list == NULL)
-			continue;
+			goto next;
 
 		if (rip_info_list_count(list) == 0)
-			continue;
+			goto next;
 
 		rinfo = rip_info_list_first(list);
 		/*
@@ -2164,14 +2188,14 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 				if ((ifc->address->prefixlen !=
 				     rp->p.prefixlen) &&
 				    (rp->p.prefixlen != IPV4_MAX_BITLEN))
-					continue;
+					goto next;
 			} else {
 				memcpy(&classfull, &rp->p,
 				       sizeof(struct prefix_ipv4));
 				apply_classful_mask_ipv4(&classfull);
 				if (rp->p.u.prefix4.s_addr != INADDR_ANY &&
 				    classfull.prefixlen != rp->p.prefixlen)
-					continue;
+					goto next;
 			}
 			if (IS_RIP_DEBUG_PACKET)
 				zlog_debug(
@@ -2183,12 +2207,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 		/* Apply output filters. */
 		ret = rip_filter(RIP_FILTER_OUT, p, ri);
 		if (ret < 0)
-			continue;
-
-		/* Changed route only output. */
-		if (route_type == rip_changed_route &&
-		    (!(rinfo->flags & RIP_RTF_CHANGED)))
-			continue;
+			goto next;
 
 		/* Split horizon. */
 		if (ri->split_horizon == RIP_SPLIT_HORIZON) {
@@ -2226,7 +2245,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 			}
 
 			if (suppress)
-				continue;
+				goto next;
 		}
 
 		/* Preparation for route-map. */
@@ -2255,7 +2274,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 					zlog_debug(
 						"RIP %pFX is filtered by route-map out",
 						p);
-				continue;
+				goto next;
 			}
 		}
 
@@ -2271,7 +2290,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 					zlog_debug(
 						"%pFX is filtered by route-map",
 						p);
-				continue;
+				goto next;
 			}
 		}
 
@@ -2368,6 +2387,10 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 			num = 0;
 			stream_reset(s);
 		}
+
+next:
+		if (route_type != rip_changed_route)
+			rp = route_next(rp);
 	}
 
 	/* Flush unwritten RTE. */
@@ -2580,10 +2603,41 @@ static void rip_triggered_interval(struct event *t)
 	}
 }
 
+/* Collect the routes to advertise in one triggered update round: every
+ * route node whose first rinfo is flagged RIP_RTF_CHANGED.  The entries
+ * borrow the route_node pointers and are only valid while the round runs:
+ * ripd handles events serially, so the table cannot change between the
+ * collection and the last output point.  The caller frees the entries
+ * (the nodes stay owned by the table) when the round is done.
+ */
+static void rip_changed_route_nodes(struct rip *rip)
+{
+	struct route_node *rp;
+	struct rip_info_list_head *list;
+	struct rip_info *rinfo;
+	struct rip_changed_route *changed;
+
+	for (rp = route_top(rip->table); rp; rp = route_next(rp)) {
+		list = rp->info;
+		if (list == NULL)
+			continue;
+
+		rinfo = rip_info_list_first(list);
+		if (rinfo && CHECK_FLAG(rinfo->flags, RIP_RTF_CHANGED)) {
+			changed = XCALLOC(MTYPE_RIP_CHANGED_ROUTE,
+					  sizeof(*changed));
+			changed->node = rp;
+			changed_route_list_add_tail(&rip->changed_routes,
+						    changed);
+		}
+	}
+}
+
 /* Execute triggered update. */
 static void rip_triggered_update(struct event *t)
 {
 	struct rip *rip = EVENT_ARG(t);
+	struct rip_changed_route *changed;
 	int interval;
 
 	/* Cancel interval timer. */
@@ -2596,7 +2650,11 @@ static void rip_triggered_update(struct event *t)
 
 	/* Split Horizon processing is done when generating triggered
 	   updates as well as normal updates (see section 2.6). */
+	rip_changed_route_nodes(rip);
 	rip_update_process(rip, rip_changed_route);
+	while ((changed = changed_route_list_pop(&rip->changed_routes)) !=
+	       NULL)
+		XFREE(MTYPE_RIP_CHANGED_ROUTE, changed);
 
 	/* Once all of the triggered updates have been generated, the route
 	   change flags should be cleared. */
@@ -2734,6 +2792,7 @@ struct rip *rip_create(const char *vrf_name, struct vrf *vrf, int socket)
 	route_table_set_info(rip->table, rip);
 	rip->neighbor = route_table_init();
 	rip_peer_list_init(&rip->peer_list);
+	changed_route_list_init(&rip->changed_routes);
 	rip->distance_table = route_table_init();
 	rip->distance_table->cleanup = rip_distance_table_node_cleanup;
 	rip->enable_interface = vector_init(1);
