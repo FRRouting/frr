@@ -8,6 +8,7 @@
 #include <northbound.h>
 #include <yang.h>
 #include <printfrr.h>
+#include "jhash.h"
 #include "pceplib/pcep_msg_objects.h"
 #include "pathd/pathd.h"
 #include "pathd/path_pcep.h"
@@ -30,6 +31,12 @@ static void copy_candidate_affinity_filters(struct srte_candidate *candidate,
 static struct path_hop *
 path_pcep_config_list_path_hops(struct srte_segment_list *segment_list);
 static struct srte_candidate *lookup_candidate(struct lsp_nb_key *key);
+static struct srte_candidate *lookup_candidate_by_name(const char *name);
+static void pcep_segment_list_name(char *buf, size_t size, struct path *path);
+static bool segment_list_name_taken(struct path *path, struct srte_candidate *candidate);
+static bool path_name_too_long(struct path *path);
+static bool path_name_reserved(struct path *path);
+static int path_pcep_config_adopt_path(struct path *path);
 static char *candidate_name(struct srte_candidate *candidate);
 static enum pcep_lsp_operational_status
 status_int_to_ext(enum srte_policy_status status);
@@ -271,6 +278,9 @@ int path_pcep_config_initiate_path(struct path *path)
 	struct srte_policy *policy;
 	struct srte_candidate *candidate;
 
+	if (!path->do_remove && path->plsp_id != 0)
+		return path_pcep_config_adopt_path(path);
+
 	if (path->do_remove) {
 		zlog_warn("PCE %s tried to REMOVE pce-initiate a path ",
 			  path->originator);
@@ -311,6 +321,28 @@ int path_pcep_config_initiate_path(struct path *path)
 
 		candidate = lookup_candidate(&path->nbkey);
 		if (!candidate) {
+			if (path_name_too_long(path)) {
+				zlog_warn("PCE %s tried to initiate a path with a symbolic path name longer than %d characters: %s",
+					  path->originator, SRTE_PCEP_NAME_MAX_LENGTH, path->name);
+				return ERROR_24_1;
+			}
+			if (path_name_reserved(path)) {
+				zlog_warn("PCE %s tried to initiate a path with a reserved symbolic path name: %s",
+					  path->originator, path->name);
+				return ERROR_24_1;
+			}
+			/* Check that the candidates name is defined, and not in use */
+			if (path->name != NULL && lookup_candidate_by_name(path->name) != NULL) {
+				zlog_warn("PCE %s tried to initiate a path with a symbolic path name already in use: %s",
+					  path->originator, path->name);
+				return ERROR_23_1;
+			}
+			/* Refuse before creating anything */
+			if (segment_list_name_taken(path, NULL)) {
+				zlog_warn("segment list name %s-%u of path %s is already in use, rejecting the path",
+					  path->name, path->plsp_id, path->name);
+				return ERROR_24_1;
+			}
 			policy = srte_policy_add(
 				path->nbkey.color, &path->nbkey.endpoint,
 				SRTE_ORIGIN_PCEP, path->originator);
@@ -364,7 +396,7 @@ int path_pcep_config_update_path(struct path *path)
 	struct path_hop *hop;
 	struct path_metric *metric;
 	int index;
-	char segment_list_name_buff[64 + 1 + 64 + 1 + 11 + 1];
+	char segment_list_name_buff[SRTE_NAME_LENGTH];
 	char *segment_list_name = NULL;
 	struct srte_candidate *candidate;
 	struct srte_segment_list *segment_list = NULL;
@@ -375,6 +407,13 @@ int path_pcep_config_update_path(struct path *path)
 	// if there is no candidate to update we are done
 	if (!candidate)
 		return 0;
+
+	/* Refuse before the current segment list is deleted */
+	if (segment_list_name_taken(path, candidate)) {
+		zlog_warn("segment list name %s-%u of path %s is already in use, rejecting the path",
+			  path->name, path->plsp_id, path->name);
+		return ERROR_24_1;
+	}
 
 	candidate->policy->srp_id = path->srp_id;
 	// first clean up old segment list if present
@@ -388,11 +427,16 @@ int path_pcep_config_update_path(struct path *path)
 	if (path->first_hop == NULL)
 		return PATH_NB_ERR;
 
-	snprintf(segment_list_name_buff, sizeof(segment_list_name_buff),
-		 "%s-%u", path->name, path->plsp_id);
+	pcep_segment_list_name(segment_list_name_buff, sizeof(segment_list_name_buff), path);
 	segment_list_name = segment_list_name_buff;
 
+	/* Unreachable: segment_list_name_taken() checked the name above */
 	segment_list = srte_segment_list_add(segment_list_name);
+	if (segment_list == NULL) {
+		zlog_warn("segment list name %s of path %s (plsp %u) is already in use, rejecting the path",
+			  segment_list_name, path->name, path->plsp_id);
+		return ERROR_24_2;
+	}
 	segment_list->protocol_origin = path->update_origin;
 	strlcpy(segment_list->originator, path->originator,
 		sizeof(segment_list->originator));
@@ -455,6 +499,93 @@ struct srte_candidate *lookup_candidate(struct lsp_nb_key *key)
 	if (policy == NULL)
 		return NULL;
 	return srte_candidate_find(policy, key->preference);
+}
+
+struct srte_candidate *lookup_candidate_by_name(const char *name)
+{
+	struct srte_policy *policy;
+	struct srte_candidate *candidate;
+	char *cname;
+	bool match;
+
+	RB_FOREACH (policy, srte_policy_head, &srte_policies) {
+		RB_FOREACH (candidate, srte_candidate_head, &policy->candidate_paths) {
+			cname = candidate_name(candidate);
+			match = strcmp(cname, name) == 0;
+			XFREE(MTYPE_PCEP, cname);
+			if (match)
+				return candidate;
+		}
+	}
+
+	return NULL;
+}
+
+/* RFC 8281 section 6: a PCE takes over an orphaned PCE-initiated path */
+int path_pcep_config_adopt_path(struct path *path)
+{
+	struct srte_candidate *candidate = lookup_candidate(&path->nbkey);
+	struct srte_segment_list *segment_list;
+
+	if (candidate == NULL || candidate->protocol_origin != SRTE_ORIGIN_PCEP ||
+	    !pcep_originator_orphaned(candidate->originator)) {
+		zlog_warn("PCE %s tried to take over PLSP-ID %u, which is not an orphaned PCE-initiated path",
+			  path->originator, path->plsp_id);
+		return ERROR_19_8;
+	}
+
+	zlog_info("PCE %s takes over path %s from PCE %s", path->originator, candidate->name,
+		  candidate->originator);
+	strlcpy(candidate->originator, path->originator, sizeof(candidate->originator));
+	strlcpy(candidate->policy->originator, path->originator,
+		sizeof(candidate->policy->originator));
+	segment_list = candidate->lsp ? candidate->lsp->segment_list : NULL;
+	if (segment_list != NULL && segment_list->protocol_origin == SRTE_ORIGIN_PCEP)
+		strlcpy(segment_list->originator, path->originator,
+			sizeof(segment_list->originator));
+	candidate->policy->srp_id = path->srp_id;
+
+	return PATH_NB_NO_CHANGE;
+}
+
+/* "<name>-<plsp_id>", hashed if too long or in the reserved namespace */
+void pcep_segment_list_name(char *buf, size_t size, struct path *path)
+{
+	uint32_t hash;
+
+	if (!path_name_reserved(path) &&
+	    snprintfrr(buf, size, "%s-%u", path->name, path->plsp_id) < (ssize_t)size)
+		return;
+
+	hash = jhash(path->name, strlen(path->name), 0);
+	snprintfrr(buf, size, SRTE_PCEP_HASHED_PREFIX "%.*s-%08x-%u",
+		   (int)(SRTE_YANG_NAME_MAX_LENGTH - 20 - strlen(SRTE_PCEP_HASHED_PREFIX)),
+		   path->name, hash, path->plsp_id);
+}
+
+/* Segment list name "<name>-<plsp_id>" held by a list other than candidate's */
+bool segment_list_name_taken(struct path *path, struct srte_candidate *candidate)
+{
+	char name[SRTE_NAME_LENGTH];
+	struct srte_segment_list *segment_list;
+
+	pcep_segment_list_name(name, sizeof(name), path);
+	segment_list = srte_segment_list_find(name);
+	if (segment_list == NULL)
+		return false;
+
+	return candidate == NULL || segment_list != candidate->lsp->segment_list;
+}
+
+bool path_name_too_long(struct path *path)
+{
+	return path->name != NULL && strlen(path->name) > SRTE_PCEP_NAME_MAX_LENGTH;
+}
+
+bool path_name_reserved(struct path *path)
+{
+	return path->name != NULL &&
+	       strncmp(path->name, SRTE_PCEP_HASHED_PREFIX, strlen(SRTE_PCEP_HASHED_PREFIX)) == 0;
 }
 
 char *candidate_name(struct srte_candidate *candidate)

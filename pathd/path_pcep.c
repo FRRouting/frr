@@ -39,6 +39,14 @@ static struct pcep_glob pcep_glob_space = {
 };
 struct pcep_glob *pcep_g = &pcep_glob_space;
 
+/* PCCs whose session timeout is running, at most one slot per PCC */
+static struct {
+	int pcc_id;
+	char originator[64];
+} pcep_orphaned[MAX_PCC];
+
+static void pcep_orphaned_set(int pcc_id, const char *originator);
+
 /* Main Thread Even Handler */
 static int pcep_main_event_handler(enum pcep_main_event_type type, int pcc_id,
 				   void *payload);
@@ -46,8 +54,7 @@ static int pcep_main_event_start_sync(int pcc_id);
 static int pcep_main_event_start_sync_cb(struct path *path, void *arg);
 static int pcep_main_event_initiate_candidate(struct path *path);
 static int pcep_main_event_update_candidate(struct path *path);
-static int pcep_main_event_remove_candidate_segments(const char *originator,
-						     bool force);
+static int pcep_main_event_remove_candidate_segments(const char *originator);
 
 /* Hook Handlers called from the Main Thread */
 static int pathd_candidate_created_handler(struct srte_candidate *candidate);
@@ -199,8 +206,15 @@ int pcep_main_event_handler(enum pcep_main_event_type type, int pcc_id,
 		ret = pcep_main_event_update_candidate((struct path *)payload);
 		break;
 	case PCEP_MAIN_EVENT_REMOVE_CANDIDATE_LSP:
-		ret = pcep_main_event_remove_candidate_segments(
-			(const char *)payload, true);
+		pcep_orphaned_set(pcc_id, NULL);
+		ret = pcep_main_event_remove_candidate_segments((const char *)payload);
+		break;
+	case PCEP_MAIN_EVENT_SESSION_DOWN:
+		pcep_orphaned_set(pcc_id, payload);
+		XFREE(MTYPE_PCEP, payload);
+		break;
+	case PCEP_MAIN_EVENT_SESSION_UP:
+		pcep_orphaned_set(pcc_id, NULL);
 		break;
 	case PCEP_MAIN_EVENT_UNDEFINED:
 		flog_warn(EC_PATH_PCEP_RECOVERABLE_INTERNAL_ERROR,
@@ -261,6 +275,44 @@ int pcep_main_event_initiate_candidate(struct path *path)
 		 * freed after the error message is sent.
 		 */
 		pcep_ctrl_send_error(pcep_g->fpt, path->pcc_id, error);
+	} else if (ret == ERROR_23_1) {
+		/* RFC 8281: a duplicate symbolic path name requires the PCC
+		 * to send a PCErr message (Error-type=23, Error-value=1).
+		 */
+		struct pcep_error *error;
+
+		error = XCALLOC(MTYPE_PCEP, sizeof(*error));
+		error->path = path;
+		error->error_type = PCEP_ERRT_BAD_PARAMETER_VALUE;
+		error->error_value = PCEP_ERRV_SYMBOLIC_PATH_NAME_IN_USE;
+
+		/* Error frees the path object after message is sent. */
+		pcep_ctrl_send_error(pcep_g->fpt, path->pcc_id, error);
+	} else if (ret == ERROR_19_8) {
+		/* RFC 8281: a non-zero PLSP-ID that is not an orphan */
+		struct pcep_error *error;
+
+		error = XCALLOC(MTYPE_PCEP, sizeof(*error));
+		error->path = path;
+		error->error_type = PCEP_ERRT_INVALID_OPERATION;
+		error->error_value = PCEP_ERRV_LSP_INIT_NON_ZERO_PLSP_ID;
+
+		/* Error frees the path object after message is sent. */
+		pcep_ctrl_send_error(pcep_g->fpt, path->pcc_id, error);
+	} else if (ret == ERROR_24_1 || ret == ERROR_24_2) {
+		/* RFC 8281: 24/1 for unacceptable parameters (name too long or
+		 * its segment list name taken), 24/2 for an internal error.
+		 */
+		struct pcep_error *error;
+
+		error = XCALLOC(MTYPE_PCEP, sizeof(*error));
+		error->path = path;
+		error->error_type = PCEP_ERRT_LSP_INSTANTIATE_ERROR;
+		error->error_value = ret == ERROR_24_1 ? PCEP_ERRV_UNACCEPTABLE_INSTANTIATE_ERROR
+						       : PCEP_ERRV_INTERNAL_ERROR;
+
+		/* Error frees the path object after message is sent. */
+		pcep_ctrl_send_error(pcep_g->fpt, path->pcc_id, error);
 	} else {
 		if (ret != PATH_NB_ERR && path->srp_id != 0)
 			notify_status(path, ret == PATH_NB_NO_CHANGE);
@@ -278,6 +330,19 @@ int pcep_main_event_update_candidate(struct path *path)
 	int ret = 0;
 
 	ret = path_pcep_config_update_path(path);
+	if (ret == ERROR_24_1 || ret == ERROR_24_2) {
+		struct path *resp = path_pcep_config_get_path(&path->nbkey);
+
+		if (resp) {
+			resp->srp_id = path->srp_id;
+			resp->lsp_error_code = ret == ERROR_24_1
+						       ? PCEP_TLV_LSP_ERROR_CODE_UNACCEPTABLE_PARAMS
+						       : PCEP_TLV_LSP_ERROR_CODE_INTERNAL_ERROR;
+			pcep_ctrl_send_report(pcep_g->fpt, path->pcc_id, resp, true);
+		}
+		pcep_free_path(path);
+		return ret;
+	}
 	if (ret != PATH_NB_ERR && path->srp_id != 0)
 		notify_status(path, ret == PATH_NB_NO_CHANGE);
 	/* Same ownership as the initiate case: the parsed path is ours. */
@@ -285,10 +350,45 @@ int pcep_main_event_update_candidate(struct path *path)
 	return ret;
 }
 
-int pcep_main_event_remove_candidate_segments(const char *originator,
-					      bool force)
+/* The paths of this originator are orphans (RFC 8281 section 6) */
+bool pcep_originator_orphaned(const char *originator)
 {
-	srte_candidate_unset_segment_list(originator, force);
+	for (int i = 0; i < MAX_PCC; i++) {
+		if (pcep_orphaned[i].pcc_id != 0 &&
+		    strcmp(pcep_orphaned[i].originator, originator) == 0)
+			return true;
+	}
+	return false;
+}
+
+/* Record the originator of a PCC, or forget it when NULL */
+void pcep_orphaned_set(int pcc_id, const char *originator)
+{
+	int slot = -1;
+
+	for (int i = 0; i < MAX_PCC; i++) {
+		if (pcep_orphaned[i].pcc_id == pcc_id) {
+			slot = i;
+			break;
+		}
+		if (slot < 0 && pcep_orphaned[i].pcc_id == 0)
+			slot = i;
+	}
+	if (slot < 0)
+		return;
+
+	if (originator == NULL) {
+		if (pcep_orphaned[slot].pcc_id == pcc_id)
+			pcep_orphaned[slot].pcc_id = 0;
+		return;
+	}
+	pcep_orphaned[slot].pcc_id = pcc_id;
+	strlcpy(pcep_orphaned[slot].originator, originator, sizeof(pcep_orphaned[slot].originator));
+}
+
+int pcep_main_event_remove_candidate_segments(const char *originator)
+{
+	srte_candidate_unset_segment_list(originator);
 	/* Avoid compiler warnings about const char* */
 	void *free_ptr = (void *)originator;
 	XFREE(MTYPE_PCEP, free_ptr);

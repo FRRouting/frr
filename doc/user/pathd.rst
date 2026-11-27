@@ -174,6 +174,33 @@ controller and obtain those by means of the PCEP protocol.
 
 .. image:: images/pathd_initiated_multi.png
 
+The symbolic path name of a PCE-initiated path must not be used by any other
+candidate path, must be at most 56 characters long, and must not start with
+``pcep-hash-``. Otherwise pathd refuses the PCInitiate with PCErr 23/1
+(SYMBOLIC-PATH-NAME in use) or 24/1 (Unacceptable instantiation parameters).
+
+pathd names the segment list of a PCEP path ``<name>-<plsp-id>``. When that
+does not fit in the 64 characters allowed for segment list names, or when the
+name starts with ``pcep-hash-``, the segment list is named ``pcep-hash-``
+followed by the start of the name, a hash of the full name and the PLSP-ID.
+This happens for locally configured dynamic paths, whose name is
+``<policy>-<candidate>``, and these names are shown by
+:clicmd:`show sr-te policy [detail]`. A PCUpd whose segment list name is
+already in use is refused in a PCRpt carrying LSP-ERROR-CODE 4 (Unacceptable
+parameters).
+
+Each PCE has its own session timeout (``session-timeout-interval``, 30 seconds
+by default), started when its PCEP session goes down, even when other PCEs
+are still connected. If the session is not back up when it expires, pathd
+removes the paths that PCE initiated, the policies left without any
+candidate path, and clears the segment lists that PCE computed for locally
+configured dynamic paths. The paths of other PCEs are not affected. Until
+then, another PCE can take over a path initiated by that PCE with a
+PCInitiate carrying only the SRP and LSP objects and the PLSP-ID of the path
+(:rfc:`8281` section 6). The path is then removed at the session timeout of
+the PCE that took it over. Removing a PCE from the configuration cleans up
+its paths right away.
+
 Starting
 ========
 
@@ -283,6 +310,9 @@ Configuration Commands
 .. clicmd:: segment-list NAME
 
    Delete or start a segment list definition.
+
+   Names starting with ``pcep-hash-`` are reserved for segment lists created
+   by PCEP, and a name already used by a PCEP segment list is refused.
 
 .. clicmd:: index INDEX mpls label LABEL
 .. clicmd:: index INDEX nai adjacency A.B.C.D A.B.C.D

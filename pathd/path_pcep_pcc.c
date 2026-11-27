@@ -103,7 +103,6 @@ static int compare_pcc_opts(struct pcc_opts *lhs, struct pcc_opts *rhs);
 static int compare_pce_opts(struct pce_opts *lhs, struct pce_opts *rhs);
 static int get_previous_best_pce(struct pcc_state **pcc);
 static int get_best_pce(struct pcc_state **pcc);
-static int get_pce_count_connected(struct pcc_state **pcc);
 static bool update_best_pce(struct pcc_state **pcc, int best);
 
 /* Data Structure Helper Functions */
@@ -446,11 +445,6 @@ int pcep_pcc_disable(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state)
 		PCEP_DEBUG("%s Disconnecting PCC...", pcc_state->tag);
 		cancel_comp_requests(ctrl_state, pcc_state);
 		pcep_lib_disconnect(pcc_state->sess);
-		/* No need to remove if any PCEs is connected */
-		if (get_pce_count_connected(ctrl_state->pcc) == 0) {
-			pcep_thread_remove_candidate_path_segments(ctrl_state,
-								   pcc_state);
-		}
 		pcc_state->sess = NULL;
 		pcc_state->status = PCEP_PCC_DISCONNECTED;
 		return 0;
@@ -553,6 +547,12 @@ void pcep_pcc_send_report(struct ctrl_state *ctrl_state,
 
 	PCEP_DEBUG("(%s)%s Send report for candidate path %s", __func__,
 		   pcc_state->tag, path->name);
+
+	if (path->lsp_error_code != 0) {
+		send_report(pcc_state, path);
+		pcep_free_path(path);
+		return;
+	}
 
 	/* ODL and Cisco requires the first reported
 	 * LSP to have a DOWN status, the later status changes
@@ -802,18 +802,6 @@ int get_best_pce(struct pcc_state **pcc)
 		}
 	}
 	return 0;
-}
-
-int get_pce_count_connected(struct pcc_state **pcc)
-{
-	int count = 0;
-	for (int i = 0; i < MAX_PCC; i++) {
-		if (pcc[i] && pcc[i]->pce_opts
-		    && pcc[i]->status != PCEP_PCC_DISCONNECTED) {
-			count++;
-		}
-	}
-	return count;
 }
 
 int get_previous_best_pce(struct pcc_state **pcc)
@@ -1277,6 +1265,23 @@ void handle_pcep_lsp_initiate(struct ctrl_state *ctrl_state,
 				break;
 			}
 		}
+	} else if (path->plsp_id != 0) {
+		/* RFC 8281 section 6: taking over an orphan by its PLSP-ID */
+		struct nbkey_map_data key, *mapping;
+
+		key.plspid = path->plsp_id;
+		mapping = nbkey_map_find(&pcc_state->nbkey_map, &key);
+		if (mapping == NULL) {
+			/* Any other non-zero PLSP-ID gets PCErr 19/8 */
+			flog_warn(EC_PATH_PCEP_PROTOCOL_ERROR,
+				  "PCE initiated path with unknown PLSP ID: %s",
+				  format_pcep_message(msg));
+			send_pcep_error(pcc_state, PCEP_ERRT_INVALID_OPERATION,
+					PCEP_ERRV_LSP_INIT_NON_ZERO_PLSP_ID, path);
+			pcep_free_path(path);
+			return;
+		}
+		path->nbkey = mapping->nbkey;
 	} else {
 		if (path->first_hop == NULL /*ero sets first_hop*/) {
 			/* If the PCC receives a PCInitiate message without an
@@ -1290,23 +1295,6 @@ void handle_pcep_lsp_initiate(struct ctrl_state *ctrl_state,
 			send_pcep_error(pcc_state,
 					PCEP_ERRT_LSP_INSTANTIATE_ERROR,
 					PCEP_ERRV_INTERNAL_ERROR, path);
-			pcep_free_path(path);
-			return;
-		}
-
-		if (path->plsp_id != 0) {
-			/* If the PCC receives a PCInitiate message with a
-			 * non-zero PLSP-ID and the R flag in the SRP object set
-			 * to zero, then it MUST send a PCErr message with
-			 * Error-type=19 (Invalid Operation) and Error-value=8
-			 * (Non-zero PLSP-ID in the LSP Initiate Request) */
-			flog_warn(
-				EC_PATH_PCEP_PROTOCOL_ERROR,
-				"PCE initiated path with non-zero PLSP ID: %s",
-				format_pcep_message(msg));
-			send_pcep_error(pcc_state, PCEP_ERRT_INVALID_OPERATION,
-					PCEP_ERRV_LSP_INIT_NON_ZERO_PLSP_ID,
-					path);
 			pcep_free_path(path);
 			return;
 		}
@@ -1328,11 +1316,6 @@ void handle_pcep_lsp_initiate(struct ctrl_state *ctrl_state,
 			return;
 		}
 	}
-
-	/* TODO: If there is a conflict with the symbolic path name of an
-	 * existing LSP, the PCC MUST send a PCErr message with Error-type=23
-	 * (Bad Parameter value) and Error-value=1 (SYMBOLIC-PATH-NAME in
-	 * use) */
 
 	specialize_incoming_path(pcc_state, path);
 	/* TODO: Validate the PCC address received from the PCE is valid */
@@ -1553,25 +1536,21 @@ void schedule_reconnect(struct ctrl_state *ctrl_state,
 void schedule_session_timeout(struct ctrl_state *ctrl_state,
 			      struct pcc_state *pcc_state)
 {
-	/* No need to schedule timeout if multiple PCEs are connected */
-	if (get_pce_count_connected(ctrl_state->pcc)) {
-		PCEP_DEBUG_PCEP(
-			"schedule_session_timeout not setting timer for multi-pce mode");
-
+	/* Each PCE has its own timeout, even when other PCEs are connected */
+	if (event_is_scheduled(pcc_state->t_session_timeout))
 		return;
-	}
 
 	pcep_thread_schedule_session_timeout(
 		ctrl_state, pcep_pcc_get_pcc_id(pcc_state),
 		pcc_state->pce_opts->config_opts
 			.session_timeout_inteval_seconds,
 		&pcc_state->t_session_timeout);
+	pcep_thread_session_state(ctrl_state, pcc_state, true);
 }
 
 void cancel_session_timeout(struct ctrl_state *ctrl_state,
 			    struct pcc_state *pcc_state)
 {
-	/* No need to schedule timeout if multiple PCEs are connected */
 	if (!event_is_scheduled(pcc_state->t_session_timeout)) {
 		PCEP_DEBUG_PCEP("cancel_session_timeout timer thread NULL");
 		return;
@@ -1579,6 +1558,7 @@ void cancel_session_timeout(struct ctrl_state *ctrl_state,
 
 	PCEP_DEBUG_PCEP("Cancel session_timeout timer");
 	pcep_thread_cancel_timer(&pcc_state->t_session_timeout);
+	pcep_thread_session_state(ctrl_state, pcc_state, false);
 }
 
 void send_pcep_message(struct pcc_state *pcc_state, struct pcep_message *msg)

@@ -222,6 +222,8 @@ struct path {
 	uint32_t req_id;
 	/* The operational status of the path */
 	enum pcep_lsp_operational_status status;
+	/* LSP-ERROR-CODE TLV value, 0 for none */
+	enum pcep_tlv_lsp_error_codes lsp_error_code;
 	/* If true, the receiver (PCC) must remove the path.
 	   See draft-ietf-pce-pce-initiated-lsp */
 	bool do_remove;
@@ -294,10 +296,14 @@ struct pcep_error {
 	struct path *path;
 	int error_type;
 	int error_value;
-	/* Rfc 8281 PcInitiated error on bad values */
-#define ERROR_19_1 1
-#define ERROR_19_3 2
-#define ERROR_19_9 3
+	/* PCErr type and value, apart from the PATH_NB_* results */
+#define ERROR_19_1 1901
+#define ERROR_19_3 1903
+#define ERROR_19_8 1908
+#define ERROR_19_9 1909
+#define ERROR_23_1 2301
+#define ERROR_24_1 2401
+#define ERROR_24_2 2402
 };
 
 /* Path Helper Functions */
@@ -306,6 +312,7 @@ struct path_hop *pcep_new_hop(void);
 struct path_metric *pcep_new_metric(void);
 struct path *pcep_copy_path(struct path *path);
 void pcep_free_path(struct path *path);
+bool pcep_originator_orphaned(const char *originator);
 
 
 #endif // _PATH_PCEP_H_

@@ -6,6 +6,7 @@
 #include <zebra.h>
 #include <lib_errors.h>
 
+#include "printfrr.h"
 #include "northbound.h"
 #include "libfrr.h"
 
@@ -28,11 +29,34 @@ int pathd_srte_segment_list_create(struct nb_cb_create_args *args)
 	struct srte_segment_list *segment_list;
 	const char *name;
 
+	if (args->event == NB_EV_VALIDATE) {
+		/* Refuse names reserved for, or already used by PCEP */
+		name = yang_dnode_get_string(args->dnode, "name");
+		if (strncmp(name, SRTE_PCEP_HASHED_PREFIX, strlen(SRTE_PCEP_HASHED_PREFIX)) == 0) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "Segment list names starting with %s are reserved for PCEP",
+				   SRTE_PCEP_HASHED_PREFIX);
+			return NB_ERR_VALIDATION;
+		}
+		segment_list = srte_segment_list_find(name);
+		if (segment_list != NULL && segment_list->protocol_origin == SRTE_ORIGIN_PCEP) {
+			snprintfrr(args->errmsg, args->errmsg_len,
+				   "A PCEP-created segment list named %s already exists", name);
+			return NB_ERR_VALIDATION;
+		}
+		return NB_OK;
+	}
+
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
 	name = yang_dnode_get_string(args->dnode, "name");
 	segment_list = srte_segment_list_add(name);
+	if (segment_list == NULL) {
+		snprintfrr(args->errmsg, args->errmsg_len,
+			   "A segment list named %s already exists", name);
+		return NB_ERR;
+	}
 	nb_running_set_entry(args->dnode, segment_list);
 	SET_FLAG(segment_list->flags, F_SEGMENT_LIST_NEW);
 

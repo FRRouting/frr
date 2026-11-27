@@ -375,6 +375,15 @@ void pcep_thread_remove_candidate_path_segments(struct ctrl_state *ctrl_state,
 		     PCEP_MAIN_EVENT_REMOVE_CANDIDATE_LSP, originator);
 }
 
+/* Tell the main thread a PCE's paths are orphaned, or no longer */
+void pcep_thread_session_state(struct ctrl_state *ctrl_state, struct pcc_state *pcc_state,
+			       bool down)
+{
+	send_to_main(ctrl_state, pcep_pcc_get_pcc_id(pcc_state),
+		     down ? PCEP_MAIN_EVENT_SESSION_DOWN : PCEP_MAIN_EVENT_SESSION_UP,
+		     down ? XSTRDUP(MTYPE_PCEP, pcc_state->originator) : NULL);
+}
+
 void pcep_thread_schedule_sync_best_pce(struct ctrl_state *ctrl_state,
 					int pcc_id, int delay,
 					struct event **thread)
@@ -882,6 +891,8 @@ int pcep_thread_event_remove_pcc_by_id(struct ctrl_state *ctrl_state,
 		struct pcc_state *pcc_state =
 			pcep_pcc_get_pcc_by_id(ctrl_state->pcc, pcc_id);
 		if (pcc_state) {
+			/* A removed PCE has no session timeout left to clean up */
+			pcep_thread_remove_candidate_path_segments(ctrl_state, pcc_state);
 			remove_pcc_state(ctrl_state, pcc_state);
 			pcep_pcc_finalize(ctrl_state, pcc_state);
 		}
