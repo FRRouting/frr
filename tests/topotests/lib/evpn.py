@@ -2571,29 +2571,41 @@ def evpn_type5_prefix_key(prefix):
     return "[5]:[0]:[{}]:[{}]".format(prefixlen, address)
 
 
+def evpn_plumb_l2vni(router, vni, local_vtep):
+    """Create an L2VNI bridge and VXLAN device outside a VRF."""
+    evpn_plumb_vni(router, vni, local_vtep, vrf=None)
+
+
 def evpn_plumb_l3vni(router, vrf, table, vni, local_vtep):
     """Create a VRF-lite L3VNI (bridge + VXLAN) so Type-5 can be originated.
 
     ``local_vtep`` must already be configured on an interface. Returns None.
     """
+    router.net.add_l3vrf(vrf, table)
+    evpn_plumb_vni(router, vni, local_vtep, vrf=vrf)
+
+
+def evpn_plumb_vni(router, vni, local_vtep, vrf=None):
+    """Create a bridge and per-VNI VXLAN device, optionally in a VRF."""
     br = "br{}".format(vni)
     vxlan = "vxlan{}".format(vni)
-    cmds = [
-        "ip link add {} type vrf table {}".format(vrf, table),
-        "ip link set dev {} up".format(vrf),
-        "ip link add {} type bridge stp_state 0".format(br),
-        "ip link set dev {} master {}".format(br, vrf),
-        "ip link set dev {} up".format(br),
-        (
-            "ip link add {} type vxlan id {} dstport 4789 local {} "
-            "nolearning".format(vxlan, vni, local_vtep)
-        ),
-        "ip link set dev {} master {}".format(vxlan, br),
-        (
-            "ip link set dev {} up type bridge_slave learning off "
-            "flood off mcast_flood off".format(vxlan)
-        ),
-    ]
+    cmds = ["ip link add {} type bridge stp_state 0".format(br)]
+    if vrf:
+        cmds.append("ip link set dev {} master {}".format(br, vrf))
+    cmds.extend(
+        [
+            "ip link set dev {} up".format(br),
+            (
+                "ip link add {} type vxlan id {} dstport 4789 local {} "
+                "nolearning".format(vxlan, vni, local_vtep)
+            ),
+            "ip link set dev {} master {}".format(vxlan, br),
+            (
+                "ip link set dev {} up type bridge_slave learning off "
+                "flood off mcast_flood off".format(vxlan)
+            ),
+        ]
+    )
     for cmd in cmds:
         router.cmd_raises(cmd)
 
@@ -3975,13 +3987,16 @@ def evpn_kernel_vxlan_fdb_entry(dut, mac, vni, vxlan="vxlan48"):
 
     Returns {"dst", "nhid", "line"}. A single-VTEP entry has dst and no nhid;
     an ES MAC has nhid and no dst. Entries of other VNIs are ignored.
+    Pass vni=None for a per-VNI VXLAN device with no src_vni in its rows.
     """
     out = dut.run(
         f"bridge -d fdb show dev {vxlan} | grep -i -F -- {shlex.quote(mac)} || true"
     )
     for line in str(out).splitlines():
         parts = line.split()
-        if "self" not in parts or _fdb_token(parts, "src_vni") != str(int(vni)):
+        if "self" not in parts:
+            continue
+        if vni is not None and _fdb_token(parts, "src_vni") != str(int(vni)):
             continue
         if not parts or parts[0].lower() != mac.lower():
             continue
