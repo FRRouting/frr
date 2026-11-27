@@ -61,6 +61,24 @@ bfd_cli_is_profile(struct vty *vty)
 	return strstr(VTY_CURR_XPATH, "/bfd/profile") != NULL;
 }
 
+static bool bfd_cli_name_too_long(struct vty *vty, const char *ifname, const char *vrf,
+				  const char *bfdname)
+{
+	if (ifname && strlen(ifname) >= IFNAMSIZ) {
+		vty_out(vty, "%% ERROR: interface name longer than %d bytes\n", IFNAMSIZ - 1);
+		return true;
+	}
+	if (vrf && strlen(vrf) > VRF_NAMSIZ) {
+		vty_out(vty, "%% ERROR: VRF name longer than %d bytes\n", VRF_NAMSIZ);
+		return true;
+	}
+	if (bfdname && strlen(bfdname) > BFD_NAME_SIZE) {
+		vty_out(vty, "%% ERROR: bfd name longer than %d bytes\n", BFD_NAME_SIZE);
+		return true;
+	}
+	return false;
+}
+
 /*
  * Functions.
  */
@@ -139,6 +157,9 @@ DEFPY_YANG_NOSH(
 	} else
 		source_str[0] = 0;
 
+	if (bfd_cli_name_too_long(vty, ifname, vrf, NULL))
+		return CMD_WARNING_CONFIG_FAILED;
+
 	slen = snprintf(xpath, sizeof(xpath),
 			"/frr-bfdd:bfdd/bfd/sessions/%s%s[dest-addr='%s']",
 			multihop ? "multi-hop" : "single-hop", source_str,
@@ -207,6 +228,9 @@ DEFPY_YANG(
 	} else
 		source_str[0] = 0;
 
+	if (bfd_cli_name_too_long(vty, ifname, vrf, NULL))
+		return CMD_WARNING_CONFIG_FAILED;
+
 	slen = snprintf(xpath, sizeof(xpath),
 			"/frr-bfdd:bfdd/bfd/sessions/%s%s[dest-addr='%s']",
 			multihop ? "multi-hop" : "single-hop", source_str,
@@ -265,6 +289,9 @@ DEFPY_YANG_NOSH(
 			"%% ERROR: peer and local-address must be the same in sbfd-echo mode\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+	if (bfd_cli_name_too_long(vty, NULL, vrf, bfdname))
+		return CMD_WARNING_CONFIG_FAILED;
 
 	slen = snprintf(xpath, sizeof(xpath),
 			"/frr-bfdd:bfdd/bfd/sessions/sbfd-echo[source-addr='%s'][bfd-name='%s']",
@@ -329,6 +356,9 @@ DEFPY_YANG(
 {
 	int slen;
 	char xpath[XPATH_MAXLEN];
+
+	if (bfd_cli_name_too_long(vty, NULL, vrf, bfdname))
+		return CMD_WARNING_CONFIG_FAILED;
 
 	slen = snprintf(xpath, sizeof(xpath),
 			"/frr-bfdd:bfdd/bfd/sessions/sbfd-echo[source-addr='%s'][bfd-name='%s']",
@@ -399,6 +429,9 @@ DEFPY_YANG_NOSH(
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (bfd_cli_name_too_long(vty, NULL, vrf, bfdname))
+		return CMD_WARNING_CONFIG_FAILED;
+
 	slen = snprintf(xpath, sizeof(xpath),
 			"/frr-bfdd:bfdd/bfd/sessions/sbfd-init[source-addr='%s'][dest-addr='%s'][bfd-name='%s']",
 			local_address_str, peer_str, bfdname);
@@ -467,6 +500,9 @@ DEFPY_YANG(
 	int slen;
 	char xpath[XPATH_MAXLEN];
 
+	if (bfd_cli_name_too_long(vty, NULL, vrf, bfdname))
+		return CMD_WARNING_CONFIG_FAILED;
+
 	slen = snprintf(xpath, sizeof(xpath),
 			"/frr-bfdd:bfdd/bfd/sessions/sbfd-init[source-addr='%s'][dest-addr='%s'][bfd-name='%s']",
 			local_address_str, peer_str, bfdname);
@@ -530,6 +566,9 @@ DEFPY_YANG_NOSH(
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (bfd_cli_name_too_long(vty, NULL, vrf, bfdname))
+		return CMD_WARNING_CONFIG_FAILED;
+
 	slen = snprintf(xpath, sizeof(xpath),
 			"/frr-bfdd:bfdd/bfd/sessions/sbfd-init[source-addr='%s'][dest-addr='%s'][bfd-name='%s']",
 			local_address_str, peer_str, bfdname);
@@ -581,6 +620,9 @@ DEFPY_YANG(
 {
 	int slen;
 	char xpath[XPATH_MAXLEN];
+
+	if (bfd_cli_name_too_long(vty, NULL, vrf, bfdname))
+		return CMD_WARNING_CONFIG_FAILED;
 
 	slen = snprintf(xpath, sizeof(xpath),
 			"/frr-bfdd:bfdd/bfd/sessions/sbfd-init[source-addr='%s'][dest-addr='%s'][bfd-name='%s']",
