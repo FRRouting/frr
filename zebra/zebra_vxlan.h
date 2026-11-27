@@ -237,7 +237,8 @@ extern void zebra_tunnel_dplane_result(struct zebra_dplane_ctx *ctx);
 extern void zebra_vxlan_stale_hrep_add(struct ipaddr vtep_ip, vni_t vni);
 extern void zebra_vxlan_stale_remote_mac_add(struct ethaddr *macaddr, struct ipaddr vtep_ip,
 					     bool sticky, vni_t vni);
-extern void zebra_evpn_stale_entries_cleanup(uint64_t gr_cleanup_time);
+extern void zebra_evpn_stale_entries_cleanup(uint64_t gr_cleanup_time,
+					     const struct timeval *gr_imet_cleanup_time);
 #ifdef __cplusplus
 }
 #endif

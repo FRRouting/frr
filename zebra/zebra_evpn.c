@@ -1277,9 +1277,17 @@ int zebra_evpn_vtep_del_all(struct zebra_evpn *zevpn, int uninstall, struct l2vn
 		 * Skip if we are doing stale cleanup, but this entry is not
 		 * stale.
 		 */
-		if (l2_wctx && l2_wctx->gr_stale_cleanup &&
-		    (zvtep->gr_refresh_time > l2_wctx->gr_cleanup_time))
-			continue;
+		if (l2_wctx && l2_wctx->gr_stale_cleanup) {
+			if (zvtep->flood_control == VXLAN_FLOOD_HEAD_END_REPL) {
+				/* Kernel HREP import is not an RT-3 refresh. Use the
+				 * precise RT-3 time to avoid a same-second GR tie.
+				 */
+				if (zebra_evpn_vtep_gr_imet_refreshed_after(&zvtep->gr_imet_refresh_time,
+									    &l2_wctx->gr_imet_cleanup_time))
+					continue;
+			} else if (zvtep->gr_refresh_time > l2_wctx->gr_cleanup_time)
+				continue;
+		}
 
 		if (uninstall)
 			zebra_evpn_vtep_uninstall(zevpn, &zvtep->vtep_ip);

@@ -54,6 +54,8 @@ struct zebra_vtep {
 	 * This field is used to do GR stale entry cleanup
 	 */
 	uint64_t gr_refresh_time;
+	/* Last RT-3 refresh; retained kernel HREP entries leave this unset. */
+	struct timeval gr_imet_refresh_time;
 };
 
 /* for parsing evpn and vni contexts */
@@ -111,7 +113,14 @@ static inline struct interface *zevpn_map_to_svi(struct zebra_evpn *zevpn, bool 
 struct l2vni_walk_ctx {
 	bool gr_stale_cleanup;
 	uint64_t gr_cleanup_time;
+	struct timeval gr_imet_cleanup_time;
 };
+
+static inline bool zebra_evpn_vtep_gr_imet_refreshed_after(const struct timeval *refresh_time,
+							   const struct timeval *cleanup_time)
+{
+	return timercmp(refresh_time, cleanup_time, >);
+}
 
 int advertise_gw_macip_enabled(struct zebra_evpn *zevpn);
 int advertise_svi_macip_enabled(struct zebra_evpn *zevpn);
