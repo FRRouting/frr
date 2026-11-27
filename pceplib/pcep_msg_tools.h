@@ -25,6 +25,18 @@ extern "C" {
 
 /* Returns a double linked list of PCEP messages */
 double_linked_list *pcep_msg_read(int sock_fd);
+/*
+ * Read from socket into the caller's reassembly buffer, which holds
+ * buffer_len bytes of an earlier partial message, and
+ * decode every complete message in it. The bytes of a trailing partial
+ * message are kept in the buffer for the next call. Every message that
+ * fails to decode is counted in invalid_msgs; an invalid message header
+ * discards the buffer, since the length of what follows is unknown.
+ * Returns NULL if the socket was closed or the read failed, otherwise
+ * the list of decoded messages.
+ */
+double_linked_list *pcep_msg_read_buffered(int sock_fd, uint8_t *buffer, uint32_t buffer_size,
+					   uint32_t *buffer_len, int *invalid_msgs);
 /* Given a double linked list of PCEP messages, return the first node that has
  * the same message type */
 struct pcep_message *pcep_msg_get(double_linked_list *msg_list, uint8_t type);

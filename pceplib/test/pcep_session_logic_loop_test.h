@@ -22,6 +22,7 @@ void pcep_session_logic_loop_test_teardown(void);
 void test_session_logic_loop_null_data(void);
 void test_session_logic_loop_inactive(void);
 void test_session_logic_msg_ready_handler(void);
+void test_session_logic_msg_ready_handler_partial(void);
 void test_session_logic_conn_except_notifier(void);
 void test_session_logic_timer_expire_handler(void);
 
