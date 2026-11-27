@@ -31,6 +31,8 @@
 #include "frrscript.h"
 #include "frrdistance.h"
 #include "lib/termtable.h"
+#include "jhash.h"
+#include "typesafe.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/connected.h"
@@ -60,6 +62,77 @@ DEFINE_MTYPE(ZEBRA, RE,       "Route Entry");
 DEFINE_MTYPE_STATIC(ZEBRA, RIB_DEST,       "RIB destination");
 DEFINE_MTYPE_STATIC(ZEBRA, RIB_UPDATE_CTX, "Rib update context object");
 DEFINE_MTYPE_STATIC(ZEBRA, WQ_WRAPPER, "WQ wrapper");
+DEFINE_MTYPE_STATIC(ZEBRA, RIB_KERNEL_ROUTE, "RIB kernel route");
+
+/*
+ * The kernel routes (ZEBRA_ROUTE_KERNEL) in the RIB, in every table. Link
+ * down, link up and last IPv4 address deleted only act on kernel routes, so
+ * they go through this set instead of walking every route in the RIB. Kept
+ * up to date in rib_link() and rib_unlink(), which every route goes through
+ * when it enters and leaves the RIB.
+ */
+PREDECL_HASH(rib_kernel_routes);
+
+struct rib_kernel_route {
+	struct rib_kernel_routes_item item;
+	struct route_node *rn;
+	struct route_entry *re;
+};
+
+static int rib_kernel_route_cmp(const struct rib_kernel_route *a, const struct rib_kernel_route *b)
+{
+	return numcmp((uintptr_t)a->re, (uintptr_t)b->re);
+}
+
+static uint32_t rib_kernel_route_hash(const struct rib_kernel_route *kr)
+{
+	return jhash(&kr->re, sizeof(kr->re), 0x5a1e7c3b);
+}
+
+DECLARE_HASH(rib_kernel_routes, struct rib_kernel_route, item, rib_kernel_route_cmp,
+	     rib_kernel_route_hash);
+
+static struct rib_kernel_routes_head rib_kernel_routes;
+
+static void rib_kernel_route_add(struct route_node *rn, struct route_entry *re)
+{
+	struct rib_kernel_route *kr;
+
+	kr = XCALLOC(MTYPE_RIB_KERNEL_ROUTE, sizeof(*kr));
+	kr->rn = rn;
+	kr->re = re;
+	rib_kernel_routes_add(&rib_kernel_routes, kr);
+}
+
+static void rib_kernel_route_del(struct route_entry *re)
+{
+	struct rib_kernel_route ref = { .re = re };
+	struct rib_kernel_route *kr;
+
+	kr = rib_kernel_routes_find(&rib_kernel_routes, &ref);
+	if (!kr)
+		return;
+	rib_kernel_routes_del(&rib_kernel_routes, kr);
+	XFREE(MTYPE_RIB_KERNEL_ROUTE, kr);
+}
+
+void zebra_rib_kernel_routes_init(void)
+{
+	rib_kernel_routes_init(&rib_kernel_routes);
+}
+
+/*
+ * Free the kernel route set, at zebra shutdown. Called once every table is
+ * freed, so normally there is nothing left in it.
+ */
+void zebra_rib_kernel_routes_fini(void)
+{
+	struct rib_kernel_route *kr;
+
+	while ((kr = rib_kernel_routes_pop(&rib_kernel_routes)))
+		XFREE(MTYPE_RIB_KERNEL_ROUTE, kr);
+	rib_kernel_routes_fini(&rib_kernel_routes);
+}
 
 /*
  * Event, list, and mutex for delivery of dataplane results
@@ -4159,6 +4232,9 @@ static void rib_link(struct route_node *rn, struct route_entry *re)
 
 	re_list_add_head(&dest->routes, re);
 
+	if (re->type == ZEBRA_ROUTE_KERNEL)
+		rib_kernel_route_add(rn, re);
+
 	rib_queue_add(rn);
 }
 
@@ -4200,6 +4276,9 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 	dest = rib_dest_from_rnode(rn);
 
 	re_list_del(&dest->routes, re);
+
+	if (re->type == ZEBRA_ROUTE_KERNEL)
+		rib_kernel_route_del(re);
 
 	if (dest->selected_fib == re)
 		dest->selected_fib = NULL;
@@ -4762,9 +4841,8 @@ static const char *rib_update_event2str(enum rib_update_event event)
 /*
  * We now keep kernel routes, but we don't have any
  * trigger events for them when they are implicitly
- * deleted. Since we are already walking the
- * entire table on a down event let's look at
- * the few kernel routes we may have
+ * deleted. On a down event, look at each kernel route
+ * (see rib_update_kernel_routes()).
  */
 static void
 rib_update_handle_kernel_route_down_possibility(struct route_node *rn,
@@ -4883,29 +4961,63 @@ void rib_update_table(struct route_table *table, enum rib_update_event event,
 		/*
 		 * If we are looking at a route node and the node
 		 * has already been queued  we don't
-		 * need to queue it up again, unless it is
-		 * an interface down event or last address down event
-		 * as that we need
-		 * to process these no matter what.
+		 * need to queue it up again.
 		 */
-		if (rn->info && CHECK_FLAG(rib_dest_from_rnode(rn)->flags, RIB_ROUTE_ANY_QUEUED) &&
-		    event != RIB_UPDATE_INTERFACE_DOWN &&
-		    event != RIB_UPDATE_KERNEL_LAST_IPV4_ADDRESS_DELETED)
+		if (rn->info && CHECK_FLAG(rib_dest_from_rnode(rn)->flags, RIB_ROUTE_ANY_QUEUED))
 			continue;
 
 		switch (event) {
-		case RIB_UPDATE_INTERFACE_DOWN:
-		case RIB_UPDATE_KERNEL_LAST_IPV4_ADDRESS_DELETED:
-		case RIB_UPDATE_KERNEL:
-			rib_update_route_node(rn, ZEBRA_ROUTE_KERNEL, event);
-			break;
 		case RIB_UPDATE_RMAP_CHANGE:
 		case RIB_UPDATE_OTHER:
 			rib_update_route_node(rn, rtype, event);
 			break;
+		case RIB_UPDATE_INTERFACE_DOWN:
+		case RIB_UPDATE_KERNEL_LAST_IPV4_ADDRESS_DELETED:
+		case RIB_UPDATE_KERNEL:
+			/* Handled by rib_update_kernel_routes() */
 		case RIB_UPDATE_MAX:
 			break;
 		}
+	}
+}
+
+/*
+ * Apply a link or address event to every kernel route in the RIB. On link
+ * down or last IPv4 address deleted, delete the kernel routes left with no
+ * nexthop alive. On link up, queue their route nodes to be processed again.
+ */
+static void rib_update_kernel_routes(enum rib_update_event event)
+{
+	struct rib_kernel_route *kr;
+	struct route_entry *re;
+
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("%s: Handling event %s for %zu kernel routes", __func__,
+			   rib_update_event2str(event),
+			   rib_kernel_routes_count(&rib_kernel_routes));
+
+	/* Deleting a route only queues the delete: the set doesn't change here */
+	frr_each_safe (rib_kernel_routes, &rib_kernel_routes, kr) {
+		/*
+		 * A route node can hold several kernel routes, each with its own
+		 * entry in the set. rib_update_route_node() handles all the
+		 * kernel routes of a node at once, so call it only for the
+		 * node's first kernel route and skip the others.
+		 */
+		RNODE_FOREACH_RE (kr->rn, re)
+			if (re->type == ZEBRA_ROUTE_KERNEL)
+				break;
+		if (re != kr->re)
+			continue;
+		/*
+		 * Link up only queues route nodes, so a node that is already
+		 * queued is left as is. Down events check the routes right
+		 * away, queued or not.
+		 */
+		if (event == RIB_UPDATE_KERNEL &&
+		    CHECK_FLAG(rib_dest_from_rnode(kr->rn)->flags, RIB_ROUTE_ANY_QUEUED))
+			continue;
+		rib_update_route_node(kr->rn, ZEBRA_ROUTE_KERNEL, event);
 	}
 }
 
@@ -4916,6 +5028,23 @@ void rib_update_handle_vrf_all(enum rib_update_event event, int rtype)
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("%s: Handling VRF (ALL) event %s", __func__,
 			   rib_update_event2str(event));
+
+	/*
+	 * Link down, link up and last IPv4 address deleted only act on kernel
+	 * routes, so go through the global set of kernel routes, instead of
+	 * doing a full RIB walk over all the route tables.
+	 */
+	switch (event) {
+	case RIB_UPDATE_INTERFACE_DOWN:
+	case RIB_UPDATE_KERNEL:
+	case RIB_UPDATE_KERNEL_LAST_IPV4_ADDRESS_DELETED:
+		rib_update_kernel_routes(event);
+		return;
+	case RIB_UPDATE_RMAP_CHANGE:
+	case RIB_UPDATE_OTHER:
+	case RIB_UPDATE_MAX:
+		break;
+	}
 
 	/* Just iterate over all the route tables, rather than vrf lookups */
 	RB_FOREACH (zrt, zebra_router_table_head, &zrouter.tables)
