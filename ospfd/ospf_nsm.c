@@ -1127,6 +1127,43 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 	/* Preserve old status? */
 }
 
+/* RFC 2328 Sections 10.7 and 10.8 require the SeqNumberMismatch and
+ * BadLSReq events to restart the database exchange (neighbor state back
+ * to ExStart).  The transition itself cannot be skipped, but an on-link
+ * attacker can retrigger it once per packet, and every restart clears and
+ * rebuilds the database summary list from the whole LSDB and re-originates
+ * the router/network LSAs.  Damp the loop: once such a reset has regressed
+ * the adjacency to ExStart, further reset events are dropped for a
+ * hold-down window.  The first reset after a stable adjacency is always
+ * processed, so normal error recovery is unchanged; only repeats within
+ * the window are suppressed.  A persistently faulty peer still gets a
+ * fresh restart every window instead of one per packet.
+ */
+#define OSPF_NSM_RESET_HOLDDOWN_USEC (10LL * 1000000LL)
+
+bool ospf_nsm_reset_suppressed(struct ospf_neighbor *nbr)
+{
+	int64_t since;
+
+	/* Only states above ExStart regress on these events; elsewhere the
+	 * events are no-ops and need no damping.
+	 */
+	if (nbr->state <= NSM_ExStart || !timerisset(&nbr->ts_last_exstart_reset))
+		return false;
+
+	since = monotime_since(&nbr->ts_last_exstart_reset, NULL);
+	if (since < 0 || since >= OSPF_NSM_RESET_HOLDDOWN_USEC)
+		return false;
+
+	if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
+		zlog_debug("NSM[%s:%pI4:%s]: exchange restart suppressed, last reset %" PRId64
+			   "ms ago (hold-down %llds)",
+			   IF_NAME(nbr->oi), &nbr->router_id, ospf_get_name(nbr->oi->ospf),
+			   since / 1000, (long long)(OSPF_NSM_RESET_HOLDDOWN_USEC / 1000000LL));
+
+	return true;
+}
+
 /* Execute NSM event process. */
 void ospf_nsm_event(struct event *e)
 {
@@ -1143,6 +1180,12 @@ void ospf_nsm_event(struct event *e)
 			   ospf_get_name(nbr->oi->ospf),
 			   lookup_msg(ospf_nsm_state_msg, nbr->state, NULL),
 			   ospf_nsm_event_str[event]);
+
+	if ((event == NSM_SeqNumberMismatch || event == NSM_BadLSReq) &&
+	    ospf_nsm_reset_suppressed(nbr)) {
+		nsm_timer_set(nbr);
+		return;
+	}
 
 	next_state = NSM[nbr->state][event].next_state;
 
@@ -1179,6 +1222,13 @@ void ospf_nsm_event(struct event *e)
 	/* If state is changed. */
 	if (next_state != nbr->state) {
 		int old_state = nbr->state;
+
+		/* Arm the reset hold-down when a protocol-error event restarts
+		 * the database exchange of a formed or forming adjacency.
+		 */
+		if ((event == NSM_SeqNumberMismatch || event == NSM_BadLSReq) &&
+		    next_state == NSM_ExStart && old_state > NSM_ExStart)
+			monotime(&nbr->ts_last_exstart_reset);
 
 		nsm_notice_state_change(nbr, next_state, event);
 		nsm_change_state(nbr, next_state);
