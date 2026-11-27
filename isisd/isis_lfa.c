@@ -943,9 +943,10 @@ static bool vertex_is_affected(struct isis_spftree *spftree_root,
 			struct isis_spf_node *adj_node;
 
 			adj_node = isis_spf_node_find(adj_nodes, pvertex->N.id);
-			assert(adj_node);
+			if (!adj_node || !adj_node->lfa.spftree)
+				goto parents;
+
 			spftree_parent = adj_node->lfa.spftree;
-			assert(spftree_parent);
 			reverse = true;
 		}
 
