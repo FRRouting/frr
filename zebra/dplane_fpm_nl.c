@@ -640,8 +640,7 @@ static void fpm_read(struct event *t)
 		fpm.msg_type = stream_getc(fnc->ibuf);
 		fpm.msg_len = stream_getw(fnc->ibuf);
 
-		if (fpm.version != FPM_PROTO_VERSION &&
-		    fpm.msg_type != FPM_MSG_TYPE_NETLINK) {
+		if (fpm.version != FPM_PROTO_VERSION || fpm.msg_type != FPM_MSG_TYPE_NETLINK) {
 			stream_reset(fnc->ibuf);
 			zlog_warn(
 				"%s: Received version/msg_type %u/%u, expected 1/1",
@@ -684,18 +683,31 @@ static void fpm_read(struct event *t)
 		hdr_available_bytes = fpm.msg_len - FPM_MSG_HDR_LEN;
 		available_bytes -= hdr_available_bytes;
 
+		/*
+		 * The frame has to be long enough to hold the netlink header
+		 * we are about to dereference. The FPM length is still
+		 * trustworthy here, so the stream stays in sync and this one
+		 * frame can be skipped rather than resetting the session (unlike
+		 * the inner-length check below, where the framing cannot be
+		 * trusted and a reconnect is the only safe boundary).
+		 */
+		if (hdr_available_bytes < sizeof(struct nlmsghdr)) {
+			zlog_warn("%s: Received fpm message of %zu bytes that cannot hold a netlink header",
+				  __func__, hdr_available_bytes);
+			continue;
+		}
+
 		if (hdr->nlmsg_len > fpm.msg_len) {
 			zlog_warn(
 				"%s: Received a inner header length of %u that is greater than the fpm total length of %u",
 				__func__, hdr->nlmsg_len, fpm.msg_len);
 			FPM_RECONNECT(fnc);
+			goto send_batch;
 		}
 		/* Not enough bytes available. */
 		if (hdr->nlmsg_len > hdr_available_bytes) {
-			zlog_warn(
-				"%s: [seq=%u] invalid message length %u (> %zu)",
-				__func__, hdr->nlmsg_seq, hdr->nlmsg_len,
-				available_bytes);
+			zlog_warn("%s: [seq=%u] invalid message length %u (> %zu)", __func__,
+				  hdr->nlmsg_seq, hdr->nlmsg_len, hdr_available_bytes);
 			continue;
 		}
 
