@@ -1742,7 +1742,9 @@ static bool rib_compare_routes(const struct route_entry *re1, const struct route
 	    re1->metric != re2->metric)
 		return false;
 
-	if (re1->type == ZEBRA_ROUTE_KERNEL && !replace)
+	if (re1->type == ZEBRA_ROUTE_KERNEL && !replace &&
+	    (re1->distance != re2->distance || re1->mtu != re2->mtu || re1->tag != re2->tag ||
+	     !nexthop_group_equal_no_recurse(&re1->nhe->nhg, &re2->nhe->nhg)))
 		return false;
 
 	if (CHECK_FLAG(re1->flags, ZEBRA_FLAG_RR_USE_DISTANCE) &&
