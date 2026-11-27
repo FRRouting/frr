@@ -4019,6 +4019,19 @@ of the global VPNv4/VPNv6 family. This command defaults to on and is not
 displayed.
 The `no bgp retain route-target all` form of the command is displayed.
 
+.. clicmd:: bgp route-refresh resync [combine-threshold (0-100)]
+
+Answer a plain ROUTE-REFRESH from a VPNv4/VPNv6 peer with a per-peer
+resync of its subgroup's adj-out, instead of splitting it into its own
+subgroup. ``combine-threshold`` merges concurrent resyncs into one
+shared walk once that percentage of the subgroup is resyncing. Default
+100 (all peers); 0 never combines. Disabled by default.
+
+A single ROUTE-REFRESH can already reach the threshold on its own in a
+small subgroup: with a 2-peer subgroup and ``combine-threshold 50``,
+every refresh immediately forces a shared walk of the whole subgroup
+instead of a per-peer resync.
+
 .. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> soo EXTCOMMUNITY
 
 Without this command, SoO extended community attribute is configured using
