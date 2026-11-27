@@ -85,6 +85,8 @@ static void pim_instance_terminate(struct pim_instance *pim)
 
 	pim_bsm_proc_free(pim);
 
+	tib_sg_proxy_rpf_fini(pim);
+
 	pim_nht_terminate(pim);
 
 	pim_if_terminate(pim);
@@ -130,6 +132,7 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 
 	pim_ssm_init(pim);
 	pim_dm_init(pim);
+	tib_sg_proxy_rpf_init(pim);
 
 	pim->keep_alive_time = PIM_KEEPALIVE_PERIOD;
 	pim->rp_keep_alive_time = PIM_RP_KEEPALIVE_PERIOD;
