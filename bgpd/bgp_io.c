@@ -147,16 +147,25 @@ static void bgp_process_writes(struct event *event)
 			 connection->obuf->count <= bm->outq_limit / 2;
 		if (resume)
 			UNSET_FLAG(connection->thread_flags, PEER_THREAD_WRITES_PAUSED);
-	}
 
-	/* no problem */
-	if (CHECK_FLAG(status, BGP_IO_TRANS_ERR)) {
-	}
+		/* problem */
+		if (CHECK_FLAG(status, BGP_IO_FATAL_ERR)) {
+			reschedule = false;
+			fatal = true;
+		}
 
-	/* problem */
-	if (CHECK_FLAG(status, BGP_IO_FATAL_ERR)) {
-		reschedule = false;
-		fatal = true;
+		/*
+		 * Whoever queues a packet does so under io_mtx and calls
+		 * bgp_writes_on() afterwards, which does nothing while the
+		 * write event is scheduled. The event must therefore be
+		 * cancelled before the mutex is released: cancelling it later
+		 * could take it away from packets that were queued, and whose
+		 * bgp_writes_on() was called, since the check above. They would
+		 * then stay in the queue until something else is sent to this
+		 * peer.
+		 */
+		if (!reschedule)
+			event_cancel(&connection->t_write);
 	}
 
 	if (resume && !fatal)
@@ -168,13 +177,9 @@ static void bgp_process_writes(struct event *event)
 	 * to update group packet generate which will allow more routes to be
 	 * sent in the update message
 	 */
-	if (!reschedule) {
-		event_cancel(&connection->t_write);
-
-		if (!fatal)
-			BGP_UPDATE_GROUP_TIMER_ON(&connection->t_generate_updgrp_packets,
-						  bgp_generate_updgrp_packets);
-	}
+	if (!reschedule && !fatal)
+		BGP_UPDATE_GROUP_TIMER_ON(&connection->t_generate_updgrp_packets,
+					  bgp_generate_updgrp_packets);
 }
 
 static int read_ibuf_work(struct peer_connection *connection)
