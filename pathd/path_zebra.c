@@ -6,6 +6,7 @@
 #include <zebra.h>
 
 #include "frrevent.h"
+#include "frrdistance.h"
 #include "log.h"
 #include "lib_errors.h"
 #include "if.h"
@@ -107,6 +108,9 @@ static void path_zebra_connected(struct zclient *zclient)
 			continue;
 
 		path_zebra_add_sr_policy(policy, segment_list);
+
+		/* No UP change follows a zebra restart, so reinstall here */
+		path_zebra_update_steering_route(policy);
 	}
 }
 
@@ -217,7 +221,131 @@ void path_zebra_delete_sr_policy(struct srte_policy *policy)
 	zp.segment_list.label_num = 0;
 	policy->status = SRTE_POLICY_STATUS_DOWN;
 
+	/* Withdraw before zebra deletes the policy, or the route leaks */
+	path_zebra_update_steering_route(policy);
+
 	(void)zebra_send_sr_policy(pathd_zclient, ZEBRA_SR_POLICY_DELETE, &zp);
+}
+
+/*
+ * Builds and sends the steering route for a policy's endpoint.  The
+ * route carries one colored nexthop for every UP PCEP-originated policy,
+ * or one zebra is replacing, and F_POLICY_STEERING_ROUTE marks exactly
+ * those policies.  When no such policy remains, the route is deleted.
+ *
+ * @param policy The policy whose endpoint identifies the route
+ * @return The number of policies represented in the route
+ */
+static int path_zebra_send_steering_route(struct srte_policy *policy)
+{
+	struct zapi_route api;
+	struct zapi_nexthop *api_nh;
+	struct srte_policy *iter;
+	bool full = false;
+	int num = 0;
+
+	zapi_route_init(&api);
+	api.vrf_id = VRF_DEFAULT;
+	api.type = ZEBRA_ROUTE_SRTE;
+	api.safi = SAFI_UNICAST;
+
+	if (IS_IPADDR_V6(&policy->endpoint)) {
+		api.prefix.family = AF_INET6;
+		api.prefix.prefixlen = IPV6_MAX_BITLEN;
+		api.prefix.u.prefix6 = policy->endpoint.ipaddr_v6;
+	} else {
+		api.prefix.family = AF_INET;
+		api.prefix.prefixlen = IPV4_MAX_BITLEN;
+		api.prefix.u.prefix4 = policy->endpoint.ipaddr_v4;
+	}
+
+	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
+	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+	SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
+	SET_FLAG(api.message, ZAPI_MESSAGE_SRTE);
+	api.distance = ZEBRA_SRTE_DISTANCE_DEFAULT;
+
+	RB_FOREACH (iter, srte_policy_head, &srte_policies) {
+		if (iter->protocol_origin != SRTE_ORIGIN_PCEP ||
+		    !ipaddr_is_same(&iter->endpoint, &policy->endpoint))
+			continue;
+
+		/* A policy zebra is replacing keeps steering until zebra reports */
+		bool steer = iter->status == SRTE_POLICY_STATUS_UP ||
+			     (iter->status == SRTE_POLICY_STATUS_GOING_UP &&
+			      CHECK_FLAG(iter->flags, F_POLICY_STEERING_ROUTE));
+
+		/* if full, allow colors already in route to still steer traffic */
+		if (steer && num == MULTIPATH_NUM) {
+			if (!full)
+				zlog_warn("%s: steering route for %pIA already carries %d colored nexthops; policy color %u (and higher) not represented",
+					  __func__, &policy->endpoint, MULTIPATH_NUM, iter->color);
+			full = true;
+			steer = false;
+		}
+		if (!steer) {
+			UNSET_FLAG(iter->flags, F_POLICY_STEERING_ROUTE);
+			continue;
+		}
+
+		api_nh = &api.nexthops[num];
+		zapi_nexthop_init(api_nh);
+		api_nh->vrf_id = VRF_DEFAULT;
+		api_nh->srte_color = iter->color;
+		if (IS_IPADDR_V6(&iter->endpoint)) {
+			api_nh->type = NEXTHOP_TYPE_IPV6;
+			api_nh->gate.ipv6 = iter->endpoint.ipaddr_v6;
+		} else {
+			api_nh->type = NEXTHOP_TYPE_IPV4;
+			api_nh->gate.ipv4 = iter->endpoint.ipaddr_v4;
+		}
+		SET_FLAG(iter->flags, F_POLICY_STEERING_ROUTE);
+		num++;
+	}
+	api.nexthop_num = num;
+
+	if (zclient_route_send(num > 0 ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE, pathd_zclient,
+			       &api) == ZCLIENT_SEND_FAILURE)
+		zlog_warn("%s: failed to send the steering route for %pIA", __func__,
+			  &policy->endpoint);
+
+	return num;
+}
+
+/*
+ * Synchronizes the steering route with the policy's operational status.
+ * Install the per-destination steering route when a PCEP-originated policy
+ * comes up, and withdraw it when the policy goes down or is deleted.
+ *
+ * @param policy The policy whose steering route should be updated
+ */
+void path_zebra_update_steering_route(struct srte_policy *policy)
+{
+	/* Local and BGP policies keep their own steering (statics, BGP color) */
+	if (policy->protocol_origin != SRTE_ORIGIN_PCEP)
+		return;
+
+	if (policy->status != SRTE_POLICY_STATUS_UP &&
+	    !CHECK_FLAG(policy->flags, F_POLICY_STEERING_ROUTE))
+		return;
+
+	/* Resend even if already sent: a restarted zebra may have lost it */
+	path_zebra_send_steering_route(policy);
+}
+
+/*
+ * Takes a policy out of its endpoint's steering route while it stays
+ * GOING_UP, for example when zebra failed to replace it.
+ *
+ * @param policy The policy to take out of the steering route
+ */
+void path_zebra_withdraw_steering_route(struct srte_policy *policy)
+{
+	if (!CHECK_FLAG(policy->flags, F_POLICY_STEERING_ROUTE))
+		return;
+
+	UNSET_FLAG(policy->flags, F_POLICY_STEERING_ROUTE);
+	path_zebra_send_steering_route(policy);
 }
 
 /**
