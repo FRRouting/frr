@@ -63,7 +63,7 @@ struct source *find_source(const unsigned char *id, const unsigned char *p, unsi
 
 struct source *retain_source(struct source *src)
 {
-	assert(src->route_count < 0xffff);
+	assert(src->route_count < 0xffffffffU);
 	src->route_count++;
 	return src;
 }
