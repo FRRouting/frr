@@ -556,6 +556,17 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 			    && IPV4_ADDR_SAME(&rinfo->nh.gate.ipv4, nexthop))
 				break;
 
+			/* Without ECMP, a route from the same neighbor on
+			 * the same interface is the same path even if the
+			 * next hop has changed; treat it as an update of the
+			 * existing entry instead of dropping it, so its
+			 * timeout gets refreshed and the next hop updated.
+			 */
+			if (rip->ecmp <= 1
+			    && IPV4_ADDR_SAME(&rinfo->from, &from->sin_addr)
+			    && rinfo->nh.ifindex == ifp->ifindex)
+				break;
+
 			if (rip_info_list_next(list, rinfo))
 				continue;
 
@@ -660,11 +671,14 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 		   than the old one; or, if the new metric is lower than the old
 		   one, or if the tag has been changed; or if there is a route
 		   with a lower administrave distance; or an update of the
-		   distance on the actual route; do the following actions: */
+		   distance on the actual route; or the next hop of a route
+		   from the same router has changed; do the following
+		   actions: */
 		if ((same && rinfo->metric != rte->metric)
 		    || (rte->metric < rinfo->metric)
 		    || ((same) && (rinfo->metric == rte->metric)
 			&& (newinfo.tag != rinfo->tag))
+		    || (same && !IPV4_ADDR_SAME(&rinfo->nh.gate.ipv4, nexthop))
 		    || (old_dist > new_dist)
 		    || ((old_dist != new_dist) && same)) {
 			if (rip_info_list_count(list) == 1) {
