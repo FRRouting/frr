@@ -289,6 +289,15 @@ struct eigrp_interface *eigrp_if_new(struct eigrp *eigrp, struct interface *ifp,
 
 	ei = XCALLOC(MTYPE_EIGRP_IF, sizeof(struct eigrp_interface));
 
+	/*
+	 * The output queue exists for as long as the instance does.  It used
+	 * to be allocated only when the instance was first brought up, but a
+	 * network statement covering a down interface creates the instance
+	 * without bringing it up, and every teardown path and every goodbye
+	 * hello then dereferenced a NULL queue.
+	 */
+	ei->obuf = eigrp_fifo_new();
+
 	/* Set zebra interface pointer. */
 	ei->ifp = ifp;
 	eigrp_if_refresh_address(ei);
@@ -331,7 +340,18 @@ static void eigrp_if_delete_one(struct eigrp_interface *ei)
 {
 	struct eigrp *eigrp = ei->eigrp;
 
+	/*
+	 * Every path that frees an instance ends here.  eigrp_if_down()
+	 * cancels the hello timer and deletes any neighbours still
+	 * attached.  That deletion can queue a packet after eigrp_if_down()
+	 * has removed the instance from the write queue, and eigrp_if_down()
+	 * does not cancel the per-instance distribute-list timer.  Detach
+	 * both before the instance is freed.
+	 */
 	eigrp_if_down(ei);
+	event_cancel(&ei->t_distribute);
+	eigrp_if_stream_unset(ei);
+
 	eigrp_nbr_hash_fini(&ei->nbr_hash_head);
 	eigrp_interface_hash_del(&eigrp->eifs, ei);
 
