@@ -1796,6 +1796,32 @@ static int add_cache(struct cache *cache)
 	return SUCCESS;
 }
 
+static int rpki_bind_socket(int socket, const char *bindaddr, int family)
+{
+	struct addrinfo hints = {};
+	struct addrinfo *res = NULL;
+	int ret;
+
+	hints.ai_family = family;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_NUMERICHOST;
+
+	ret = getaddrinfo(bindaddr, NULL, &hints, &res);
+	if (ret != 0) {
+		flog_err(EC_LIB_SOCKET, "%s: getaddrinfo %s: %s", __func__,
+			 bindaddr, gai_strerror(ret));
+		return -1;
+	}
+
+	ret = bind(socket, res->ai_addr, res->ai_addrlen);
+	if (ret < 0)
+		flog_err_sys(EC_LIB_SOCKET, "%s: cannot bind to %s: %s",
+			     __func__, bindaddr, safe_strerror(errno));
+
+	freeaddrinfo(res);
+	return ret;
+}
+
 static int rpki_create_socket(void *_cache)
 {
 	struct timeval prev_snd_tmout, prev_rcv_tmout, timeout;
@@ -1805,7 +1831,7 @@ static int rpki_create_socket(void *_cache)
 	struct addrinfo *res = NULL;
 	struct addrinfo hints = {};
 	socklen_t optlen;
-	char *host, *port;
+	char *host, *port, *bindaddr;
 	struct vrf *vrf;
 	int cancel_state = 0;
 	int socket;
@@ -1867,6 +1893,7 @@ static int rpki_create_socket(void *_cache)
 		tcp_config = cache->tr_config.tcp_config;
 		host = tcp_config->host;
 		port = tcp_config->port;
+		bindaddr = tcp_config->bindaddr;
 	}
 #if defined(FOUND_SSH)
 	else if (cache->type == SSH) {
@@ -1874,6 +1901,7 @@ static int rpki_create_socket(void *_cache)
 		host = ssh_config->host;
 		snprintf(s_port, sizeof(s_port), "%u", ssh_config->port);
 		port = s_port;
+		bindaddr = ssh_config->bindaddr;
 
 		hints.ai_flags |= AI_NUMERICHOST;
 		hints.ai_protocol = IPPROTO_TCP;
@@ -1899,6 +1927,16 @@ static int rpki_create_socket(void *_cache)
 	}
 	if (socket < 0) {
 		freeaddrinfo(res);
+		return -1;
+	}
+
+	/*
+	 * rtrlib binds its own sockets to the configured source address, but
+	 * not the ones returned by this callback: bind it here.
+	 */
+	if (bindaddr && rpki_bind_socket(socket, bindaddr, res->ai_family) < 0) {
+		freeaddrinfo(res);
+		close(socket);
 		return -1;
 	}
 

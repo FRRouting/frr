@@ -355,6 +355,87 @@ exit
     ), "Failed to see RPKI prefixes on {} after no rpki restore".format(rname)
 
 
+def test_rpki_cache_source_address():
+    tgen = get_topogen()
+
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    for rname in ["r1", "r3"]:
+        logger.info("{}: checking if rtrd is running".format(rname))
+        if rtrd_process[rname].poll() is not None:
+            pytest.skip(tgen.errors)
+
+    rname = "r2"
+
+    def _rpki_cache_peers():
+        # peer addresses of the RTR sessions established on r1's rtrd
+        output = tgen.gears["r1"].cmd("ss -Htn state established '( sport = :15432 )'")
+        return sorted(
+            line.split()[-1].rsplit(":", 1)[0]
+            for line in output.splitlines()
+            if line.strip()
+        )
+
+    def _show_rpki_connected():
+        output = tgen.gears[rname].vtysh_cmd(
+            "show rpki cache-connection json", isjson=True
+        )
+        return "connectedGroup" in output and "connections" in output
+
+    step("Check the RPKI session comes from the outgoing interface address")
+    _, result = topotest.run_and_expect(
+        _rpki_cache_peers, ["192.168.1.2"], count=60, wait=0.5
+    )
+    assert result == ["192.168.1.2"], "Unexpected RPKI session peers on r1: {}".format(
+        result
+    )
+
+    step("Configure the RPKI cache server with source address 192.0.2.2")
+    tgen.gears[rname].vtysh_cmd(
+        """
+configure
+rpki
+ no rpki cache tcp 192.0.2.1 15432 preference 1
+ rpki cache tcp 192.0.2.1 15432 source 192.0.2.2 preference 1
+exit
+"""
+    )
+
+    step("Check the RPKI session comes from the source address")
+    _, result = topotest.run_and_expect(_show_rpki_connected, True, count=60, wait=0.5)
+    assert result, "RPKI cache connection did not establish with a source address"
+    _, result = topotest.run_and_expect(
+        _rpki_cache_peers, ["192.0.2.2"], count=60, wait=0.5
+    )
+    assert result == ["192.0.2.2"], "Unexpected RPKI session peers on r1: {}".format(
+        result
+    )
+
+    step("Restore the RPKI cache server without source address")
+    tgen.gears[rname].vtysh_cmd(
+        """
+configure
+rpki
+ no rpki cache tcp 192.0.2.1 15432 source 192.0.2.2 preference 1
+ rpki cache tcp 192.0.2.1 15432 preference 1
+exit
+"""
+    )
+
+    _, result = topotest.run_and_expect(
+        _rpki_cache_peers, ["192.168.1.2"], count=60, wait=0.5
+    )
+    assert result == ["192.168.1.2"], "Unexpected RPKI session peers on r1: {}".format(
+        result
+    )
+    expected = open(os.path.join(CWD, "{}/rpki_prefix_table.json".format(rname))).read()
+    expected_json = json.loads(expected)
+    test_func = functools.partial(show_rpki_prefixes, rname, expected_json)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Failed to see RPKI prefixes on {}".format(rname)
+
+
 def test_show_bgp_rpki_route_map():
     tgen = get_topogen()
 
