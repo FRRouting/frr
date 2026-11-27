@@ -6,6 +6,7 @@
  */
 
 #include <zebra.h>
+#include <iana_afi.h>
 
 #include "ldpd.h"
 #include "ldpe.h"
@@ -185,7 +186,7 @@ recv_address(struct nbr *nbr, char *buf, uint16_t len)
 	enum imsg_type		type;
 	struct address_list_tlv	alt;
 	uint16_t		alt_len;
-	uint16_t		alt_family;
+	iana_afi_t alt_family;
 	struct lde_addr		lde_addr;
 
 	memcpy(&msg, buf, sizeof(msg));
@@ -220,17 +221,19 @@ recv_address(struct nbr *nbr, char *buf, uint16_t len)
 		return (-1);
 	}
 	switch (alt_family) {
-	case AF_IPV4:
+	case IANA_AFI_IPV4:
 		if (!nbr->v4_enabled)
 			/* just ignore the message */
 			return (0);
 		break;
-	case AF_IPV6:
+	case IANA_AFI_IPV6:
 		if (!nbr->v6_enabled)
 			/* just ignore the message */
 			return (0);
 		break;
-	default:
+	case IANA_AFI_RESERVED:
+	case IANA_AFI_L2VPN:
+	case IANA_AFI_BGP_LS:
 		send_notification(nbr->tcp, S_UNSUP_ADDR, msg.id, msg.type);
 		return (-1);
 	}
@@ -241,7 +244,7 @@ recv_address(struct nbr *nbr, char *buf, uint16_t len)
 	/* Process all received addresses */
 	while (alt_len > 0) {
 		switch (alt_family) {
-		case AF_IPV4:
+		case IANA_AFI_IPV4:
 			if (alt_len < sizeof(struct in_addr)) {
 				session_shutdown(nbr, S_BAD_TLV_LEN, msg.id,
 				    msg.type);
@@ -256,7 +259,7 @@ recv_address(struct nbr *nbr, char *buf, uint16_t len)
 			len -= sizeof(struct in_addr);
 			alt_len -= sizeof(struct in_addr);
 			break;
-		case AF_IPV6:
+		case IANA_AFI_IPV6:
 			if (alt_len < sizeof(struct in6_addr)) {
 				session_shutdown(nbr, S_BAD_TLV_LEN, msg.id,
 				    msg.type);
@@ -271,7 +274,9 @@ recv_address(struct nbr *nbr, char *buf, uint16_t len)
 			len -= sizeof(struct in6_addr);
 			alt_len -= sizeof(struct in6_addr);
 			break;
-		default:
+		case IANA_AFI_RESERVED:
+		case IANA_AFI_L2VPN:
+		case IANA_AFI_BGP_LS:
 			fatalx("recv_address: unknown af");
 		}
 
@@ -331,11 +336,11 @@ gen_address_list_tlv(struct ibuf *buf, int af, struct if_addr_head *addr_list,
 
 	switch (af) {
 	case AF_INET:
-		alt.family = htons(AF_IPV4);
+		alt.family = htons(IANA_AFI_IPV4);
 		addr_size = sizeof(struct in_addr);
 		break;
 	case AF_INET6:
-		alt.family = htons(AF_IPV6);
+		alt.family = htons(IANA_AFI_IPV6);
 		addr_size = sizeof(struct in6_addr);
 		break;
 	default:
