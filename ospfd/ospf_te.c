@@ -234,6 +234,19 @@ static struct mpls_te_link *lookup_linkparams_by_instance(struct ospf_lsa *lsa)
 	return NULL;
 }
 
+void ospf_mpls_te_area_detach(struct ospf_area *area)
+{
+	struct listnode *node;
+	struct mpls_te_link *lp;
+
+	if (!area || !OspfMplsTE.iflist)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(OspfMplsTE.iflist, node, lp))
+		if (lp->area == area)
+			lp->area = NULL;
+}
+
 static void ospf_mpls_te_foreach_area(
 	void (*func)(struct mpls_te_link *lp, enum lsa_opcode sched_opcode),
 	enum lsa_opcode sched_opcode)
