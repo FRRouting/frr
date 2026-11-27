@@ -338,6 +338,11 @@ static int zebra_vrf_delete(struct vrf *vrf)
 	list_delete_all_node(zvrf->rid6_lo_sorted_list);
 
 	otable_fini(&zvrf->other_tables);
+
+	/* Other VRFs' interface cleanup can still look up the EVPN VRF. */
+	if (zrouter.evpn_vrf == zvrf)
+		zrouter.evpn_vrf = NULL;
+
 	XFREE(MTYPE_ZEBRA_VRF, zvrf);
 
 	if (vrf->ns_ctxt) {
