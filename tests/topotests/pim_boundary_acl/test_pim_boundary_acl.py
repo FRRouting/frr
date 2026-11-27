@@ -208,6 +208,10 @@ def test_pim_asm_igmp_join_acl():
         """
         ).format(ASM_GROUP)
     )
+    # The boundary also filters the leave, so let r1 process it first.
+    test_func = partial(verify_no_igmp_source, r1, ASM_GROUP, "r1-eth0")
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Expected IGMP source to be removed after leave"
     r1.vtysh_cmd(
         """
           configure terminal
@@ -347,6 +351,10 @@ def test_pim_ssm_igmp_join_acl():
         """
         ).format(SSM_GROUP)
     )
+    # The boundary also filters the leave, so let r1 process it first.
+    test_func = partial(verify_no_igmp_source, r1, SSM_GROUP, "r1-eth0")
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assert result is None, "Expected IGMP source to be removed after leave"
     r1.vtysh_cmd(
         """
           configure terminal
