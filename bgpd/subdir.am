@@ -42,6 +42,8 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_evpn_mh.c \
 	bgpd/bgp_evpn_vty.c \
 	bgpd/bgp_filter.c \
+	bgpd/bgp_filter_cli.c \
+	bgpd/bgp_filter_nb.c \
 	bgpd/bgp_flowspec.c \
 	bgpd/bgp_flowspec_util.c \
 	bgpd/bgp_flowspec_vty.c \
@@ -72,6 +74,11 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_routemap.c \
 	bgpd/bgp_routemap_nb.c \
 	bgpd/bgp_routemap_nb_config.c \
+	bgpd/bgp_nb.c \
+	bgpd/bgp_nb_candidate.c \
+	bgpd/bgp_nb_config.c \
+	bgpd/bgp_rpki_nb.c \
+	bgpd/bgp_cli.c \
 	bgpd/bgp_script.c \
 	bgpd/bgp_table.c \
 	bgpd/bgp_updgrp.c \
@@ -104,6 +111,8 @@ bgpd_libbgp_a_SOURCES += \
 	bgpd/rfapi/vnc_export_table.c \
 	bgpd/rfapi/vnc_import_bgp.c \
 	bgpd/rfapi/vnc_zebra.c \
+	bgpd/bgp_vnc_nb.c \
+	bgpd/bgp_vnc_cli.c \
 	# end
 endif
 
@@ -123,6 +132,7 @@ noinst_HEADERS += \
 	bgpd/bgp_debug.h \
 	bgpd/bgp_dump.h \
 	bgpd/bgp_bmp.h \
+	bgpd/bgp_bmp_nb.h \
 	bgpd/bgp_ecommunity.h \
 	bgpd/bgp_encap_tlv.h \
 	bgpd/bgp_encap_types.h \
@@ -132,6 +142,8 @@ noinst_HEADERS += \
 	bgpd/bgp_evpn_private.h \
 	bgpd/bgp_evpn_vty.h \
 	bgpd/bgp_filter.h \
+	bgpd/bgp_filter_cli.h \
+	bgpd/bgp_filter_nb.h \
 	bgpd/bgp_flowspec.h \
 	bgpd/bgp_flowspec_private.h \
 	bgpd/bgp_flowspec_util.h \
@@ -160,8 +172,11 @@ noinst_HEADERS += \
 	bgpd/bgp_regex.h \
 	bgpd/bgp_rpki.h \
 	bgpd/bgp_rpki_compat.h \
+	bgpd/bgp_rpki_nb.h \
 	bgpd/bgp_route.h \
 	bgpd/bgp_routemap_nb.h \
+	bgpd/bgp_nb.h \
+	bgpd/bgp_nb_candidate.h \
 	bgpd/bgp_script.h \
 	bgpd/bgp_snmp.h \
 	bgpd/bgp_snmp_bgp4.h \
@@ -197,6 +212,7 @@ noinst_HEADERS += \
 	bgpd/rfapi/vnc_export_bgp_p.h \
 	bgpd/rfapi/vnc_import_bgp_p.h \
 	bgpd/bgp_vnc_types.h \
+	bgpd/bgp_vnc_nb.h \
 	bgpd/bgp_nhc.h \
 	# end
 
@@ -223,13 +239,16 @@ bgpd_bgpd_bmp_la_LDFLAGS = $(MODULE_LDFLAGS)
 
 clippy_scan += \
 	bgpd/bgp_bmp.c \
+	bgpd/bgp_cli.c \
 	bgpd/bgp_debug.c \
 	bgpd/bgp_evpn_vty.c \
+	bgpd/bgp_filter_cli.c \
 	bgpd/bgp_labelpool.c \
 	bgpd/bgp_route.c \
 	bgpd/bgp_routemap.c \
 	bgpd/bgp_rpki.c \
 	bgpd/bgp_unreach_vty.c \
+	bgpd/bgp_vnc_cli.c \
 	bgpd/bgp_vty.c \
         bgpd/bgp_nexthop.c \
 	bgpd/bgp_snmp.c \
@@ -245,7 +264,9 @@ nodist_bgpd_bgpd_SOURCES = \
 	yang/frr-bgp-neighbor.yang.c \
 	yang/frr-bgp-peer-group.yang.c \
 	yang/frr-bgp-bmp.yang.c \
+	yang/frr-bgp-evpn.yang.c \
 	yang/frr-bgp-rpki.yang.c \
+	yang/frr-bgp-vnc.yang.c \
 	yang/frr-deviations-bgp-datacenter.yang.c \
 	yang/frr-bgp-filter.yang.c \
 	yang/frr-bgp-route-map.yang.c \

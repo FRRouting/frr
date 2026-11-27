@@ -75,6 +75,16 @@ module frr-bgp {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
+  revision 2026-11-17 {
+    description
+      "Unnumbered neighbors carry the same AF filter and policy nodes as
+       numbered neighbors. A neighbor remote-as is not mandatory when the
+       neighbor is a peer-group member; the group's remote-as is inherited
+       and is not copied onto the member.";
+    reference
+      "FRRouting";
+  }
+
   revision 2026-07-21 {
     description
       "Sync BGP YANG with FRR CLI: daemon-wide config, EVPN, SRv6,
@@ -142,6 +152,13 @@ module frr-bgp {
              the 32-bit as-number type from the model in RFC 6991.";
         }
 
+        leaf local-as-pretty {
+          type string;
+          description
+            "Original textual representation of local-as as entered by the
+             operator (for example '0.65001' or '1.0').";
+        }
+
         uses frr-rt:router-id;
 
         container confederation {
@@ -155,11 +172,32 @@ module frr-bgp {
               "Confederation identifier for the autonomous system.";
           }
 
+          leaf identifier-pretty {
+            type string;
+            description
+              "Original textual representation of the confederation
+               identifier as entered by the operator.";
+          }
+
           leaf-list member-as {
             type inet:as-number;
             description
               "Remote autonomous systems that are to be treated
                as part of the local confederation.";
+          }
+
+          list member-as-pretty {
+            key "as";
+            description
+              "Original textual representation of each confederation
+               peer AS as entered by the operator.";
+            leaf as {
+              type inet:as-number;
+            }
+            leaf as-pretty {
+              type string;
+              mandatory true;
+            }
           }
         }
 
@@ -311,14 +349,6 @@ module frr-bgp {
                Maps to: neighbor <A.B.C.D|X:X::X:X> interface WORD.";
           }
 
-          leaf local-port {
-            type inet:port-number {
-              range "0..65535";
-            }
-            description
-              "Neighbor's BGP TCP port number.";
-          }
-
           leaf peer-group {
             type leafref {
               path "../../../peer-groups/peer-group/peer-group-name";
@@ -333,9 +363,10 @@ module frr-bgp {
 
             leaf remote-as-type {
               type frr-bt:as-type;
-              mandatory true;
               description
-                "Remote AS type.";
+                "Remote AS type. Absent when this neighbor is only a
+                 peer-group member: the group's remote AS is inherited
+                 and must not be stored on the member.";
             }
 
             leaf remote-as {
@@ -346,6 +377,14 @@ module frr-bgp {
                  the BGP OPEN message.";
               reference
                 "RFC 4271";
+            }
+
+            leaf remote-as-pretty {
+              when "../remote-as-type = 'as-specified'";
+              type string;
+              description
+                "Configured textual representation of the remote AS number
+                 (e.g. dot or dot+ notation as entered by the operator).";
             }
           }
 
@@ -772,7 +811,7 @@ module frr-bgp {
       description
         "A list of network routes.";
       leaf prefix {
-        type frr-route-types:ipv4-multicast-group-prefix;
+        type inet:ipv4-prefix;
         description
           "IPv4 multicast destination prefix.";
       }
@@ -792,7 +831,7 @@ module frr-bgp {
       description
         "A list of aggregated routes.";
       leaf prefix {
-        type frr-route-types:ipv4-multicast-group-prefix;
+        type inet:ipv4-prefix;
         description
           "IPv4 multicast destination prefix.";
       }
@@ -805,7 +844,7 @@ module frr-bgp {
       description
         "A list of routes with a particular admin distance.";
       leaf prefix {
-        type frr-route-types:ipv4-multicast-group-prefix;
+        type inet:ipv4-prefix;
         description
           "IPv4 multicast destination prefix.";
       }
@@ -829,7 +868,7 @@ module frr-bgp {
       description
         "A list of network routes.";
       leaf prefix {
-        type frr-route-types:ipv6-multicast-group-prefix;
+        type inet:ipv6-prefix;
         description
           "IPv6 multicast destination prefix.";
       }
@@ -849,7 +888,7 @@ module frr-bgp {
       description
         "A list of aggregated routes.";
       leaf prefix {
-        type frr-route-types:ipv6-multicast-group-prefix;
+        type inet:ipv6-prefix;
         description
           "IPv6 multicast destination prefix.";
       }
@@ -862,7 +901,7 @@ module frr-bgp {
       description
         "A list of routes with a particular admin distance.";
       leaf prefix {
-        type frr-route-types:ipv6-multicast-group-prefix;
+        type inet:ipv6-prefix;
         description
           "IPv6 multicast destination prefix.";
       }
@@ -1326,6 +1365,8 @@ module frr-bgp {
 
     uses structure-neighbor-group-soft-reconfiguration;
 
+    uses structure-neighbor-group-attr-unchanged;
+
     uses structure-neighbor-group-af-policy-options;
 
     uses structure-neighbor-group-filter-config;
@@ -1340,6 +1381,8 @@ module frr-bgp {
     uses structure-neighbor-route-server;
 
     uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-attr-unchanged;
 
     uses structure-neighbor-group-af-policy-options;
 
@@ -1602,6 +1645,11 @@ module frr-bgp {
     uses structure-neighbor-group-soft-reconfiguration;
 
     uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-af-policy-options;
+
+    uses structure-neighbor-group-filter-config;
+
     uses route-flap-dampening;
 
   }
@@ -1630,9 +1678,13 @@ module frr-bgp {
 
     uses structure-neighbor-group-soft-reconfiguration;
 
+    uses structure-neighbor-group-af-policy-options;
+
     uses structure-neighbor-group-encapsulation;
 
     uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-filter-config;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l3vpn-ipv6-unicast" {
@@ -1659,9 +1711,13 @@ module frr-bgp {
 
     uses structure-neighbor-group-soft-reconfiguration;
 
+    uses structure-neighbor-group-af-policy-options;
+
     uses structure-neighbor-group-encapsulation;
 
     uses structure-neighbor-weight;
+
+    uses structure-neighbor-group-filter-config;
   }
 
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/bgp/neighbors/unnumbered-neighbor/afi-safis/afi-safi/l2vpn-evpn" {
@@ -1699,6 +1755,8 @@ module frr-bgp {
 
     uses structure-neighbor-group-soft-reconfiguration;
 
+    uses structure-neighbor-group-attr-unchanged;
+
     uses structure-neighbor-group-af-policy-options;
 
     uses structure-neighbor-group-filter-config;
@@ -1713,6 +1771,8 @@ module frr-bgp {
     uses structure-neighbor-route-server;
 
     uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-attr-unchanged;
 
     uses structure-neighbor-group-af-policy-options;
 
@@ -2084,6 +2144,8 @@ module frr-bgp {
 
     uses structure-neighbor-group-soft-reconfiguration;
 
+    uses structure-neighbor-group-attr-unchanged;
+
     uses structure-neighbor-group-af-policy-options;
 
     uses structure-neighbor-group-filter-config;
@@ -2098,6 +2160,8 @@ module frr-bgp {
     uses structure-neighbor-route-server;
 
     uses structure-neighbor-group-soft-reconfiguration;
+
+    uses structure-neighbor-group-attr-unchanged;
 
     uses structure-neighbor-group-af-policy-options;
 

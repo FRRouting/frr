@@ -137,6 +137,23 @@ tests_bgpd_test_peer_attr_CFLAGS = $(TESTS_CFLAGS)
 tests_bgpd_test_peer_attr_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_bgpd_test_peer_attr_LDADD = $(BGP_TEST_LDADD)
 tests_bgpd_test_peer_attr_SOURCES = tests/bgpd/test_peer_attr.c
+nodist_tests_bgpd_test_peer_attr_SOURCES = \
+	yang/frr-bfdd.yang.c \
+	yang/frr-bgp-types.yang.c \
+	yang/frr-bgp.yang.c \
+	yang/frr-bgp-common-structure.yang.c \
+	yang/frr-bgp-common.yang.c \
+	yang/frr-bgp-common-multiprotocol.yang.c \
+	yang/frr-bgp-neighbor.yang.c \
+	yang/frr-bgp-peer-group.yang.c \
+	yang/frr-bgp-bmp.yang.c \
+	yang/frr-bgp-evpn.yang.c \
+	yang/frr-bgp-rpki.yang.c \
+	yang/frr-bgp-vnc.yang.c \
+	yang/frr-deviations-bgp-datacenter.yang.c \
+	yang/frr-bgp-filter.yang.c \
+	yang/frr-bgp-route-map.yang.c \
+	# end
 EXTRA_DIST += tests/bgpd/test_peer_attr.py
 
 
@@ -167,3 +184,29 @@ tests_bgpd_test_unencodable_withdraw_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_bgpd_test_unencodable_withdraw_LDADD = $(BGP_TEST_LDADD)
 tests_bgpd_test_unencodable_withdraw_SOURCES = tests/bgpd/test_unencodable_withdraw.c
 EXTRA_DIST += tests/bgpd/test_unencodable_withdraw.py
+
+if BGPD
+check_PROGRAMS += tests/bgpd/test_bgp_nb_candidate
+endif
+tests_bgpd_test_bgp_nb_candidate_CFLAGS = $(TESTS_CFLAGS)
+tests_bgpd_test_bgp_nb_candidate_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_bgpd_test_bgp_nb_candidate_LDADD = $(BGP_TEST_LDADD)
+tests_bgpd_test_bgp_nb_candidate_SOURCES = tests/bgpd/test_bgp_nb_candidate.c
+nodist_tests_bgpd_test_bgp_nb_candidate_SOURCES = \
+	yang/frr-bfdd.yang.c \
+	yang/frr-bgp-types.yang.c \
+	yang/frr-bgp.yang.c \
+	yang/frr-bgp-common-structure.yang.c \
+	yang/frr-bgp-common.yang.c \
+	yang/frr-bgp-common-multiprotocol.yang.c \
+	yang/frr-bgp-neighbor.yang.c \
+	yang/frr-bgp-peer-group.yang.c \
+	yang/frr-bgp-bmp.yang.c \
+	yang/frr-bgp-evpn.yang.c \
+	yang/frr-bgp-rpki.yang.c \
+	yang/frr-bgp-vnc.yang.c \
+	yang/frr-deviations-bgp-datacenter.yang.c \
+	yang/frr-bgp-filter.yang.c \
+	yang/frr-bgp-route-map.yang.c \
+	# end
+EXTRA_DIST += tests/bgpd/test_bgp_nb_candidate.py

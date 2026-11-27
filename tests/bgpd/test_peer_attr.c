@@ -6,16 +6,26 @@
 #include <zebra.h>
 
 #include "debug.h"
+#include "filter.h"
+#include "if.h"
 #include "memory.h"
+#include "northbound_cli.h"
 #include "plist.h"
 #include "printfrr.h"
+#include "routemap.h"
+#include "routing_nb.h"
+#include "vrf.h"
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_regex.h"
 #include "bgpd/bgp_clist.h"
 #include "bgpd/bgp_dump.h"
 #include "bgpd/bgp_filter.h"
+#include "bgpd/bgp_filter_nb.h"
+#include "bgpd/bgp_nb.h"
 #include "bgpd/bgp_route.h"
+#include "bgpd/bgp_routemap_nb.h"
+#include "bgpd/bgp_rpki_nb.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_network.h"
@@ -24,6 +34,7 @@
 #include "bgpd/bgp_ecommunity.h"
 
 #ifdef ENABLE_BGP_VNC
+#include "bgpd/bgp_vnc_nb.h"
 #include "bgpd/rfapi/rfapi_backend.h"
 #endif
 
@@ -447,6 +458,10 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.u.flag = PEER_FLAG_AS_PATH_UNCHANGED
 			| PEER_FLAG_NEXTHOP_UNCHANGED
 			| PEER_FLAG_MED_UNCHANGED,
+	},
+	{
+		.cmd = "disable-addpath-rx",
+		.u.flag = PEER_FLAG_DISABLE_ADDPATH_RX,
 	},
 	{
 		.cmd = "encapsulation-mpls",
@@ -948,6 +963,16 @@ static struct test *test_new(const char *desc, bool use_ibgp,
 	test->vty = vty_new();
 	test->vty->type = VTY_TERM;
 	test->vty->node = CONFIG_NODE;
+	/*
+	 * Match a real configuration VTY. vty_new() leaves candidate_config
+	 * NULL and config false. Classic CLI commits through the shared
+	 * candidate, and command execution only clears the northbound change
+	 * queue when config is set. Without that, edits accumulate and a
+	 * later asn_asn2asplain() overwrites a value pointer still queued
+	 * from an earlier command.
+	 */
+	test->vty->config = true;
+	test->vty->candidate_config = vty_shared_candidate_config;
 
 	test_initialize(test);
 
@@ -1394,6 +1419,20 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	test_process(test, pa, p, g->conf, true, false);
 }
 
+/*
+ * Keep this aligned with bgpd_yang_modules in bgpd/bgp_main.c. router bgp
+ * and the neighbor commands are YANG edits, so the test process has to
+ * load the same modules the daemon does.
+ */
+static const struct frr_yang_module_info *const bgp_test_yang_modules[] = {
+	&frr_filter_info,	 &frr_interface_info,  &frr_route_map_info,
+	&frr_vrf_info,		 &frr_routing_info,    &frr_bgp_info,
+	&frr_bgp_route_map_info, &frr_bgp_filter_info, &frr_bgp_rpki_info,
+#ifdef ENABLE_BGP_VNC
+	&frr_bgp_vnc_info,
+#endif
+};
+
 static void bgp_startup(void)
 {
 	cmd_init(1);
@@ -1403,8 +1442,16 @@ static void bgp_startup(void)
 	zprivs_init(&bgpd_privs);
 
 	master = event_master_create(NULL);
-	nb_init(master, NULL, 0, false, false);
+	nb_init(master, bgp_test_yang_modules, array_size(bgp_test_yang_modules), false, false);
 	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE, list_new());
+	/*
+	 * bgpd/bgp_main.c registers this. "no router bgp" deletes the
+	 * control-plane-protocol list entry; the hook is what turns that
+	 * into bgp_delete(). Without it the struct bgp survives and the
+	 * next "router bgp" reuses the old peers.
+	 */
+	hook_register(routing_destroy, bgp_nb_routing_destroy);
+	hook_register(routing_destroy_validate, bgp_nb_routing_destroy);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	vrf_init(NULL, NULL, NULL, NULL);
 	frr_pthread_init();
@@ -1465,6 +1512,13 @@ int main(void)
 	struct list *pa_list;
 	struct test_peer_attr *pa, *pac;
 	struct listnode *node, *nnode;
+
+	/*
+	 * zlog_aux_init() writes directly to stdout fd; line-buffer stdout so
+	 * zlog messages cannot interleave mid-line with buffered printf output
+	 * when stdout is piped (e.g. under pytest / frrtest.py).
+	 */
+	setvbuf(stdout, NULL, _IOLBF, 0);
 
 	bgp_startup();
 

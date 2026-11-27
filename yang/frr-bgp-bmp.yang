@@ -49,6 +49,14 @@ submodule frr-bgp-bmp {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
+  revision 2026-11-18 {
+    description
+      "Limit tcp-port to 1..65535 and add initiation-sysdescr and
+       initiation-sysname.";
+    reference
+      "FRRouting";
+  }
+
   revision 2026-07-21 {
     description
       "Add BMP import-vrf and experimental stats knobs to match CLI.
@@ -83,7 +91,9 @@ submodule frr-bgp-bmp {
         }
 
         leaf tcp-port {
-          type uint32;
+          type uint32 {
+            range "1..65535";
+          }
           description
             "TCP port to listen on for BMP incoming sessions.";
         }
@@ -108,7 +118,9 @@ submodule frr-bgp-bmp {
         }
 
         leaf tcp-port {
-          type uint32;
+          type uint32 {
+            range "1..65535";
+          }
           description
             "TCP port to connect to for BMP outgoing sessions.";
         }
@@ -163,6 +175,35 @@ submodule frr-bgp-bmp {
 
         uses mp-all-afi-safi-list-contents;
       }
+
+      list afi-safi-extra {
+        key "afi safi";
+        description
+          "Additional AFI/SAFI pairs supported by BMP monitor CLI
+           that do not have a standard routing afi-safi-type identity.";
+        leaf afi {
+          type enumeration {
+            enum ipv4;
+            enum ipv6;
+            enum l2vpn;
+          }
+          description
+            "Address family identifier.";
+        }
+
+        leaf safi {
+          type enumeration {
+            enum unicast;
+            enum multicast;
+            enum evpn;
+            enum vpn;
+          }
+          description
+            "Subsequent address family identifier.";
+        }
+
+        uses bmp-afi-safi-common-config;
+      }
     }
   }
 
@@ -203,6 +244,15 @@ submodule frr-bgp-bmp {
     container bmp-config {
       description
         "BMP related parameters.";
+      leaf mirror-buffer-limit {
+        type uint32 {
+          range "0..4294967294";
+        }
+        units "bytes";
+        description
+          "Maximum memory used for buffered mirroring messages.";
+      }
+
       list target-list {
         key "target-name";
         description
@@ -213,24 +263,10 @@ submodule frr-bgp-bmp {
             "Targets group name.";
         }
 
-        uses bmp-incoming-session;
-
-        uses bmp-outgoing-session;
-
-        leaf mirror {
-          type boolean;
-          default "false";
+        leaf ipv6-access-list {
+          type frr-bt:access-list-ref;
           description
-            "When set to 'TRUE' it send BMP route mirroring messages.";
-        }
-
-        leaf stats-time {
-          type uint32 {
-            range "100..86400000";
-          }
-          units "milliseconds";
-          description
-            "Interval to send BMP Stats.";
+            "Access list to restrict BMP sessions.";
         }
 
         leaf ipv4-access-list {
@@ -239,17 +275,24 @@ submodule frr-bgp-bmp {
             "Access list to restrict BMP sessions.";
         }
 
-        leaf ipv6-access-list {
-          type frr-bt:access-list-ref;
+        leaf initiation-sysdescr {
+          type string {
+            length "1..255";
+          }
           description
-            "Access list to restrict BMP sessions.";
+            "System description sent in the BMP Initiation message
+             (default: the FRR version).
+             Maps to: bmp initiation sysDescr LINE.";
         }
 
-        leaf-list import-vrf {
-          type string;
+        leaf initiation-sysname {
+          type string {
+            length "1..255";
+          }
           description
-            "Import BMP monitoring state from the named VRF(s).
-             Maps to: bmp import-vrf NAME.";
+            "System name sent in the BMP Initiation message
+             (default: the hostname).
+             Maps to: bmp initiation sysName LINE.";
         }
 
         leaf stats-send-experimental {
@@ -261,16 +304,34 @@ submodule frr-bgp-bmp {
              Default true matches classic FRR behaviour for new targets.";
         }
 
-        uses bmp-afi-safis;
-      }
-
-      leaf mirror-buffer-limit {
-        type uint32 {
-          range "0..4294967294";
+        leaf stats-time {
+          type uint32 {
+            range "100..86400000";
+          }
+          units "milliseconds";
+          description
+            "Interval to send BMP Stats.";
         }
-        units "bytes";
-        description
-          "Maximum memory used for buffered mirroring messages.";
+
+        leaf mirror {
+          type boolean;
+          default "false";
+          description
+            "When set to 'TRUE' it send BMP route mirroring messages.";
+        }
+
+        uses bmp-afi-safis;
+
+        leaf-list import-vrf {
+          type string;
+          description
+            "Import BMP monitoring state from the named VRF(s).
+             Maps to: bmp import-vrf NAME.";
+        }
+
+        uses bmp-incoming-session;
+
+        uses bmp-outgoing-session;
       }
     }
   }

@@ -30,6 +30,14 @@ DEFINE_MTYPE_STATIC(LIB, NB_TRANS, "NB transaction");
 /* Running configuration - shouldn't be modified directly. */
 struct nb_config *running_config;
 
+/* Candidate of the transaction whose callbacks are running. */
+static const struct lyd_node *nb_txn_candidate_dnode;
+
+const struct lyd_node *nb_transaction_candidate_dnode(void)
+{
+	return nb_txn_candidate_dnode;
+}
+
 /* Hash table of user pointers associated with configuration entries. */
 static struct hash *running_config_entries;
 
@@ -1299,7 +1307,11 @@ int nb_candidate_validate_code(struct nb_context *context,
 {
 	struct nb_config_cb *cb;
 	struct lyd_node *root, *child;
-	int ret;
+	const struct lyd_node *saved;
+	int ret = NB_OK;
+
+	saved = nb_txn_candidate_dnode;
+	nb_txn_candidate_dnode = candidate ? candidate->dnode : NULL;
 
 	/* First validate the candidate as a whole. */
 	LY_LIST_FOR (candidate->dnode, root) {
@@ -1312,8 +1324,10 @@ int nb_candidate_validate_code(struct nb_context *context,
 
 			ret = nb_callback_pre_validate(context, nb_node, child,
 						       errmsg, errmsg_len);
-			if (ret != NB_OK)
-				return NB_ERR_VALIDATION;
+			if (ret != NB_OK) {
+				ret = NB_ERR_VALIDATION;
+				goto done;
+			}
 
 		next:
 			LYD_TREE_DFS_END(root, child);
@@ -1326,11 +1340,15 @@ int nb_candidate_validate_code(struct nb_context *context,
 
 		ret = nb_callback_configuration(context, NB_EV_VALIDATE, change,
 						errmsg, errmsg_len);
-		if (ret != NB_OK)
-			return NB_ERR_VALIDATION;
+		if (ret != NB_OK) {
+			ret = NB_ERR_VALIDATION;
+			goto done;
+		}
 	}
 
-	return NB_OK;
+done:
+	nb_txn_candidate_dnode = saved;
+	return ret;
 }
 
 int nb_candidate_diff_and_validate_yang(struct nb_context *context,
@@ -1438,9 +1456,9 @@ void nb_candidate_commit_abort(struct nb_transaction *transaction, char *errmsg,
 	nb_transaction_free(transaction);
 }
 
-void nb_candidate_commit_apply(struct nb_transaction *transaction,
-			       bool save_transaction, uint32_t *transaction_id,
-			       char *errmsg, size_t errmsg_len)
+int nb_candidate_commit_apply(struct nb_transaction *transaction,
+			      bool save_transaction, uint32_t *transaction_id,
+			      char *errmsg, size_t errmsg_len)
 {
 	int err;
 
@@ -1448,7 +1466,8 @@ void nb_candidate_commit_apply(struct nb_transaction *transaction,
 	if (err != NB_OK) {
 		flog_warn(EC_LIB_NB_CB_CONFIG_APPLY, "%s: failed to apply transaction: %s",
 			  __func__, errmsg);
-		return;
+		nb_transaction_free(transaction);
+		return err;
 	}
 
 	nb_transaction_apply_finish(transaction, errmsg, errmsg_len);
@@ -1466,6 +1485,7 @@ void nb_candidate_commit_apply(struct nb_transaction *transaction,
 			  "%s: failed to record transaction", __func__);
 
 	nb_transaction_free(transaction);
+	return NB_OK;
 }
 
 int nb_candidate_commit(struct nb_context context, struct nb_config *candidate,
@@ -1484,8 +1504,9 @@ int nb_candidate_commit(struct nb_context context, struct nb_config *candidate,
 	 * the transaction.
 	 */
 	if (ret == NB_OK)
-		nb_candidate_commit_apply(transaction, save_transaction,
-					  transaction_id, errmsg, errmsg_len);
+		ret = nb_candidate_commit_apply(transaction, save_transaction,
+						transaction_id, errmsg,
+						errmsg_len);
 	else if (transaction != NULL)
 		nb_candidate_commit_abort(transaction, errmsg, errmsg_len);
 
@@ -2119,6 +2140,22 @@ static int nb_transaction_process(enum nb_event event,
 				  char *errmsg, size_t errmsg_len)
 {
 	struct nb_config_cb *cb;
+	struct nb_config *candidate;
+	const struct lyd_node *saved;
+	int proc_ret = NB_OK;
+
+	/*
+	 * Callbacks for a deleted node see the running tree. Publish the
+	 * candidate so they can tell a leaf deleted on its own from one
+	 * deleted because its parent is going away in the same commit.
+	 * mgmtd local apply leaves transaction->config NULL and uses
+	 * vty_mgmt_candidate_config instead.
+	 */
+	candidate = transaction->config;
+	if (!candidate)
+		candidate = vty_mgmt_candidate_config;
+	saved = nb_txn_candidate_dnode;
+	nb_txn_candidate_dnode = candidate ? candidate->dnode : NULL;
 
 	RB_FOREACH (cb, nb_config_cbs, &transaction->changes) {
 		struct nb_config_change *change = (struct nb_config_change *)cb;
@@ -2136,8 +2173,10 @@ static int nb_transaction_process(enum nb_event event,
 						change, errmsg, errmsg_len);
 		switch (event) {
 		case NB_EV_PREPARE:
-			if (ret != NB_OK)
-				return ret;
+			if (ret != NB_OK) {
+				proc_ret = ret;
+				goto done;
+			}
 			change->prepare_ok = true;
 			break;
 		case NB_EV_ABORT:
@@ -2156,7 +2195,9 @@ static int nb_transaction_process(enum nb_event event,
 		}
 	}
 
-	return NB_OK;
+done:
+	nb_txn_candidate_dnode = saved;
+	return proc_ret;
 }
 
 static struct nb_config_cb *

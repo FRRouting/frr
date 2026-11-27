@@ -491,35 +491,6 @@ DEFUN (no_debug_bgp_flowspec,
 	return CMD_SUCCESS;
 }
 
-int bgp_fs_config_write_pbr(struct vty *vty, struct bgp *bgp,
-			    afi_t afi, safi_t safi)
-{
-	struct bgp_pbr_interface *pbr_if;
-	bool declare_node = false;
-	struct bgp_pbr_config *bgp_pbr_cfg = bgp->bgp_pbr_cfg;
-	struct bgp_pbr_interface_head *head;
-	bool bgp_pbr_interface_any;
-
-	if (!bgp_pbr_cfg || safi != SAFI_FLOWSPEC)
-		return 0;
-	if (afi == AFI_IP) {
-		head = &(bgp_pbr_cfg->ifaces_by_name_ipv4);
-		bgp_pbr_interface_any = bgp_pbr_cfg->pbr_interface_any_ipv4;
-	} else if (afi == AFI_IP6) {
-		head = &(bgp_pbr_cfg->ifaces_by_name_ipv6);
-		bgp_pbr_interface_any = bgp_pbr_cfg->pbr_interface_any_ipv6;
-	} else {
-		return 0;
-	}
-	if (!RB_EMPTY(bgp_pbr_interface_head, head) ||
-	     !bgp_pbr_interface_any)
-		declare_node = true;
-	RB_FOREACH (pbr_if, bgp_pbr_interface_head, head) {
-		vty_out(vty, "  local-install %s\n", pbr_if->name);
-	}
-	return declare_node ? 1 : 0;
-}
-
 static int bgp_fs_local_install_interface(struct bgp *bgp,
 					  const char *no, const char *ifname,
 					  afi_t afi)
@@ -628,6 +599,5 @@ void bgp_flowspec_vty_init(void)
 	install_element(CONFIG_NODE, &debug_bgp_flowspec_cmd);
 	install_element(ENABLE_NODE, &no_debug_bgp_flowspec_cmd);
 	install_element(CONFIG_NODE, &no_debug_bgp_flowspec_cmd);
-	install_element(BGP_FLOWSPECV4_NODE, &bgp_fs_local_install_ifname_cmd);
-	install_element(BGP_FLOWSPECV6_NODE, &bgp_fs_local_install_ifname_cmd);
+	/* local-install — YANG: bgp_cli_init() */
 }

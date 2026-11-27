@@ -284,6 +284,28 @@ extern void bgp_rfapi_show_summary(struct bgp *bgp, struct vty *vty);
 
 extern struct rfapi_cfg *bgp_rfapi_get_config(struct bgp *bgp);
 
+extern struct rfapi_nve_group_cfg *rfapi_group_new(struct bgp *bgp, rfapi_group_cfg_type_t type,
+						   const char *name);
+
+extern int rfapi_str2route_type(const char *l3str, const char *pstr, afi_t *afi, int *type);
+
+extern void vnc_redistribute_prechange(struct bgp *bgp);
+extern void vnc_redistribute_postchange(struct bgp *bgp);
+
+/*
+ * Parse a space-separated RT string into an ecommunity.
+ * Returns 0 on success, non-zero on failure.
+ */
+extern int rfapi_set_ecom_from_str(const char *rt_str, struct ecommunity **list);
+
+extern struct rfapi_l2_group_cfg *rfapi_l2_group_lookup_byname(struct bgp *bgp, const char *name);
+extern struct rfapi_l2_group_cfg *rfapi_l2_group_new(void);
+extern void bgp_rfapi_delete_l2_group(struct vty *vty, struct bgp *bgp,
+				      struct rfapi_l2_group_cfg *rfg);
+extern int bgp_rfapi_delete_named_l2_group(struct vty *vty, struct bgp *bgp, const char *rfg_name);
+extern int bgp_rfapi_delete_named_nve_group(struct vty *vty, struct bgp *bgp, const char *rfg_name,
+					    rfapi_group_cfg_type_t type);
+
 extern struct rfapi_l2_group_cfg *
 bgp_rfapi_get_group_by_lni_label(struct bgp *bgp, uint32_t logical_net_id,
 				 uint32_t label);

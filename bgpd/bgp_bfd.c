@@ -625,6 +625,14 @@ static void bgp_group_configure_bfd(struct peer *p)
 		bgp_peer_configure_bfd(pn, false);
 }
 
+void bgp_bfd_enable(struct peer *p)
+{
+	if (CHECK_FLAG(p->sflags, PEER_STATUS_GROUP))
+		bgp_group_configure_bfd(p);
+	else
+		bgp_peer_configure_bfd(p, true);
+}
+
 static void bgp_group_remove_bfd(struct peer *p)
 {
 	struct listnode *n;
@@ -655,44 +663,6 @@ void bgp_peer_remove_bfd_config(struct peer *p)
 		bgp_group_remove_bfd(p);
 	else
 		bgp_peer_remove_bfd(p);
-}
-
-/*
- * bgp_bfd_peer_config_write - Write the peer BFD configuration.
- */
-void bgp_bfd_peer_config_write(struct vty *vty, struct peer *peer, const char *addr)
-{
-	/*
-	 * Always show group BFD configuration, but peer only when explicitly
-	 * configured.
-	 */
-	if ((!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)
-	     && peer->bfd_config->manual)
-	    || CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
-#if HAVE_BFDD > 0
-		vty_out(vty, " neighbor %s bfd\n", addr);
-#else
-		vty_out(vty, " neighbor %s bfd %d %d %d\n", addr,
-			peer->bfd_config->detection_multiplier,
-			peer->bfd_config->min_rx, peer->bfd_config->min_tx);
-#endif /* HAVE_BFDD */
-	}
-
-	if (peer->bfd_config->profile[0])
-		vty_out(vty, " neighbor %s bfd profile %s\n", addr,
-			peer->bfd_config->profile);
-
-	if (peer->bfd_config->cbit)
-		vty_out(vty, " neighbor %s bfd check-control-plane-failure\n",
-			addr);
-
-	if (peergroup_flag_check(peer, PEER_FLAG_BFD_STRICT)) {
-		if (peer->bfd_config->hold_time != BFD_DEF_STRICT_HOLD_TIME)
-			vty_out(vty, " neighbor %s bfd strict hold-time %u\n", addr,
-				peer->bfd_config->hold_time);
-		else
-			vty_out(vty, " neighbor %s bfd strict\n", addr);
-	}
 }
 
 /*
@@ -1026,19 +996,7 @@ DEFUN(no_neighbor_bfd_profile, no_neighbor_bfd_profile_cmd,
 
 void bgp_bfd_init(struct event_loop *tm)
 {
-	/* Initialize BFD client functions */
 	bfd_protocol_integration_init(bgp_zclient, tm);
 
-	/* "neighbor bfd" commands. */
-	install_element(BGP_NODE, &neighbor_bfd_cmd);
-	install_element(BGP_NODE, &neighbor_bfd_param_cmd);
-	install_element(BGP_NODE, &neighbor_bfd_check_controlplane_failure_cmd);
-	install_element(BGP_NODE, &neighbor_bfd_strict_cmd);
-	install_element(BGP_NODE, &neighbor_bfd_strict_hold_time_cmd);
-	install_element(BGP_NODE, &no_neighbor_bfd_cmd);
-
-#if HAVE_BFDD > 0
-	install_element(BGP_NODE, &neighbor_bfd_profile_cmd);
-	install_element(BGP_NODE, &no_neighbor_bfd_profile_cmd);
-#endif /* HAVE_BFDD */
+	/* neighbor bfd* CLI installed via bgp_cli_init() (YANG). */
 }

@@ -139,6 +139,13 @@ submodule frr-bgp-common-structure {
            number.";
       }
 
+      leaf local-as-pretty {
+        type string;
+        description
+          "Configured textual representation of the local AS number
+           (e.g. dot or dot+ notation as entered by the operator).";
+      }
+
       leaf no-prepend {
         type boolean;
         default "false";
@@ -275,6 +282,14 @@ submodule frr-bgp-common-structure {
            the BGP OPEN message.";
         reference
           "RFC 4271";
+      }
+
+      leaf remote-as-pretty {
+        when "../remote-as-type = 'as-specified'";
+        type string;
+        description
+          "Configured textual representation of the remote AS number
+           (e.g. dot or dot+ notation as entered by the operator).";
       }
     }
   }
@@ -418,7 +433,6 @@ submodule frr-bgp-common-structure {
          group.";
       leaf dynamic-capability {
         type boolean;
-        default "false";
         description
           "When set to 'true' dynamic capability is advertise to this peer.";
       }
@@ -468,33 +482,25 @@ submodule frr-bgp-common-structure {
       }
 
       leaf software-version-capability {
-        type enumeration {
-          enum disabled {
-            description
-              "Do not advertise the software-version capability
-               (explicit override of bgp default).";
-          }
-          enum old-encoding {
-            description
-              "Advertise the legacy software-version capability
-               encoding.";
-          }
-          enum latest-encoding {
-            description
-              "Advertise the latest software-version capability
-               encoding.";
-          }
-        }
+        type boolean;
         description
-          "Advertise the software-version capability to this peer.
-           Maps to: neighbor <peer> capability software-version
-           [latest-encoding]. Absent means inherit from
+          "Advertise the legacy software-version capability encoding to
+           this peer. Maps to: neighbor <peer> capability
+           software-version. Absent means inherit from
            'bgp default software-version-capability'.";
+      }
+
+      leaf software-version-latest-encoding {
+        type boolean;
+        description
+          "Advertise the latest software-version capability encoding to
+           this peer. Maps to: neighbor <peer> capability
+           software-version latest-encoding. Absent means inherit from
+           'bgp default software-version-capability latest-encoding'.";
       }
 
       leaf link-local-capability {
         type boolean;
-        default "false";
         description
           "Advertise the Link-Local Next Hop capability to this peer.
            Maps to: neighbor <peer> capability link-local.";
@@ -506,6 +512,14 @@ submodule frr-bgp-common-structure {
     description
       "Structural grouping used to include session configuration for
        both BGP neighbors and peer groups.";
+
+    leaf local-port {
+      type inet:port-number {
+        range "0..65535";
+      }
+      description
+        "Neighbor's BGP TCP port number.";
+    }
 
     leaf tcp-mss {
       type uint16 {
@@ -1148,35 +1162,18 @@ submodule frr-bgp-common-structure {
     container orf-capability {
       description
         "Outbound Route Filtering capability configuration.";
-      choice orf-update {
+      leaf orf-send {
+        type boolean;
+        default "false";
         description
-          "ORF update direction options.";
-        case send {
-          leaf orf-send {
-            type boolean;
-            default "false";
-            description
-              "Setting to 'true' advertises the ORF capability.";
-          }
-        }
+          "Setting to 'true' advertises the ORF capability.";
+      }
 
-        case receive {
-          leaf orf-receive {
-            type boolean;
-            default "false";
-            description
-              "When set to 'true' it receives the orf capability.";
-          }
-        }
-
-        case both {
-          leaf orf-both {
-            type boolean;
-            default "false";
-            description
-              "When set to 'true' it advertises/receives the orf capability.";
-          }
-        }
+      leaf orf-receive {
+        type boolean;
+        default "false";
+        description
+          "When set to 'true' it receives the orf capability.";
       }
     }
   }

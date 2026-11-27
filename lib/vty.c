@@ -1673,6 +1673,9 @@ struct vty *vty_new(void)
 	new->buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
 	new->max = VTY_BUFSIZ;
 	new->pass_fd = -1;
+	new->cfg_changes_size = VTY_MAXCFGCHANGES;
+	new->cfg_changes = XCALLOC(MTYPE_NB_CMDS,
+				   new->cfg_changes_size * sizeof(*new->cfg_changes));
 
 	if (vty_new_mgmt_cb)
 		vty_new_mgmt_cb(new);
@@ -2493,6 +2496,7 @@ void vty_close(struct vty *vty)
 		was_stdio = true;
 
 	XFREE(MTYPE_NB_CMDS, vty->pending_cmds_buf);
+	XFREE(MTYPE_NB_CMDS, vty->cfg_changes);
 	XFREE(MTYPE_VTY, vty->buf);
 
 	if (vty->error) {

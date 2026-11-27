@@ -4281,6 +4281,7 @@ struct rfapi *bgp_rfapi_new(struct bgp *bgp)
 	h->deferred_close_q->spec.data = h;
 
 	h->rfp = rfp_start(bm->master, &cfg, &cbm);
+	h->rfp_cfg_orig = cfg;
 	bgp->rfapi_cfg = bgp_rfapi_cfg_new(cfg);
 	if (cbm != NULL) {
 		h->rfp_methods = *cbm;

@@ -3731,10 +3731,6 @@ int peer_group_listen_range_add(struct peer_group *group, struct prefix *range)
 
 	afi = family2afi(range->family);
 
-	/* Group needs remote AS configured. */
-	if (group->conf->as_type == AS_UNSPECIFIED)
-		return BGP_ERR_PEER_GROUP_NO_REMOTE_AS;
-
 	/* Ensure no duplicates. Currently we don't care about overlaps. */
 	for (ALL_LIST_ELEMENTS(group->listen_range[afi], node, nnode, prefix)) {
 		if (prefix_same(range, prefix))
@@ -3750,6 +3746,30 @@ int peer_group_listen_range_add(struct peer_group *group, struct prefix *range)
 		bgp_md5_set_prefix(group->bgp, prefix, group->conf->password);
 
 	return 0;
+}
+
+struct peer_group *bgp_listen_range_lookup(struct bgp *bgp, struct prefix *range, bool exact)
+{
+	struct listnode *node, *nnode;
+	struct listnode *node1, *nnode1;
+	struct peer_group *group;
+	struct prefix *lr;
+	afi_t afi;
+	int match;
+
+	afi = family2afi(range->family);
+	for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
+		for (ALL_LIST_ELEMENTS(group->listen_range[afi], node1, nnode1, lr)) {
+			if (exact)
+				match = prefix_same(range, lr);
+			else
+				match = (prefix_match(range, lr) || prefix_match(lr, range));
+			if (match)
+				return group;
+		}
+	}
+
+	return NULL;
 }
 
 int peer_group_listen_range_del(struct peer_group *group, struct prefix *range)
@@ -3969,6 +3989,26 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 			bgp_timer_set(peer->connection);
 	}
 
+	return 0;
+}
+
+int peer_group_unbind(struct bgp *bgp, struct peer *peer, struct peer_group *group)
+{
+	struct listnode *pn;
+
+	if (!peer || !group)
+		return -1;
+
+	if (peer->group != group)
+		return -1;
+
+	pn = listnode_lookup(group->peer, peer);
+	if (pn) {
+		list_delete_node(group->peer, pn);
+		peer_unlock(peer); /* group->peer list reference */
+	}
+
+	peer->group = NULL;
 	return 0;
 }
 
@@ -4938,6 +4978,7 @@ int bgp_delete(struct bgp *bgp)
 		 * tripping the "node->lock > 0" assert.
 		 */
 		bgp_evpn_cleanup_per_vni_routes(bgp);
+		bgp_evpn_cleanup_vrf_imported_routes(bgp);
 	}
 
 	/* drop pending BGP-LU label requests before bgp_free() frees the dests */
@@ -5298,6 +5339,9 @@ peer_group_lookup_dynamic_neighbor_range(struct peer_group *group,
 	afi_t afi;
 
 	afi = family2afi(prefix->family);
+
+	if (group->conf->as_type == AS_UNSPECIFIED)
+		return NULL;
 
 	if (group->listen_range[afi])
 		for (ALL_LIST_ELEMENTS(group->listen_range[afi], node, nnode,
@@ -6098,19 +6142,26 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 		return BGP_ERR_INVALID_FLAG;
 
 	ptype = peer_sort(peer);
-	/* Special check for reflector client.  */
-	if (CHECK_FLAG(flag, PEER_FLAG_REFLECTOR_CLIENT) &&
-	    ptype != BGP_PEER_IBGP)
-		return BGP_ERR_NOT_INTERNAL_PEER;
+	/*
+	 * A peer-group with no remote-as and no members is INTERNAL.
+	 * Northbound applies AF flags before members are bound, so these
+	 * checks cannot be decided yet. Store the flag; member bind
+	 * inherits it once the member's sort is known. A known iBGP or
+	 * eBGP peer is still rejected here.
+	 */
+	if (!(CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP) && ptype == BGP_PEER_INTERNAL)) {
+		/* Special check for reflector client.  */
+		if (CHECK_FLAG(flag, PEER_FLAG_REFLECTOR_CLIENT) && ptype != BGP_PEER_IBGP)
+			return BGP_ERR_NOT_INTERNAL_PEER;
 
-	/* Special check for remove-private-AS.  */
-	if (CHECK_FLAG(flag, PEER_FLAG_REMOVE_PRIVATE_AS) &&
-	    ptype == BGP_PEER_IBGP)
-		return BGP_ERR_REMOVE_PRIVATE_AS;
+		/* Special check for remove-private-AS.  */
+		if (CHECK_FLAG(flag, PEER_FLAG_REMOVE_PRIVATE_AS) && ptype == BGP_PEER_IBGP)
+			return BGP_ERR_REMOVE_PRIVATE_AS;
 
-	/* as-override is not allowed for IBGP peers */
-	if (CHECK_FLAG(flag, PEER_FLAG_AS_OVERRIDE) && ptype == BGP_PEER_IBGP)
-		return BGP_ERR_AS_OVERRIDE;
+		/* as-override is not allowed for IBGP peers */
+		if (CHECK_FLAG(flag, PEER_FLAG_AS_OVERRIDE) && ptype == BGP_PEER_IBGP)
+			return BGP_ERR_AS_OVERRIDE;
+	}
 
 	/* Handle flag updates where desired state matches current state. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
@@ -9227,7 +9278,7 @@ int is_ebgp_multihop_configured(struct peer *peer)
  * (the sort-independent source of truth) so it still fires while a local-as
  * override has temporarily made the peer iBGP.
  */
-static int peer_ebgp_multihop_cfg(struct peer *peer)
+int peer_ebgp_multihop_cfg(struct peer *peer)
 {
 	struct peer_group *group;
 	struct listnode *node, *nnode;

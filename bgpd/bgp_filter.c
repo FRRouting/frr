@@ -12,6 +12,8 @@
 #include "queue.h"
 #include "filter.h"
 #include "frregex_real.h"
+#include "northbound_cli.h"
+#include "yang.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_aspath.h"
@@ -201,7 +203,11 @@ struct as_list *as_list_lookup(const char *name)
 
 static struct as_list *as_list_new(void)
 {
-	return XCALLOC(MTYPE_AS_LIST, sizeof(struct as_list));
+	struct as_list *new;
+
+	new = XCALLOC(MTYPE_AS_LIST, sizeof(struct as_list));
+	as_list_list_init(&new->exclude_rule);
+	return new;
 }
 
 static void as_list_free(struct as_list *aslist)
@@ -292,6 +298,13 @@ static void as_list_delete(struct as_list *aslist)
 {
 	struct as_list_list *list;
 	struct as_filter *filter, *next;
+	struct aspath_exclude *ase;
+
+	/* Orphan route-map `set as-path exclude as-path-access-list` refs. */
+	if (as_list_list_count(&aslist->exclude_rule))
+		while ((ase = as_list_list_pop(&aslist->exclude_rule)))
+			as_exclude_set_orphan(ase);
+	as_list_list_fini(&aslist->exclude_rule);
 
 	for (filter = aslist->head; filter; filter = next) {
 		next = filter->next;
@@ -401,6 +414,102 @@ bool config_bgp_aspath_validate(const char *regstr)
 	return false;
 }
 
+struct as_list *as_list_first(void)
+{
+	return as_list_master.str.head;
+}
+
+int as_list_entry_set(const char *name, const char *seq_str, const char *regex_str,
+		      enum as_filter_type type)
+{
+	struct as_list *aslist;
+	struct as_filter *asfilter;
+	struct aspath_exclude *ase;
+	struct frregex *regex;
+	int64_t seq;
+	bool created = false;
+
+	seq = atoll(seq_str);
+
+	if (!config_bgp_aspath_validate(regex_str))
+		return -1;
+
+	regex = bgp_regcomp(regex_str);
+	if (!regex)
+		return -1;
+
+	aslist = as_list_lookup(name);
+	if (!aslist) {
+		aslist = as_list_insert(name);
+		created = true;
+	}
+
+	asfilter = as_filter_make(regex, regex_str, type);
+	asfilter->seq = seq;
+	if (as_list_dup_check(aslist, asfilter)) {
+		as_filter_free(asfilter);
+	} else {
+		as_list_filter_add(aslist, asfilter);
+	}
+
+	if (created) {
+		ase = as_exclude_lookup_orphan(name);
+		if (ase) {
+			as_list_list_add_head(&aslist->exclude_rule, ase);
+			ase->exclude_aspath_acl = aslist;
+			while ((ase = as_exclude_lookup_orphan(name))) {
+				as_list_list_add_head(&aslist->exclude_rule, ase);
+				ase->exclude_aspath_acl = aslist;
+			}
+		}
+	}
+
+	return 0;
+}
+
+int as_list_entry_unset(const char *name, const char *seq_str, const char *regex_str,
+			enum as_filter_type type)
+{
+	struct as_list *aslist;
+	struct as_filter *asfilter;
+	int64_t seq;
+
+	(void)regex_str;
+	(void)type;
+
+	seq = atoll(seq_str);
+
+	aslist = as_list_lookup(name);
+	if (!aslist)
+		return -1;
+
+	for (asfilter = aslist->head; asfilter; asfilter = asfilter->next) {
+		if (asfilter->seq == seq) {
+			as_list_filter_delete(aslist, asfilter);
+			return 0;
+		}
+	}
+
+	return -1;
+}
+
+int as_list_delete_by_name(const char *name)
+{
+	struct as_list *aslist;
+
+	aslist = as_list_lookup(name);
+	if (!aslist)
+		return -1;
+
+	as_list_delete(aslist);
+
+	/* Run hook function. */
+	if (as_list_master.delete_hook)
+		(*as_list_master.delete_hook)(name);
+
+	return 0;
+}
+
 DEFUN(as_path, bgp_as_path_cmd,
       "bgp as-path access-list AS_PATH_FILTER_NAME [seq (0-4294967295)] <deny|permit> LINE...",
       BGP_STR
@@ -421,6 +530,7 @@ DEFUN(as_path, bgp_as_path_cmd,
 	struct frregex *regex;
 	char *regstr;
 	int64_t seqnum = ASPATH_SEQ_NUMBER_AUTO;
+	bool created;
 
 	/* Retrieve access list name */
 	argv_find(argv, argc, "AS_PATH_FILTER_NAME", &idx);
@@ -456,6 +566,7 @@ DEFUN(as_path, bgp_as_path_cmd,
 	XFREE(MTYPE_TMP, regstr);
 
 	/* Install new filter to the access_list. */
+	created = (as_list_lookup(alname) == NULL);
 	aslist = as_list_get(alname);
 
 	if (seqnum == ASPATH_SEQ_NUMBER_AUTO)
@@ -469,19 +580,16 @@ DEFUN(as_path, bgp_as_path_cmd,
 	else
 		as_list_filter_add(aslist, asfilter);
 
-	/* init the exclude rule list*/
-	as_list_list_init(&aslist->exclude_rule);
-
-	/* get aspath orphan exclude that are using this acl */
-	ase = as_exclude_lookup_orphan(alname);
-	if (ase) {
-		as_list_list_add_head(&aslist->exclude_rule, ase);
-		/* set reverse pointer */
-		ase->exclude_aspath_acl = aslist;
-		/* set list of aspath excludes using that acl */
-		while ((ase = as_exclude_lookup_orphan(alname))) {
+	/* Reattach orphan exclude rules when the list is newly created. */
+	if (created) {
+		ase = as_exclude_lookup_orphan(alname);
+		if (ase) {
 			as_list_list_add_head(&aslist->exclude_rule, ase);
 			ase->exclude_aspath_acl = aslist;
+			while ((ase = as_exclude_lookup_orphan(alname))) {
+				as_list_list_add_head(&aslist->exclude_rule, ase);
+				ase->exclude_aspath_acl = aslist;
+			}
 		}
 	}
 
@@ -505,7 +613,6 @@ DEFUN(no_as_path, no_bgp_as_path_cmd,
 	enum as_filter_type type;
 	struct as_filter *asfilter;
 	struct as_list *aslist;
-	struct aspath_exclude *ase;
 	char *regstr;
 	struct frregex *regex;
 
@@ -560,12 +667,6 @@ DEFUN(no_as_path, no_bgp_as_path_cmd,
 
 	XFREE(MTYPE_TMP, regstr);
 
-	/* put aspath exclude list into orphan */
-	if (as_list_list_count(&aslist->exclude_rule))
-		while ((ase = as_list_list_pop(&aslist->exclude_rule)))
-			as_exclude_set_orphan(ase);
-
-	as_list_list_fini(&aslist->exclude_rule);
 	as_list_filter_delete(aslist, asfilter);
 
 	return CMD_SUCCESS;
@@ -711,27 +812,75 @@ ALIAS (show_as_path_access_list_all,
        "List AS path access lists\n"
        JSON_STR)
 
+struct as_list_write_ctx {
+	const struct lyd_node **nodes;
+	size_t count;
+	size_t cap;
+};
+
+static int as_list_collect_cb(const struct lyd_node *dnode, void *arg)
+{
+	struct as_list_write_ctx *ctx = arg;
+
+	if (ctx->count == ctx->cap) {
+		ctx->cap = ctx->cap ? ctx->cap * 2 : 16;
+		ctx->nodes = XREALLOC(MTYPE_TMP, ctx->nodes,
+				      ctx->cap * sizeof(*ctx->nodes));
+	}
+	ctx->nodes[ctx->count++] = dnode;
+	return YANG_ITER_CONTINUE;
+}
+
+static int as_list_name_cmp(const void *a, const void *b)
+{
+	const struct lyd_node *na = *(const struct lyd_node *const *)a;
+	const struct lyd_node *nb = *(const struct lyd_node *const *)b;
+
+	return strcmp(yang_dnode_get_string(na, "name"),
+		      yang_dnode_get_string(nb, "name"));
+}
+
+static int as_list_entry_seq_cmp(const void *a, const void *b)
+{
+	const struct lyd_node *na = *(const struct lyd_node *const *)a;
+	const struct lyd_node *nb = *(const struct lyd_node *const *)b;
+	uint32_t sa = yang_dnode_get_uint32(na, "sequence");
+	uint32_t sb = yang_dnode_get_uint32(nb, "sequence");
+
+	if (sa < sb)
+		return -1;
+	if (sa > sb)
+		return 1;
+	return 0;
+}
+
 static int config_write_as_list(struct vty *vty)
 {
-	struct as_list *aslist;
-	struct as_filter *asfilter;
+	struct as_list_write_ctx lists = {};
 	int write = 0;
 
-	for (aslist = as_list_master.str.head; aslist; aslist = aslist->next)
-		for (asfilter = aslist->head; asfilter;
-		     asfilter = asfilter->next) {
-			vty_out(vty,
-				"bgp as-path access-list %s seq %" PRId64
-				" %s %s\n",
-				aslist->name, asfilter->seq,
-				filter_type_str(asfilter->type),
-				asfilter->reg_str);
+	yang_dnode_iterate(as_list_collect_cb, &lists, running_config->dnode,
+			   "/frr-filter:lib/frr-bgp-filter:as-path-list");
+	if (lists.count > 1)
+		qsort(lists.nodes, lists.count, sizeof(*lists.nodes), as_list_name_cmp);
+
+	for (size_t i = 0; i < lists.count; i++) {
+		struct as_list_write_ctx entries = {};
+
+		yang_dnode_iterate(as_list_collect_cb, &entries, lists.nodes[i], "entry");
+		if (entries.count > 1)
+			qsort(entries.nodes, entries.count, sizeof(*entries.nodes),
+			      as_list_entry_seq_cmp);
+		for (size_t j = 0; j < entries.count; j++) {
+			nb_cli_show_dnode_cmds(vty, entries.nodes[j], false);
 			write++;
 		}
+		XFREE(MTYPE_TMP, entries.nodes);
+	}
+	XFREE(MTYPE_TMP, lists.nodes);
 	return write;
 }
 
-static int config_write_as_list(struct vty *vty);
 static struct cmd_node as_list_node = {
 	.name = "as list",
 	.node = AS_LIST_NODE,
@@ -758,9 +907,7 @@ void bgp_filter_init(void)
 {
 	install_node(&as_list_node);
 
-	install_element(CONFIG_NODE, &bgp_as_path_cmd);
-	install_element(CONFIG_NODE, &no_bgp_as_path_cmd);
-	install_element(CONFIG_NODE, &no_bgp_as_path_all_cmd);
+	/* as-path access-list config — YANG: bgp_filter_cli_init() */
 
 	install_element(VIEW_NODE, &show_bgp_as_path_access_list_cmd);
 	install_element(VIEW_NODE, &show_ip_as_path_access_list_cmd);

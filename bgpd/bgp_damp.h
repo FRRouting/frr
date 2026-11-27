@@ -137,8 +137,6 @@ extern void bgp_damp_info_clean(struct bgp *bgp, struct bgp_damp_config *bdc,
 extern void bgp_damp_config_clean(struct bgp_damp_config *bdc);
 extern int bgp_damp_decay(time_t tdiff, int penalty,
 			  struct bgp_damp_config *bdc);
-extern void bgp_config_write_damp(struct vty *vty, struct bgp *bgp, afi_t afi,
-				  safi_t safi);
 extern void bgp_damp_info_vty(struct vty *vty, struct bgp *bgp,
 			      struct bgp_path_info *path, afi_t afi,
 			      safi_t safi, json_object *json_path);
@@ -153,8 +151,6 @@ extern void bgp_peer_damp_enable(struct peer *peer, afi_t afi, safi_t safi,
 				 time_t half, unsigned int reuse,
 				 unsigned int suppress, time_t max);
 extern void bgp_peer_damp_disable(struct peer *peer, afi_t afi, safi_t safi);
-extern void bgp_config_write_peer_damp(struct vty *vty, struct peer *peer,
-				       afi_t afi, safi_t safi);
 extern void bgp_show_peer_dampening_parameters(struct vty *vty,
 					       struct peer *peer, afi_t afi,
 					       safi_t safi, bool use_json);

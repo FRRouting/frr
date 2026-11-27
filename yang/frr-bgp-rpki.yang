@@ -95,20 +95,6 @@ module frr-bgp-rpki {
            router asks the cache again for updated data.";
       }
 
-      leaf expire-time {
-        type uint32 {
-          range "600..172800";
-        }
-        units "seconds";
-        default "7200";
-        must ". >= ../polling-time" {
-          error-message
-            "RPKI expire-time must be greater than or equal to polling-time.";
-        }
-        description
-          "Set the expire interval.";
-      }
-
       leaf retry-time {
         type uint16 {
           range "1..7200";
@@ -117,6 +103,15 @@ module frr-bgp-rpki {
         default "600";
         description
           "Set the retry interval.";
+      }
+
+      leaf expire-time {
+        type uint32 {
+          range "600..172800";
+        }
+        units "seconds";
+        description
+          "Set the expire interval (defaults dynamically to 2 * polling-time).";
       }
     }
   }
@@ -176,9 +171,18 @@ module frr-bgp-rpki {
             description
               "TCP server details.";
             leaf tcp-port {
-              type uint32;
+              type union {
+                type uint16 {
+                  range "1..65535";
+                }
+                type string {
+                  length "1..63";
+                  pattern "[a-zA-Z0-9_-]*[a-zA-Z][a-zA-Z0-9_-]*";
+                }
+              }
+              mandatory true;
               description
-                "TCP port for the RPKI cache server.";
+                "TCP port number or service name for the RPKI cache server.";
             }
 
             leaf source-address {

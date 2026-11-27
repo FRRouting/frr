@@ -962,8 +962,17 @@ static int config_write_access(struct vty *vty)
 
 	dnode = yang_dnode_get(running_config->dnode, "/frr-filter:lib");
 	if (dnode) {
-		nb_cli_show_dnode_cmds(vty, dnode, false);
-		written = 1;
+		struct lyd_node *child;
+
+		LY_LIST_FOR (lyd_child(dnode), child) {
+			if (!child->schema)
+				continue;
+			if (!strmatch(child->schema->name, "access-list") &&
+			    !strmatch(child->schema->name, "prefix-list"))
+				continue;
+			nb_cli_show_dnode_cmds(vty, child, false);
+			written = 1;
+		}
 	}
 
 	return written;

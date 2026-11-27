@@ -71,6 +71,13 @@ submodule frr-bgp-common {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
+  revision 2026-11-18 {
+    description
+      "Add default-originate-set-only-unconditional and prefer-mpls-over-srv6.";
+    reference
+      "FRRouting";
+  }
+
   revision 2026-07-21 {
     description
       "Sync global BGP knobs, timers, GR/LLGR, and daemon-wide config
@@ -213,7 +220,6 @@ submodule frr-bgp-common {
 
       leaf deterministic-med {
         type boolean;
-        default "false";
         description
           "Compare multi-exit discriminator (MED) value from
            Same ASes when selecting the best route.";
@@ -295,6 +301,15 @@ submodule frr-bgp-common {
         description
           "Use imported path attributes for bestpath comparison.
            Maps to: bgp bestpath use-imported-attributes.";
+      }
+
+      leaf prefer-mpls-over-srv6 {
+        type boolean;
+        default "false";
+        description
+          "Prefer the MPLS path over the SRv6 path when both are imported
+           for the same parent route.
+           Maps to: bgp bestpath prefer-mpls-over-srv6.";
       }
 
       leaf peer-type-multipath-relax {
@@ -492,16 +507,23 @@ submodule frr-bgp-common {
         "Apply administrative shutdown to newly configured peers.";
     }
 
+    leaf default-originate-set-only-unconditional {
+      type boolean;
+      default "false";
+      description
+        "Permit set-only route-maps to originate a default route even
+         when the table is empty.
+         Maps to: bgp default-originate set-only-unconditional.";
+    }
+
     leaf suppress-duplicates {
       type boolean;
-      default "true";
       description
         "Suppress duplicate updates if the route actually not changed.";
     }
 
     leaf ebgp-requires-policy {
       type boolean;
-      default "true";
       description
         "When set to 'true' BGP speaker requires in and out policy
          for EBGP peers (RFC8212).";
@@ -509,14 +531,12 @@ submodule frr-bgp-common {
 
     leaf show-hostname {
       type boolean;
-      default "false";
       description
         "When set to 'true' BGP show hostname in certain command outputs.";
     }
 
     leaf show-nexthop-hostname {
       type boolean;
-      default "false";
       description
         "When set to 'true' BGP show hostname for nexthop in certain
          command outputs.";
@@ -576,7 +596,6 @@ submodule frr-bgp-common {
 
     leaf ipv6-auto-ra {
       type boolean;
-      default "true";
       description
         "Allow enabling IPv6 ND RA sending for unnumbered peers.
          Maps to: [no] bgp ipv6-auto-ra.";
@@ -624,7 +643,6 @@ submodule frr-bgp-common {
 
     leaf default-dynamic-capability {
       type boolean;
-      default "false";
       description
         "Advertise dynamic capability to all neighbors by default.
          Maps to: bgp default dynamic-capability.";
@@ -639,16 +657,17 @@ submodule frr-bgp-common {
     }
 
     leaf default-software-version-capability {
-      type enumeration {
-        enum disabled;
-        enum old-encoding;
-        enum latest-encoding;
-      }
-      default "disabled";
+      type boolean;
       description
-        "Advertise software version capability.
-         Maps to: bgp default software-version-capability
-         [latest-encoding].";
+        "Advertise the legacy software version capability encoding by default.
+         Maps to: bgp default software-version-capability.";
+    }
+
+    leaf default-software-version-latest-encoding {
+      type boolean;
+      description
+        "Advertise the latest software version capability encoding by default.
+         Maps to: bgp default software-version-capability latest-encoding.";
     }
 
     leaf-list default-afi-safi {
@@ -745,9 +764,13 @@ submodule frr-bgp-common {
 
     leaf establish-wait-time {
       type uint16 {
-        range "1..3600";
+        range "0..3600";
       }
       units "seconds";
+      must "(. > 0) or (../update-delay-time = 0)" {
+        error-message
+          "BGP establish-wait-time can only be 0 when update-delay-time is 0.";
+      }
       must "not(../update-delay-time) or . <= ../update-delay-time" {
         error-message
           "BGP establish-wait-time must be less than or equal to update-delay-time.";
@@ -884,7 +907,6 @@ submodule frr-bgp-common {
 
       leaf log-neighbor-changes {
         type boolean;
-        default "false";
         description
           "When set to 'true' BGP will start logging neighbor up/down and reset reason.
            When set to 'false' BGP will stop logging neighbor up/down and reset reason.";
@@ -937,7 +959,6 @@ submodule frr-bgp-common {
           range "0..4294967295";
         }
         units "milliseconds";
-        default "1000";
         description
           "Configures the Subgroup coalesce timer.";
       }
@@ -950,7 +971,6 @@ submodule frr-bgp-common {
 
     leaf import-check {
       type boolean;
-      default "true";
       description
         "When set to 'true' bgp creates entries for network statements
          if a matching prefix exists in the rib. When set to 'false' bgp
@@ -970,7 +990,6 @@ submodule frr-bgp-common {
         range "0 | 3..65535";
       }
       units "seconds";
-      default "180";
       description
         "Time interval (in seconds) for the HoldTimer established
          with the peer.  When read as operational data (ro), the
@@ -998,7 +1017,6 @@ submodule frr-bgp-common {
         range "0..65535";
       }
       units "seconds";
-      default "60";
       description
         "When used as a configuration (rw) value, this Time interval
          (in seconds) for the KeepAlive timer configured for this BGP
@@ -1031,19 +1049,6 @@ submodule frr-bgp-common {
       description
         "Container for global configuration timers.";
 
-      leaf rmap-delay-time {
-        type uint16 {
-          range "0..600";
-        }
-        units "seconds";
-        default "5";
-        description
-          "Time to wait before processing route-map changes.
-           Maps to: bgp route-map delay-timer (0-600). Zero disables
-           delayed processing (route-map changes apply immediately via
-           an immediate update).";
-      }
-
       leaf update-delay-time {
         type uint16 {
           range "0..3600";
@@ -1059,9 +1064,13 @@ submodule frr-bgp-common {
 
       leaf establish-wait-time {
         type uint16 {
-          range "1..3600";
+          range "0..3600";
         }
         units "seconds";
+        must "(. > 0) or (../update-delay-time = 0)" {
+          error-message
+            "BGP establish-wait-time can only be 0 when update-delay-time is 0.";
+        }
         must "not(../update-delay-time) or . <= ../update-delay-time" {
           error-message
             "BGP establish-wait-time must be less than or equal to update-delay-time.";
@@ -1075,10 +1084,10 @@ submodule frr-bgp-common {
           range "1..max";
         }
         units "seconds";
-        default "120";
         description
           "Time interval (in seconds) for the ConnectRetryTimer. The
-           suggested value for this timer is 120 seconds.";
+           suggested value for this timer is 120 seconds (10 seconds
+           under datacenter profile).";
         reference
           "RFC 4271, This is the value used
            to initialize the 'ConnectRetryTimer'.";
@@ -1086,12 +1095,13 @@ submodule frr-bgp-common {
 
       leaf advertisement-delay-time {
         type uint16 {
-          range "1..3600";
+          range "0..3600";
         }
         units "seconds";
         description
           "Delay initial route advertisements after session
-           establishment. Maps to: advertisement-delay (1-3600).";
+           establishment. Maps to: advertisement-delay (1-3600).
+           Zero explicitly disables/overrides a daemon-wide delay.";
       }
 
       leaf minimum-holdtime {
@@ -1109,7 +1119,6 @@ submodule frr-bgp-common {
           range "5..240";
         }
         units "seconds";
-        default "60";
         description
           "Period to rescan BGP table for conditional advertisement.
            Maps to: bgp conditional-advertisement timer (5-240).";
@@ -1190,7 +1199,6 @@ submodule frr-bgp-common {
 
     leaf preserve-fw-entry {
       type boolean;
-      default "false";
       description
         "Sets F-bit indication that fib is preserved while doing Graceful Restart.
          When set to 'true' Zebra would preserve the FIB entry on the restarting
@@ -1202,14 +1210,13 @@ submodule frr-bgp-common {
         range "0..4095";
       }
       units "seconds";
-      default "120";
       description
         "Estimated time (in seconds) for the local BGP speaker to
          restart a session. This value is advertise in the graceful
          restart BGP capability.  This is a 12-bit value, referred to
          as Restart Time in RFC4724.  Per RFC4724, the suggested
          default value is <= the hold-time value. This timer is
-         applicable for helper node.
+         applicable for helper node. Defaults to 120 seconds when unset.
          Maps to: bgp graceful-restart restart-time (0-4095).";
       reference
         "RFC 4724: Graceful Restart Mechanism for BGP.";
@@ -1220,7 +1227,6 @@ submodule frr-bgp-common {
         range "1..4095";
       }
       units "seconds";
-      default "360";
       description
         "An upper-bound on the time that stale routes will be
          retained by a router after a session is restarted. If an
@@ -1238,7 +1244,6 @@ submodule frr-bgp-common {
         range "0..3600";
       }
       units "seconds";
-      default "360";
       description
         "An upper-bound on the time that restarting router defers
          the route selection process after restart.";
@@ -1251,7 +1256,6 @@ submodule frr-bgp-common {
         range "1..3600";
       }
       units "seconds";
-      default "500";
       description
         "An upper-bound on the time that helper router holds the
          stale routes in Zebra, When this timer gets expired Zebra

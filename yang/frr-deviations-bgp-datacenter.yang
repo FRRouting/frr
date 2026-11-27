@@ -52,55 +52,55 @@ module frr-deviations-bgp-datacenter {
   }
 
   deviation "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/frr-bgp:bgp/frr-bgp:global/frr-bgp:global-config-timers/frr-bgp:connect-retry-interval" {
-    deviate replace {
+    deviate add {
       default "10";
     }
   }
 
   deviation "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/frr-bgp:bgp/frr-bgp:global/frr-bgp:global-config-timers/frr-bgp:hold-time" {
-    deviate replace {
+    deviate add {
       default "9";
     }
   }
 
   deviation "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/frr-bgp:bgp/frr-bgp:global/frr-bgp:global-config-timers/frr-bgp:keepalive" {
-    deviate replace {
+    deviate add {
       default "3";
     }
   }
 
   deviation "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/frr-bgp:bgp/frr-bgp:global/frr-bgp:route-selection-options/frr-bgp:deterministic-med" {
-    deviate replace {
-      default "false";
+    deviate add {
+      default "true";
     }
   }
 
   deviation "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/frr-bgp:bgp/frr-bgp:global/frr-bgp:import-check" {
-    deviate replace {
+    deviate add {
       default "true";
     }
   }
 
   deviation "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/frr-bgp:bgp/frr-bgp:global/frr-bgp:show-hostname" {
-    deviate replace {
+    deviate add {
       default "true";
     }
   }
 
   deviation "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/frr-bgp:bgp/frr-bgp:global/frr-bgp:show-nexthop-hostname" {
-    deviate replace {
+    deviate add {
       default "true";
     }
   }
 
   deviation "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/frr-bgp:bgp/frr-bgp:global/frr-bgp:ebgp-requires-policy" {
-    deviate replace {
+    deviate add {
       default "false";
     }
   }
 
   deviation "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/frr-bgp:bgp/frr-bgp:global/frr-bgp:global-neighbor-config/frr-bgp:log-neighbor-changes" {
-    deviate replace {
+    deviate add {
       default "true";
     }
   }

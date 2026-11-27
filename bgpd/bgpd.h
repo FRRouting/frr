@@ -1214,10 +1214,6 @@ struct bgp_interface {
 };
 
 DECLARE_HOOK(bgp_inst_delete, (struct bgp *bgp), (bgp));
-DECLARE_HOOK(bgp_inst_config_write,
-		(struct bgp *bgp, struct vty *vty),
-		(bgp, vty));
-DECLARE_HOOK(bgp_snmp_traps_config_write, (struct vty *vty), (vty));
 DECLARE_HOOK(bgp_config_end, (struct bgp *bgp), (bgp));
 DECLARE_HOOK(bgp_hook_vrf_update, (struct vrf *vrf, bool enabled),
 	     (vrf, enabled));
@@ -2368,6 +2364,9 @@ struct peer {
 	/* Path attributes treat-as-withdraw */
 	bool withdraw_attrs[BGP_ATTR_MAX + 1];
 
+	/* Pending inbound soft-clear after batched path-attribute NB updates */
+	bool nb_path_attr_dirty;
+
 	/* BGP Software Version Capability */
 #define BGP_MAX_SOFT_VERSION 64
 	char *soft_version;
@@ -2876,6 +2875,8 @@ extern bool peer_notify_config_change(struct peer_connection *connection);
 extern int peer_group_delete(struct peer_group *group);
 extern int peer_group_remote_as_delete(struct peer_group *group);
 extern int peer_group_listen_range_add(struct peer_group *group, struct prefix *range);
+extern struct peer_group *bgp_listen_range_lookup(struct bgp *bgp, struct prefix *range,
+						  bool exact);
 extern void peer_group_notify_unconfig(struct peer_group *group);
 
 extern void bgp_zebra_suppress_fib_pending_config_retry(void);
@@ -2887,6 +2888,7 @@ extern void peer_orf_plist_name(const struct peer *peer, afi_t afi, safi_t safi,
 
 extern int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 			   struct peer_group *group, as_t *as);
+extern int peer_group_unbind(struct bgp *bgp, struct peer *peer, struct peer_group *group);
 
 extern int peer_flag_set(struct peer *peer, uint64_t flag);
 extern int peer_flag_unset(struct peer *peer, uint64_t flag);
@@ -2907,6 +2909,7 @@ extern int peer_ebgp_multihop_set(struct peer *peer, int ttl, bool record_cfg);
 extern int peer_ebgp_multihop_unset(struct peer *peer, bool record_cfg);
 extern void peer_cfg_ttl_set(struct peer *peer, int cfg_ttl);
 extern int peer_gtsm_configured(struct peer *peer);
+extern int peer_ebgp_multihop_cfg(struct peer *peer);
 extern int is_ebgp_multihop_configured(struct peer *peer);
 
 extern int peer_role_set(struct peer *peer, uint8_t role, bool strict_mode);
@@ -3349,6 +3352,20 @@ static inline uint32_t bgp_vrf_interfaces(struct bgp *bgp, bool active)
 /* Link BGP instance to VRF. */
 static inline void bgp_vrf_link(struct bgp *bgp, struct vrf *vrf)
 {
+	/*
+	 * If another BGP instance still owns vrf->info (e.g. an AUTO instance
+	 * created by L3VNI before YANG "router bgp … vrf" claimed the name),
+	 * release that lock and clear its vrf_id. Otherwise we leak the old
+	 * instance and leave Type-5 / RD config on a different struct bgp.
+	 */
+	if (vrf->info && vrf->info != (void *)bgp) {
+		struct bgp *old = vrf->info;
+
+		old->vrf_id = VRF_UNKNOWN;
+		vrf->info = NULL;
+		bgp_unlock(old);
+	}
+
 	bgp->vrf_id = vrf->vrf_id;
 	if (vrf->info != (void *)bgp)
 		vrf->info = (void *)bgp_lock(bgp);
