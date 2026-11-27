@@ -29,7 +29,7 @@ Copyright (c) 2007, 2008 by Juliusz Chroboczek
 
 struct neighbour *neighs = NULL;
 
-static struct neighbour *find_neighbour_nocreate(const unsigned char *address,
+struct neighbour *find_neighbour_nocreate(const unsigned char *address,
 						 struct interface *ifp)
 {
 	struct neighbour *neigh;
