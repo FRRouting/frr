@@ -154,6 +154,13 @@ FRR_CFG_DEFAULT_BOOL(BGP_IPV6_NEXTHOP_PREFER_GLOBAL,
 	{ .val_bool = false },
 );
 
+#if CONFDATE > 20271126
+CPP_NOTICE("Set BGP_AGGREGATE_MATCHING_MED_ONLY default to true (RFC 4271 compliance)")
+#endif
+FRR_CFG_DEFAULT_BOOL(BGP_AGGREGATE_MATCHING_MED_ONLY,
+	{ .val_bool = false },
+);
+
 DEFINE_HOOK(bgp_inst_config_write,
 		(struct bgp *bgp, struct vty *vty),
 		(bgp, vty));
@@ -788,6 +795,8 @@ int bgp_get_vty(struct bgp **bgp, as_t *as, const char *name,
 			SET_FLAG((*bgp)->flags, BGP_FLAG_COMPARE_AIGP);
 		if (DFLT_BGP_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL)
 			SET_FLAG((*bgp)->flags, BGP_FLAG_DEFAULT_ORIGINATE_SETONLY_UNCONDITIONAL);
+		if (DFLT_BGP_AGGREGATE_MATCHING_MED_ONLY)
+			SET_FLAG((*bgp)->flags, BGP_FLAG_AGGREGATE_MATCHING_MED_ONLY);
 
 		ret = BGP_SUCCESS;
 	}
@@ -5018,6 +5027,31 @@ DEFPY (bgp_default_dynamic_capability,
 		UNSET_FLAG(bgp->flags, BGP_FLAG_DYNAMIC_CAPABILITY);
 	else
 		SET_FLAG(bgp->flags, BGP_FLAG_DYNAMIC_CAPABILITY);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (bgp_default_aggregate_matching_med_only,
+       bgp_default_aggregate_matching_med_only_cmd,
+       "[no] bgp default aggregate-address matching-med-only",
+       NO_STR
+       BGP_STR
+       "Configure BGP defaults\n"
+       "Configure BGP aggregate entries\n"
+       "Only aggregate routes with matching MED (RFC 4271)\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	bool enabled = CHECK_FLAG(bgp->flags, BGP_FLAG_AGGREGATE_MATCHING_MED_ONLY);
+
+	if (!!no != enabled)
+		return CMD_SUCCESS;
+
+	if (no)
+		UNSET_FLAG(bgp->flags, BGP_FLAG_AGGREGATE_MATCHING_MED_ONLY);
+	else
+		SET_FLAG(bgp->flags, BGP_FLAG_AGGREGATE_MATCHING_MED_ONLY);
+
+	bgp_aggregate_med_matching_update_all(bgp);
 
 	return CMD_SUCCESS;
 }
@@ -13942,7 +13976,7 @@ DEFPY(show_bgp_redistribute,
 	return CMD_SUCCESS;
 }
 
-static void bgp_show_aggregate_one(struct vty *vty, const struct prefix *p,
+static void bgp_show_aggregate_one(struct vty *vty, struct bgp *bgp, const struct prefix *p,
 				   struct bgp_aggregate *aggregate, json_object *json_aggregates)
 {
 	json_object *json_aggr = NULL;
@@ -13961,7 +13995,8 @@ static void bgp_show_aggregate_one(struct vty *vty, const struct prefix *p,
 		json_object_int_add(json_aggr, "incompleteOriginCount",
 				    aggregate->incomplete_origin_count);
 		json_object_int_add(json_aggr, "egpOriginCount", aggregate->egp_origin_count);
-		json_object_boolean_add(json_aggr, "matchMed", aggregate->match_med);
+		json_object_boolean_add(json_aggr, "matchMed",
+					bgp_aggregate_med_match_enabled(bgp, aggregate));
 		json_object_boolean_add(json_aggr, "medInitialized", aggregate->med_initialized);
 		json_object_boolean_add(json_aggr, "medMismatched", aggregate->med_mismatched);
 		if (aggregate->med_initialized)
@@ -13997,7 +14032,7 @@ static void bgp_show_aggregate_one(struct vty *vty, const struct prefix *p,
 			aggregate->count, aggregate->incomplete_origin_count,
 			aggregate->egp_origin_count);
 		vty_out(vty, "  MED: match=%s, initialized=%s, mismatched=%s",
-			aggregate->match_med ? "yes" : "no",
+			bgp_aggregate_med_match_enabled(bgp, aggregate) ? "yes" : "no",
 			aggregate->med_initialized ? "yes" : "no",
 			aggregate->med_mismatched ? "yes" : "no");
 		if (aggregate->med_initialized)
@@ -14100,7 +14135,8 @@ DEFPY(show_bgp_aggregate,
 			aggregate = bgp_dest_get_bgp_aggregate_info(dest);
 			if (aggregate) {
 				found = true;
-				bgp_show_aggregate_one(vty, prefix, aggregate, json_aggregates);
+				bgp_show_aggregate_one(vty, bgp, prefix, aggregate,
+						       json_aggregates);
 			}
 			bgp_dest_unlock_node(dest);
 		}
@@ -14114,7 +14150,7 @@ DEFPY(show_bgp_aggregate,
 
 			p = bgp_dest_get_prefix(dest);
 			found = true;
-			bgp_show_aggregate_one(vty, p, aggregate, json_aggregates);
+			bgp_show_aggregate_one(vty, bgp, p, aggregate, json_aggregates);
 		}
 	}
 
@@ -22842,6 +22878,14 @@ int bgp_config_write(struct vty *vty)
 					? ""
 					: "no ");
 
+		/* BGP default aggregate-address matching-med-only. */
+		if (!!CHECK_FLAG(bgp->flags, BGP_FLAG_AGGREGATE_MATCHING_MED_ONLY) !=
+		    SAVE_BGP_AGGREGATE_MATCHING_MED_ONLY)
+			vty_out(vty, " %sbgp default aggregate-address matching-med-only\n",
+				CHECK_FLAG(bgp->flags, BGP_FLAG_AGGREGATE_MATCHING_MED_ONLY)
+					? ""
+					: "no ");
+
 		/* BGP default subgroup-pkt-queue-max. */
 		if (bgp->default_subgroup_pkt_queue_max
 		    != BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX)
@@ -24169,6 +24213,9 @@ void bgp_vty_init(void)
 
 	/* bgp default dynamic-capability */
 	install_element(BGP_NODE, &bgp_default_dynamic_capability_cmd);
+
+	/* bgp default aggregate-address matching-med-only */
+	install_element(BGP_NODE, &bgp_default_aggregate_matching_med_only_cmd);
 
 	/* "bgp default subgroup-pkt-queue-max" commands. */
 	install_element(BGP_NODE, &bgp_default_subgroup_pkt_queue_max_cmd);

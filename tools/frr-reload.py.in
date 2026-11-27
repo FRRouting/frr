@@ -320,7 +320,8 @@ def get_normalized_aggregate_address_line(line):
     order, but FRR always renders them in a fixed order:
 
       aggregate-address <prefix> [as-set] [summary-only] [route-map NAME]
-          [origin <egp|igp|incomplete>] [matching-MED-only] [suppress-map NAME]
+          [origin <egp|igp|incomplete>] [matching-MED-only|ignore-med]
+          [suppress-map NAME]
           [upa [drop] [max-routes (1-4294967295)]]
 
     Reorder a user-supplied line into that canonical order so that a line
@@ -340,6 +341,7 @@ def get_normalized_aggregate_address_line(line):
     as_set = False
     summary_only = False
     match_med = False
+    ignore_med = False
     route_map = None
     origin = None
     suppress_map = None
@@ -354,8 +356,10 @@ def get_normalized_aggregate_address_line(line):
             as_set = True
         elif tok == "summary-only":
             summary_only = True
-        elif tok == "matching-MED-only":
+        elif tok in ("matching-MED-only", "matching-med-only"):
             match_med = True
+        elif tok == "ignore-med":
+            ignore_med = True
         elif tok == "route-map" and i + 1 < len(rest):
             i += 1
             route_map = rest[i]
@@ -377,6 +381,10 @@ def get_normalized_aggregate_address_line(line):
             return line
         i += 1
 
+    # Conflicting options; let the daemon reject it.
+    if match_med and ignore_med:
+        return line
+
     normalized = "aggregate-address " + prefix
     if as_set:
         normalized += " as-set"
@@ -388,6 +396,8 @@ def get_normalized_aggregate_address_line(line):
         normalized += " origin " + origin
     if match_med:
         normalized += " matching-MED-only"
+    elif ignore_med:
+        normalized += " ignore-med"
     if suppress_map:
         normalized += " suppress-map " + suppress_map
     if upa:

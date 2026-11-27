@@ -10710,7 +10710,7 @@ static void bgp_aggregate_install(
 	 * If we have paths with different MEDs, then don't install
 	 * (or uninstall) the aggregate route.
 	 */
-	if (aggregate->match_med && aggregate->med_mismatched) {
+	if (bgp_aggregate_med_match_enabled(bgp, aggregate) && aggregate->med_mismatched) {
 		aspath_free(aspath);
 		community_free(&community);
 		ecommunity_free(&ecommunity);
@@ -10793,6 +10793,20 @@ static void bgp_aggregate_install(
 	}
 
 	bgp_dest_unlock_node(dest);
+}
+
+bool bgp_aggregate_med_match_enabled(const struct bgp *bgp, const struct bgp_aggregate *aggregate)
+{
+	switch (aggregate->match_med) {
+	case BGP_AGGREGATE_MED_MATCH:
+		return true;
+	case BGP_AGGREGATE_MED_IGNORE:
+		return false;
+	case BGP_AGGREGATE_MED_DEFAULT:
+		break;
+	}
+
+	return CHECK_FLAG(bgp->flags, BGP_FLAG_AGGREGATE_MATCHING_MED_ONLY);
 }
 
 /**
@@ -10946,7 +10960,7 @@ static void bgp_aggregate_med_update(struct bgp_aggregate *aggregate,
 				     struct bgp_path_info *pi)
 {
 	/* MED matching disabled. */
-	if (!aggregate->match_med)
+	if (!bgp_aggregate_med_match_enabled(bgp, aggregate))
 		return;
 
 	/* Aggregation with different MED, recheck if we have got equal MEDs
@@ -10994,7 +11008,7 @@ bool bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 		return false;
 
 	/* Initialize and test routes for MED difference. */
-	if (aggregate->match_med)
+	if (bgp_aggregate_med_match_enabled(bgp, aggregate))
 		bgp_aggregate_test_all_med(aggregate, bgp, p, afi, safi);
 
 	/*
@@ -11047,8 +11061,7 @@ bool bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 			 * otherwise neither the specific routes and the
 			 * aggregation will be announced.
 			 */
-			if (aggregate->summary_only
-			    && AGGREGATE_MED_VALID(aggregate)) {
+			if (aggregate->summary_only && AGGREGATE_MED_VALID(bgp, aggregate)) {
 				if (aggr_suppress_path(aggregate, pi)) {
 					bgp_process(bgp, dest, pi, afi, safi);
 					if (SAFI_UNICAST == safi &&
@@ -11074,9 +11087,8 @@ bool bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 			 * it mismatched otherwise we might end up with no
 			 * routes for this path.
 			 */
-			if (aggregate->suppress_map_name
-			    && AGGREGATE_MED_VALID(aggregate)
-			    && aggr_suppress_map_test(bgp, aggregate, pi)) {
+			if (aggregate->suppress_map_name && AGGREGATE_MED_VALID(bgp, aggregate) &&
+			    aggr_suppress_map_test(bgp, aggregate, pi)) {
 				if (aggr_suppress_path(aggregate, pi)) {
 					bgp_process(bgp, dest, pi, afi, safi);
 					if (SAFI_UNICAST == safi &&
@@ -11349,15 +11361,15 @@ static void bgp_add_route_to_aggregate(struct bgp *bgp,
 	 * This must be called before `summary` check to avoid
 	 * "suppressing" twice.
 	 */
-	if (aggregate->match_med)
+	if (bgp_aggregate_med_match_enabled(bgp, aggregate))
 		bgp_aggregate_med_update(aggregate, bgp, aggr_p, afi, safi,
 					 pinew);
 
-	if (aggregate->summary_only && AGGREGATE_MED_VALID(aggregate))
+	if (aggregate->summary_only && AGGREGATE_MED_VALID(bgp, aggregate))
 		aggr_suppress_path(aggregate, pinew);
 
-	if (aggregate->suppress_map_name && AGGREGATE_MED_VALID(aggregate)
-	    && aggr_suppress_map_test(bgp, aggregate, pinew))
+	if (aggregate->suppress_map_name && AGGREGATE_MED_VALID(bgp, aggregate) &&
+	    aggr_suppress_map_test(bgp, aggregate, pinew))
 		aggr_suppress_path(aggregate, pinew);
 
 	switch (pinew->attr->origin) {
@@ -11463,7 +11475,7 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, const struct prefix
 	struct ecommunity *ecommunity = NULL;
 	struct lcommunity *lcommunity = NULL;
 
-	if (aggregate->summary_only && AGGREGATE_MED_VALID(aggregate))
+	if (aggregate->summary_only && AGGREGATE_MED_VALID(bgp, aggregate))
 		if (aggr_unsuppress_path(aggregate, pi)) {
 			bgp_process(bgp, pi->net, pi, afi, safi);
 			if (SAFI_UNICAST == safi && (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
@@ -11476,8 +11488,8 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, const struct prefix
 			bgp_ls_originate_bgp_prefix(bgp, afi, safi, pi->net, pi);
 		}
 
-	if (aggregate->suppress_map_name && AGGREGATE_MED_VALID(aggregate)
-	    && aggr_suppress_map_test(bgp, aggregate, pi))
+	if (aggregate->suppress_map_name && AGGREGATE_MED_VALID(bgp, aggregate) &&
+	    aggr_suppress_map_test(bgp, aggregate, pi))
 		if (aggr_unsuppress_path(aggregate, pi)) {
 			bgp_process(bgp, pi->net, pi, afi, safi);
 			if (SAFI_UNICAST == safi && (bgp->inst_type == BGP_INSTANCE_TYPE_VRF ||
@@ -11494,7 +11506,7 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, const struct prefix
 	 * This must be called after `summary`, `suppress-map` check to avoid
 	 * "unsuppressing" twice.
 	 */
-	if (aggregate->match_med)
+	if (bgp_aggregate_med_match_enabled(bgp, aggregate))
 		bgp_aggregate_med_update(aggregate, bgp, aggr_p, afi, safi, pi);
 
 	if (aggregate->count > 0)
@@ -11794,10 +11806,22 @@ static int bgp_aggregate_unset(struct vty *vty, const char *prefix_str,
 	return CMD_SUCCESS;
 }
 
+static enum bgp_aggregate_med_config bgp_aggregate_med_config(const char *match_med,
+							      const char *ignore_med)
+{
+	if (match_med)
+		return BGP_AGGREGATE_MED_MATCH;
+	if (ignore_med)
+		return BGP_AGGREGATE_MED_IGNORE;
+
+	return BGP_AGGREGATE_MED_DEFAULT;
+}
+
 static bool bgp_aggregate_cmp_params(struct bgp_aggregate *aggregate, const char *rmap,
 				     uint8_t summary_only, uint8_t as_set, uint8_t origin,
-				     bool match_med, const char *suppress_map, bool upa_enabled,
-				     bool upa_drop, uint32_t upa_max_routes)
+				     enum bgp_aggregate_med_config match_med,
+				     const char *suppress_map, bool upa_enabled, bool upa_drop,
+				     uint32_t upa_max_routes)
 {
 	if ((aggregate->origin != origin) || (aggregate->as_set != as_set) ||
 	    (aggregate->match_med != match_med) || (aggregate->summary_only != summary_only) ||
@@ -11819,8 +11843,8 @@ static bool bgp_aggregate_cmp_params(struct bgp_aggregate *aggregate, const char
 }
 
 static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi, safi_t safi,
-			     const char *rmap, uint8_t summary_only, uint8_t as_set,
-			     uint8_t origin, bool match_med, const char *suppress_map,
+			     const char *rmap, uint8_t summary_only, uint8_t as_set, uint8_t origin,
+			     enum bgp_aggregate_med_config match_med, const char *suppress_map,
 			     bool upa_enabled, bool upa_drop, uint32_t upa_max_routes)
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -11966,13 +11990,43 @@ static int bgp_aggregate_set(struct vty *vty, const char *prefix_str, afi_t afi,
 	return CMD_SUCCESS;
 }
 
+void bgp_aggregate_med_matching_update_all(struct bgp *bgp)
+{
+	struct bgp_dest *dest;
+	struct bgp_aggregate *aggregate;
+	const struct prefix *p;
+	afi_t afi;
+	safi_t safi;
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (!bgp->aggregate[afi][safi])
+			continue;
+
+		for (dest = bgp_table_top(bgp->aggregate[afi][safi]); dest;
+		     dest = bgp_route_next(dest)) {
+			aggregate = bgp_dest_get_bgp_aggregate_info(dest);
+			if (!aggregate || aggregate->match_med != BGP_AGGREGATE_MED_DEFAULT)
+				continue;
+
+			p = bgp_dest_get_prefix(dest);
+
+			bgp_aggregate_delete(bgp, p, afi, safi, aggregate);
+			(void)bgp_aggregate_route(bgp, p, afi, safi, aggregate);
+
+			if (aggregate->upa_enabled)
+				bgp_upa_originate_all(bgp, p, afi, safi, aggregate);
+		}
+	}
+}
+
 DEFPY(aggregate_addressv4, aggregate_addressv4_cmd,
       "[no] aggregate-address <A.B.C.D/M$prefix|A.B.C.D$addr A.B.C.D$mask> [{"
       "as-set$as_set_s"
       "|summary-only$summary_only"
       "|route-map RMAP_NAME$rmap_name"
       "|origin <egp|igp|incomplete>$origin_s"
-      "|matching-MED-only$match_med"
+      "|<matching-MED-only|matching-med-only>$match_med"
+      "|ignore-med$ignore_med"
       "|suppress-map RMAP_NAME$suppress_map"
       "|upa$upa [drop$upa_drop] [max-routes (1-65535)$upa_max_routes]"
       "}]",
@@ -11990,6 +12044,8 @@ DEFPY(aggregate_addressv4, aggregate_addressv4_cmd,
       "Local IGP\n"
       "Unknown heritage\n"
       "Only aggregate routes with matching MED\n"
+      "Only aggregate routes with matching MED\n"
+      "Aggregate routes regardless of MED\n"
       "Suppress the selected more specific routes\n"
       "Route map with the route selectors\n"
       "Originate UPA (Unreachable Prefix Announcement) for unreachable prefixes\n"
@@ -12040,13 +12096,19 @@ DEFPY(aggregate_addressv4, aggregate_addressv4_cmd,
 		upa_enabled = true; /* max-routes implies upa enabled */
 	}
 
+	if (match_med && ignore_med) {
+		vty_out(vty,
+			"%% 'matching-med-only' and 'ignore-med' can't be used at the same time\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	/* Handle configuration removal, otherwise installation. */
 	if (no)
 		return bgp_aggregate_unset(vty, prefix_s, AFI_IP, safi);
 
 	return bgp_aggregate_set(vty, prefix_s, AFI_IP, safi, rmap_name, summary_only != NULL,
-				 as_set, origin, match_med != NULL, suppress_map, upa_enabled,
-				 upa_drop_flag, upa_max);
+				 as_set, origin, bgp_aggregate_med_config(match_med, ignore_med),
+				 suppress_map, upa_enabled, upa_drop_flag, upa_max);
 }
 
 void bgp_free_aggregate_info(struct bgp_aggregate *aggregate)
@@ -12093,7 +12155,8 @@ DEFPY(aggregate_addressv6, aggregate_addressv6_cmd,
       "|summary-only$summary_only"
       "|route-map RMAP_NAME$rmap_name"
       "|origin <egp|igp|incomplete>$origin_s"
-      "|matching-MED-only$match_med"
+      "|<matching-MED-only|matching-med-only>$match_med"
+      "|ignore-med$ignore_med"
       "|suppress-map RMAP_NAME$suppress_map"
       "|upa$upa [drop$upa_drop] [max-routes (1-65535)$upa_max_routes]"
       "}]",
@@ -12109,6 +12172,8 @@ DEFPY(aggregate_addressv6, aggregate_addressv6_cmd,
       "Local IGP\n"
       "Unknown heritage\n"
       "Only aggregate routes with matching MED\n"
+      "Only aggregate routes with matching MED\n"
+      "Aggregate routes regardless of MED\n"
       "Suppress the selected more specific routes\n"
       "Route map with the route selectors\n"
       "Originate UPA (Unreachable Prefix Announcement) for unreachable prefixes\n"
@@ -12145,14 +12210,21 @@ DEFPY(aggregate_addressv6, aggregate_addressv6_cmd,
 		upa_enabled = true;
 	}
 
+	if (match_med && ignore_med) {
+		vty_out(vty,
+			"%% 'matching-med-only' and 'ignore-med' can't be used at the same time\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	/* Handle configuration removal, otherwise installation. */
 	if (no)
 		return bgp_aggregate_unset(vty, prefix_str, AFI_IP6,
 					   SAFI_UNICAST);
 
 	return bgp_aggregate_set(vty, prefix_str, AFI_IP6, SAFI_UNICAST, rmap_name,
-				 summary_only != NULL, as_set, origin, match_med != NULL,
-				 suppress_map, upa_enabled, upa_drop_flag, upa_max);
+				 summary_only != NULL, as_set, origin,
+				 bgp_aggregate_med_config(match_med, ignore_med), suppress_map,
+				 upa_enabled, upa_drop_flag, upa_max);
 }
 
 /* Redistribute route treatment. */
@@ -20587,8 +20659,10 @@ void bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi,
 			vty_out(vty, " origin %s",
 				bgp_origin2str(bgp_aggregate->origin));
 
-		if (bgp_aggregate->match_med)
+		if (bgp_aggregate->match_med == BGP_AGGREGATE_MED_MATCH)
 			vty_out(vty, " matching-MED-only");
+		else if (bgp_aggregate->match_med == BGP_AGGREGATE_MED_IGNORE)
+			vty_out(vty, " ignore-med");
 
 		if (bgp_aggregate->suppress_map_name)
 			vty_out(vty, " suppress-map %s",
