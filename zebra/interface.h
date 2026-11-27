@@ -344,9 +344,6 @@ extern const char *zebra_protodown_rc_str(uint32_t protodown_rc, char *pd_buf,
 					  uint32_t pd_buf_len);
 void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx);
 
-#ifdef HAVE_PROC_NET_DEV
-extern void ifstat_update_proc(void);
-#endif /* HAVE_PROC_NET_DEV */
 #ifdef HAVE_NET_RT_IFLIST
 extern void ifstat_update_sysctl(void);
 
