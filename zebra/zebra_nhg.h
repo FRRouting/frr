@@ -61,6 +61,33 @@ struct nhg_hash_entry {
 	uint32_t refcnt;
 	uint32_t dplane_ref;
 
+	/*
+	 * Tells the kernel dplane provider whether the kernel still has a
+	 * route that zebra installed on this group.
+	 *
+	 * kernel_dplane_process_func() skips a route update when the nexthop
+	 * group has not changed, since the kernel already has the route. That
+	 * is only safe while the kernel still holds it. When this group is
+	 * invalidated while routes use it, for example because the interface
+	 * carrying all of its nexthops went down, the kernel deletes the
+	 * group and every route using it, without telling zebra about the
+	 * routes.
+	 *
+	 * So this sequence goes up on every such invalidation, each route
+	 * records the value it was installed with (nhe_invalidated_seq), and
+	 * the provider only skips an update when the two still match.
+	 *
+	 * Example: a route is installed on this group at sequence 0. The
+	 * interface flaps, the sequence becomes 1 and the kernel drops the
+	 * route. The client re-sends the route unchanged: 0 != 1, so the
+	 * update goes to the kernel and the route now records 1. A later
+	 * re-send with no invalidation in between (1 == 1) is skipped.
+	 *
+	 * This is NOT a reference count. It only ever goes up, and it is
+	 * only compared for equality.
+	 */
+	uint32_t invalidated_seq;
+
 	uint32_t flags;
 
 	/* Dependency trees for other entries.

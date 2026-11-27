@@ -109,6 +109,7 @@ struct route_entry {
 	 * for more details on how to setup this situation.
 	 */
 	uint32_t nhe_installed_id;
+	uint32_t nhe_invalidated_seq;
 
 	/* Type of this route. */
 	int type;
