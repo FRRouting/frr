@@ -106,20 +106,26 @@ void rip_peer_update(struct rip *rip, struct rip_interface *ri,
 	peer->version = version;
 }
 
-void rip_peer_bad_route(struct rip *rip, struct rip_interface *ri,
-			struct sockaddr_in *from)
+/* Invalid routes and packets must not create peer state (nor a BFD
+ * session) for a source that has not passed packet validation; only
+ * count them against an already known peer.
+ */
+void rip_peer_bad_route(struct rip *rip, struct sockaddr_in *from)
 {
 	struct rip_peer *peer;
-	peer = rip_peer_get(rip, ri, &from->sin_addr);
-	peer->recv_badroutes++;
+
+	peer = rip_peer_lookup(rip, &from->sin_addr);
+	if (peer)
+		peer->recv_badroutes++;
 }
 
-void rip_peer_bad_packet(struct rip *rip, struct rip_interface *ri,
-			 struct sockaddr_in *from)
+void rip_peer_bad_packet(struct rip *rip, struct sockaddr_in *from)
 {
 	struct rip_peer *peer;
-	peer = rip_peer_get(rip, ri, &from->sin_addr);
-	peer->recv_badpackets++;
+
+	peer = rip_peer_lookup(rip, &from->sin_addr);
+	if (peer)
+		peer->recv_badpackets++;
 }
 
 /* Display peer uptime. */
