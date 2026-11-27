@@ -3990,6 +3990,20 @@ address-family:
    Specifies an optional route-map to be applied to routes imported or exported
    between the current unicast VRF and VPN.
 
+.. clicmd:: allowas-in vpn import
+
+   Accept the AS of the current unicast VRF in the AS path of the routes
+   imported from VPN, or from another VRF, up to the number of occurrences set
+   by ``allowas-in vpn import count``. By default, these routes are not
+   imported. Unlike ``neighbor PEER allowas-in``, this does not change the AS
+   path check of the routes received from the peers.
+
+.. clicmd:: allowas-in vpn import count (1-10)
+
+   Set the number of occurrences of the AS of the current unicast VRF accepted
+   by ``allowas-in vpn import``, 3 by default. This does not enable
+   ``allowas-in vpn import``.
+
 .. clicmd:: import|export vpn
 
    Enables import or export of routes between the current unicast VRF and VPN.

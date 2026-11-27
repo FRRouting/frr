@@ -2517,7 +2517,15 @@ static void vpn_leak_to_vrf_update_onevrf(struct bgp *to_bgp,	/* to */
 		 */
 		aspath_loop_count = from->allowas_in[afi][SAFI_UNICAST];
 
+	if (CHECK_FLAG(to_bgp->vpn_policy[afi].flags, BGP_VPN_POLICY_FROMVPN_ALLOWAS_IN) &&
+	    to_bgp->vpn_policy[afi].import_allowas_in > aspath_loop_count)
+		aspath_loop_count = to_bgp->vpn_policy[afi].import_allowas_in;
+
 	if (aspath_loop_check(path_vpn->attr->aspath, to_bgp->as) > aspath_loop_count) {
+		if (debug)
+			zlog_debug("%s: skipping import of RD %s, %pFX to %s, as-path contains AS %s (allowas-in %d)",
+				   __func__, rd_buf, p, to_bgp->name_pretty, to_bgp->as_pretty,
+				   aspath_loop_count);
 		for (bpi = bgp_dest_get_bgp_path_info(bn); bpi;
 		     bpi = bpi->next) {
 			if (!bpi->extra || !bpi->extra->vrfleak ||
