@@ -852,6 +852,59 @@ TRACEPOINT_LOGLEVEL(frr_bgp, gr_bgp_state, TRACE_INFO)
 
 TRACEPOINT_EVENT(
 	frr_bgp,
+	gr_vrf_wait_for_evpn,
+	TP_ARGS(char *, bgp_name, uint32_t, vrf_id, bool, waiting),
+	TP_FIELDS(ctf_string(bgp_instance, bgp_name)
+		ctf_integer(uint32_t, vrf_id, vrf_id)
+		ctf_integer(bool, waiting, waiting)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, gr_vrf_wait_for_evpn, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	gr_vrf_complete_blocked,
+	TP_ARGS(char *, bgp_name, uint8_t, afi, uint8_t, safi),
+	TP_FIELDS(ctf_string(bgp_instance, bgp_name)
+		ctf_integer(uint8_t, afi, afi)
+		ctf_integer(uint8_t, safi, safi)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, gr_vrf_complete_blocked, TRACE_INFO)
+
+/*
+ * Loc1: gr_vrf_route_sync_complete
+ * Loc2: gr_vrf_deferred_path_selection_started
+ * Loc3: gr_vrf_deferred_path_selection_running
+ * Loc4: gr_vrf_route_sync_already_complete
+ */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	gr_evpn_vrf_release,
+	TP_ARGS(char *, bgp_name, uint8_t, afi, uint8_t, safi,
+		uint32_t, deferred_rt_cnt, uint8_t, loc),
+	TP_FIELDS(ctf_string(bgp_instance, bgp_name)
+		ctf_integer(uint8_t, afi, afi)
+		ctf_integer(uint8_t, safi, safi)
+		ctf_integer(uint32_t, deferred_routes, deferred_rt_cnt)
+		ctf_integer(uint8_t, location, loc)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, gr_evpn_vrf_release, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	gr_vrf_pending_skip,
+	TP_ARGS(char *, bgp_name, uint8_t, afi, uint8_t, safi),
+	TP_FIELDS(ctf_string(bgp_instance, bgp_name)
+		ctf_integer(uint8_t, afi, afi)
+		ctf_integer(uint8_t, safi, safi)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, gr_vrf_pending_skip, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
 	session_state_change,
 	TP_ARGS(struct peer *, peer, uint8_t, location),
 	TP_FIELDS(
