@@ -404,13 +404,14 @@ char *zebra_rib_dump_re_status(const struct route_entry *re, char *buf, size_t l
 		return buf;
 	}
 
-	snprintfrr(buf, len, "%s%s%s%s%s%s%s",
+	snprintfrr(buf, len, "%s%s%s%s%s%s%s%s",
 		   CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED) ? "Removed " : "",
 		   CHECK_FLAG(re->status, ROUTE_ENTRY_CHANGED) ? "Changed " : "",
 		   CHECK_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED) ? "Label Changed " : "",
 		   CHECK_FLAG(re->status, ROUTE_ENTRY_QUEUED) ? "Queued " : "",
 		   CHECK_FLAG(re->status, ROUTE_ENTRY_ROUTE_REPLACING) ? "Replacing " : "",
 		   CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED) ? "Installed " : "",
+		   CHECK_FLAG(re->status, ROUTE_ENTRY_FORCE_REINSTALL) ? "Force Reinstall " : "",
 		   CHECK_FLAG(re->status, ROUTE_ENTRY_FAILED) ? "Failed " : "");
 	return buf;
 }
@@ -698,6 +699,9 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	 * Install the resolved nexthop object first.
 	 */
 	zebra_nhg_install_kernel(re->nhe, re->type);
+
+	/* Whatever asked for a forced reinstall is being served now */
+	UNSET_FLAG(re->status, ROUTE_ENTRY_FORCE_REINSTALL);
 
 	/*
 	 * If this is a replace to a new RE let the originator of the RE
@@ -1208,7 +1212,7 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 		 * to add routes.
 		 */
 		if (!CHECK_FLAG(new->status, ROUTE_ENTRY_INSTALLED) ||
-		    RIB_SYSTEM_ROUTE(new))
+		    CHECK_FLAG(new->status, ROUTE_ENTRY_FORCE_REINSTALL) || RIB_SYSTEM_ROUTE(new))
 			rib_install_kernel(rn, new, NULL);
 	}
 
@@ -1726,6 +1730,61 @@ static void zebra_rib_fixup_system(struct route_node *rn)
 			SET_FLAG(nhop->flags, NEXTHOP_FLAG_FIB);
 		}
 	}
+}
+
+/*
+ * Flags that describe what became of a route rather than what it is: they
+ * are set while the entry lives in the RIB and must be ignored when asking
+ * whether two entries describe the same route.
+ */
+#define ZEBRA_FLAGS_RUNTIME                                                                       \
+	(ZEBRA_FLAG_SELECTED | ZEBRA_FLAG_TRAPPED | ZEBRA_FLAG_OFFLOADED |                        \
+	 ZEBRA_FLAG_OFFLOAD_FAILED | ZEBRA_FLAG_OUTOFSYNC)
+
+static bool rib_route_entry_identical(const struct route_entry *re1, const struct route_entry *re2)
+{
+	struct nexthop_group *re1_backup, *re2_backup;
+
+	if (!re1->nhe || !re2->nhe)
+		return false;
+
+	if (re1->type != re2->type)
+		return false;
+
+	if (re1->instance != re2->instance)
+		return false;
+
+	if (re1->table != re2->table)
+		return false;
+
+	if (re1->distance != re2->distance)
+		return false;
+
+	if (re1->metric != re2->metric)
+		return false;
+
+	if (re1->mtu != re2->mtu)
+		return false;
+
+	if (re1->tag != re2->tag)
+		return false;
+
+	if ((re1->flags & ~ZEBRA_FLAGS_RUNTIME) != (re2->flags & ~ZEBRA_FLAGS_RUNTIME))
+		return false;
+
+	if (!nexthop_group_equal_no_recurse(&re1->nhe->nhg, &re2->nhe->nhg))
+		return false;
+
+	re1_backup = zebra_nhg_get_backup_nhg(re1->nhe);
+	re2_backup = zebra_nhg_get_backup_nhg(re2->nhe);
+
+	if ((re1_backup == NULL) != (re2_backup == NULL))
+		return false;
+
+	if (re1_backup && !nexthop_group_equal_no_recurse(re1_backup, re2_backup))
+		return false;
+
+	return true;
 }
 
 /* Route comparison logic, with various special cases. */
@@ -2695,6 +2754,8 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 	struct nhg_hash_entry *nhe = NULL;
 	struct route_node *rn;
 	struct route_entry *same = NULL, *first_same = NULL;
+	struct route_entry *removed_same = NULL;
+	struct route_entry *resurrect = NULL;
 	int same_count = 0;
 	rib_dest_t *dest;
 
@@ -2803,6 +2864,9 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 	RNODE_FOREACH_RE (rn, same) {
 		if (CHECK_FLAG(same->status, ROUTE_ENTRY_REMOVED)) {
 			same_count++;
+			if (removed_same == NULL && rib_compare_routes(re, same, ere->replace))
+				/* A withdrawal of this very route is still sitting in the rib, unprocessed. */
+				removed_same = same;
 			continue;
 		}
 
@@ -2877,6 +2941,46 @@ static void process_subq_early_route_add(struct zebra_early_route *ere)
 	if (RIB_SYSTEM_ROUTE(re)) {
 		/* Notify dataplane */
 		dplane_sys_route_add(rn, re);
+	} else {
+		/* The route was withdrawn and re-announced before the RIB got to the
+		 * withdrawal, and nothing about it changed. Cancel the withdrawal and
+		 * reuse the entry instead of linking an identical one beside it.
+		 */
+		if (!same && removed_same && rib_route_entry_identical(re, removed_same)) {
+			/* Cancel the pending withdrawal */
+
+			UNSET_FLAG(removed_same->status, ROUTE_ENTRY_REMOVED);
+			SET_FLAG(removed_same->status, ROUTE_ENTRY_CHANGED);
+			SET_FLAG(removed_same->status, ROUTE_ENTRY_FORCE_REINSTALL);
+			resurrect = removed_same;
+		} else if (same && CHECK_FLAG(same->status, ROUTE_ENTRY_FORCE_REINSTALL) &&
+			   rib_route_entry_identical(re, same)) {
+			/* An entry resurrected just above, re-announced once
+			 * more before the RIB ran. Replacing it would undo
+			 * the resurrection, so drop this copy too.
+			 */
+
+			resurrect = same;
+		}
+
+		if (resurrect) {
+			if (IS_ZEBRA_DEBUG_RIB)
+				rnode_debug(rn, re->vrf_id,
+					    "Re-announced before its withdrawal was processed, resurrecting re %p",
+					    resurrect);
+
+			/* Copy newest opaque used by BGP to carry data like ASPATH if extra route data is enabled. */
+			zapi_re_opaque_free(resurrect);
+			resurrect->opaque = re->opaque;
+			re->opaque = NULL;
+
+			rib_queue_add(rn);
+
+			route_entry_update_nhe(re, NULL);
+			route_unlock_node(rn);
+			early_route_memory_free(ere);
+			return;
+		}
 	}
 
 	/* Link new re to node.*/
