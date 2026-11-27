@@ -77,6 +77,15 @@ lsa compare-age 10 11 ages 901 0
 lsa compare-age 10 11 ages 899 0
 lsa compare-age 10 11 ages 0 900
 lsa compare-age 10 11 ages 0 901
+lsa compare-age 10 11 ages 0 0
+lsa compare-checksum 10 11 checksums 1 256
+lsa compare-checksum 10 11 checksums 256 1
+lsa compare-checksum 10 11 checksums 32767 32768
+lsa compare-checksum 10 11 checksums 32768 32767
+lsa compare-checksum 10 11 checksums 1 65535
+lsa compare-checksum 10 11 checksums 65535 1
+lsa compare-checksum 10 11 checksums 1 1
+lsa compare-checksum 10 11 checksums 65535 65535
 lsa drop 10
 lsa drop 11
 
