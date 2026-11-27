@@ -1324,7 +1324,7 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 {
 	struct zapi_nexthop *api_nh;
 	int nh_family;
-	struct bgp_path_info *mpinfo;
+	struct bgp_path_info *mpinfo, *next_mpinfo;
 	struct bgp *bgp_orig;
 	struct attr local_attr;
 	struct bgp_path_info local_info;
@@ -1354,10 +1354,21 @@ static void bgp_zebra_announce_parse_nexthop(struct bgp_path_info *info, const s
 		mpinfo = info;
 	}
 
-	for (; mpinfo; mpinfo = bgp_path_info_mpath_next(mpinfo)) {
+	for (; mpinfo; mpinfo = next_mpinfo) {
 		uint64_t nh_weight;
 		bool is_evpn;
 		bool is_parent_evpn;
+
+		/*
+		 * Emit the best path first, then walk every other multipath.
+		 * Pending best-path processing can move paths ahead of info
+		 * after this announcement was queued. Withdrawn paths can
+		 * retain their old multipath flag until processing runs.
+		 */
+		next_mpinfo = mpinfo == info ? bgp_dest_get_bgp_path_info(info->net) : mpinfo->next;
+		while (next_mpinfo && (next_mpinfo == info || BGP_PATH_HOLDDOWN(next_mpinfo) ||
+				       !CHECK_FLAG(next_mpinfo->flags, BGP_PATH_MULTIPATH)))
+			next_mpinfo = next_mpinfo->next;
 
 		if (*valid_nh_count >= multipath_num)
 			break;
