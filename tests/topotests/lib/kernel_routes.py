@@ -22,6 +22,9 @@ normalized so the same route is written the way iproute2 writes it:
 FreeBSD keeps interface host routes in the same FIB. Linux ``ip route show``
 leaves those in the local table, so a FreeBSD result includes them. Select a
 FIB with ``table`` (a FIB number). A Linux VRF name has no netstat equivalent.
+
+``kernel_nexthops()`` returns the kernel nexthop objects (``ip -j nexthop
+show``). It is Linux-only.
 """
 
 import json
@@ -121,6 +124,27 @@ def _kernel_routes_linux(node, vrf, table, family):
             )
         routes.extend(parsed)
     return routes
+
+
+def kernel_nexthops(node, nhid=None):
+    """Return kernel nexthop objects as a list of iproute2 JSON objects.
+
+    This is the parsed output of ``ip -j nexthop show``. Pass ``nhid`` to
+    return only the object with that ID (an empty list if it is not
+    installed). Nexthop objects are Linux-only, so this raises
+    ``KernelRoutesError`` on other platforms.
+
+    ``node`` is a topotest router. The command runs inside that router.
+    """
+    if not sys.platform.startswith("linux"):
+        raise KernelRoutesError("kernel nexthop objects are only supported on Linux")
+    argv = ["ip", "-j", "nexthop", "show"]
+    parsed = _load_json(_node_stdout(node, argv), " ".join(argv))
+    if not isinstance(parsed, list):
+        raise KernelRoutesError("ip nexthop JSON is not a list: %s" % (" ".join(argv),))
+    if nhid is None:
+        return parsed
+    return [nh for nh in parsed if nh.get("id") == int(nhid)]
 
 
 def _freebsd_fib(table):

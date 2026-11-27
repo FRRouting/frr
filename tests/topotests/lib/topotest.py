@@ -36,7 +36,7 @@ from munet.base import commander, get_exec_path_host, Timeout
 from munet.testing.util import retry
 
 from lib import micronet
-from lib.kernel_routes import kernel_routes
+from lib.kernel_routes import kernel_nexthops, kernel_routes
 
 g_pytest_config = None
 
@@ -801,6 +801,16 @@ def platform_has_pimv6():
     """Return whether this platform can run PIMv6.
 
     Linux supports PIMv6. FreeBSD does not.
+    """
+    if sys.platform.startswith("linux"):
+        return True
+    return False
+
+
+def platform_has_kernel_nhg():
+    """Return whether this platform has kernel nexthop group objects.
+
+    Linux supports kernel nexthop groups. FreeBSD does not.
     """
     if sys.platform.startswith("linux"):
         return True
