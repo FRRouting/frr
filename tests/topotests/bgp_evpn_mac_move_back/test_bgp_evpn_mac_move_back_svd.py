@@ -19,10 +19,14 @@
 #    behind) is removed as soon as zebra sees it, and the MAC stays local.
 # 4. The same leftover in the kernel when zebra and bgpd start: the MAC is
 #    local after the restart and PE2 reaches it through PE1.
+# 5. Adding an unrelated VNI preserves the existing mappings' MACs without
+#    withdrawing their routes or deleting their FDB entries.
+# 6. A mapping refresh restores an access-BD binding cleared by an L3-to-L2
+#    transition while a bond member keeps the access-BD alive.
 #
-# The move back (1) and the two leftover steps (3, 4) also watch the FDB and
-# check that the bridge's local entry on PE1's access port is never deleted.
-# Every step checks that the same MAC in VNI 200 keeps its vxlan entry to PE2.
+# The move back (1), leftover steps (3, 4), and mapping update (5) watch the
+# FDB and check that PE1's local access-port entry is never deleted.
+# The MAC checks also verify that VNI 200 keeps its vxlan entry to PE2.
 #
 
 import os
@@ -43,6 +47,8 @@ from .common_bgp_evpn_mac_move_back import (  # noqa: E402
     step_leftover_seen_live_is_removed,
     step_mac_home_on_pe1,
     step_move_to_pe2_and_back,
+    step_retained_svd_binding_recovers,
+    step_unchanged_svd_mapping_keeps_macs,
     teardown,
 )
 
@@ -80,6 +86,14 @@ def test_fdb_reread_keeps_local_mac():
 
 def test_leftover_across_restart():
     step_leftover_across_restart()
+
+
+def test_unchanged_svd_mapping_keeps_macs():
+    step_unchanged_svd_mapping_keeps_macs()
+
+
+def test_retained_svd_binding_recovers():
+    step_retained_svd_binding_recovers()
 
 
 def test_memory_leak():

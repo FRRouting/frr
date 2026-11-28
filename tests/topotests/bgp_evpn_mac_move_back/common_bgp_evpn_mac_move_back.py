@@ -25,10 +25,11 @@
 #
 # Besides the fix itself, the steps check that the delete zebra now sends for
 # the VXLAN device's entry touches nothing else. The move back and the two
-# leftover steps run `bridge monitor fdb` and require that the bridge's local
-# entry on PE1's access port is never deleted. Every step checks that the same
-# MAC in VNI 200 keeps its VXLAN entry to PE2 (on a single VXLAN device both
-# entries live in one FDB, told apart by the source VNI).
+# leftover steps, plus the SVD mapping update, run `bridge monitor fdb` and
+# require that the bridge's local entry on PE1's access port is never
+# deleted. Every step checks that the same MAC in VNI 200 keeps its VXLAN
+# entry to PE2 (on a single VXLAN device both entries live in one FDB,
+# told apart by the source VNI).
 #
 
 import functools
@@ -36,6 +37,7 @@ import os
 
 from lib import topotest
 from lib.common_config import kill_router_daemons, start_router_daemons
+from lib.evpn import evpn_show_vni_json_elide_ifindex
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
@@ -415,3 +417,116 @@ def step_leftover_across_restart():
     # checks that it comes back
     assert_only_vxlan_entry_deleted(mon, vni200_untouched=False)
     assert_vni200_intact()
+
+
+def step_unchanged_svd_mapping_keeps_macs():
+    """Adding an SVD mapping must leave the existing mappings' MACs alone."""
+    tgen = get_topogen()
+    pe1 = tgen.gears["PE1"]
+    wait(functools.partial(_mac_is, "PE1", 100, "local", "PE1-eth1"), "PE1 local")
+    assert_vni200_intact()
+    mon = FdbMonitor("PE1", "unchanged-mapping")
+    mark = len(pe1.net.getLog("log", "zebra"))
+    try:
+        # Adding an unrelated VNI refreshes the SVD mapping table while the
+        # existing VLAN 10/VNI 100 and VLAN 20/VNI 200 mappings stay the same.
+        pe1.cmd_raises("bridge vlan add dev vxlan0 vid 30")
+        pe1.cmd_raises("bridge vlan add dev vxlan0 vid 30 tunnel_info id 300")
+        wait(
+            functools.partial(evpn_show_vni_json_elide_ifindex, pe1, 300, {"vni": 300}),
+            "PE1 added VNI 300",
+        )
+        wait(
+            functools.partial(_mac_is, "PE1", 100, "local", "PE1-eth1"),
+            "PE1 local after unchanged mapping",
+        )
+        assert_vni200_intact()
+        log = pe1.net.getLog("log", "zebra")[mark:]
+        withdrawn = [
+            line
+            for line in log.splitlines()
+            if "Send MACIP Del" in line and MAC in line
+        ]
+    finally:
+        try:
+            lines = mon.stop()
+        finally:
+            pe1.cmd("bridge vlan del dev vxlan0 vid 30")
+
+    assert not withdrawn, f"MAC withdrawn after unchanged mapping: {withdrawn}"
+    deleted = [line for line in lines if line.startswith(f"Deleted {MAC} ")]
+    assert not deleted, f"MAC deleted after unchanged mapping: {deleted}"
+
+
+def step_retained_svd_binding_recovers():
+    """Refresh an L2 mapping whose access-BD survived an L3 transition."""
+    pe1 = get_topogen().gears["PE1"]
+    wait(
+        functools.partial(
+            evpn_show_vni_json_elide_ifindex, pe1, 100, {"vni": 100, "type": "L2"}
+        ),
+        "Initial VNI 100 is L2",
+    )
+    try:
+        pe1.cmd_raises("ip link add probe-bond type bond mode active-backup")
+        pe1.cmd_raises("ip link set dev probe-bond master br0")
+        pe1.cmd_raises("bridge vlan add dev probe-bond vid 10")
+        pe1.cmd_raises("ip link set dev probe-bond up")
+
+        def has_member():
+            actual = pe1.vtysh_cmd("show evpn access-vlan br0 10 json", isjson=True)
+            return None if actual.get("memberIfCount", 0) > 0 else actual
+
+        wait(has_member, "Access BD has a bond member")
+        pe1.cmd_raises("ip link add vrf-probe type vrf table 1234")
+        pe1.cmd_raises("ip link set dev vrf-probe up")
+        pe1.cmd_raises("ip link add link br0 name probe10 type vlan id 10")
+        pe1.cmd_raises("ip link set dev probe10 master vrf-probe")
+        pe1.cmd_raises("ip link set dev probe10 up")
+        pe1.vtysh_cmd("configure terminal\nvrf vrf-probe\n vni 100\nend")
+        wait(
+            functools.partial(
+                evpn_show_vni_json_elide_ifindex,
+                pe1,
+                100,
+                {"vni": 100, "type": "L3", "state": "Up"},
+            ),
+            "VNI 100 became L3",
+        )
+        pe1.vtysh_cmd("configure terminal\nvrf vrf-probe\n no vni 100\nend")
+        wait(
+            functools.partial(
+                evpn_show_vni_json_elide_ifindex, pe1, 100, {"vni": 100, "type": "L2"}
+            ),
+            "VNI 100 became L2 again",
+        )
+        actual = pe1.vtysh_cmd("show evpn access-vlan br0 10 json", isjson=True)
+        logger.info("Access BD before refresh: %s", actual)
+        assert actual.get("memberIfCount", 0) > 0, actual
+        assert any(
+            member.get("ifName") == "probe-bond" for member in actual.get("members", [])
+        ), actual
+        assert not actual.get("vni") and not actual.get("vxlanIf"), actual
+        pe1.cmd_raises("bridge vlan add dev vxlan0 vid 30")
+        pe1.cmd_raises("bridge vlan add dev vxlan0 vid 30 tunnel_info id 300")
+        wait(
+            functools.partial(evpn_show_vni_json_elide_ifindex, pe1, 300, {"vni": 300}),
+            "Unrelated VNI 300 added",
+        )
+        actual = pe1.vtysh_cmd("show evpn access-vlan br0 10 json", isjson=True)
+        logger.info("Access BD after refresh: %s", actual)
+        wait(
+            functools.partial(
+                topotest.router_json_cmp,
+                pe1,
+                "show evpn access-vlan br0 10 json",
+                {"vlan": 10, "vni": 100, "vxlanIf": "vxlan0"},
+            ),
+            "Access BD bound after mapping refresh",
+        )
+    finally:
+        pe1.cmd("bridge vlan del dev vxlan0 vid 30")
+        pe1.vtysh_cmd("configure terminal\nvrf vrf-probe\n no vni 100\nend")
+        pe1.cmd("ip link del probe10")
+        pe1.cmd("ip link del vrf-probe")
+        pe1.cmd("ip link del probe-bond")
