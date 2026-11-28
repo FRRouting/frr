@@ -736,7 +736,7 @@ static void zebra_evpn_acc_bd_evpn_set(struct zebra_evpn_access_bd *acc_bd,
 }
 
 /* Lookup API for  VxLAN_IF's Bridge, VLAN in EVPN cache */
-int zebra_evpn_vl_vxl_bridge_lookup(uint16_t vid, struct zebra_if *vxlan_zif)
+int zebra_evpn_vl_vxl_bridge_lookup(uint16_t vid, vni_t vni, struct zebra_if *vxlan_zif)
 {
 	struct interface *br_if;
 	struct zebra_evpn_access_bd *acc_bd;
@@ -751,7 +751,7 @@ int zebra_evpn_vl_vxl_bridge_lookup(uint16_t vid, struct zebra_if *vxlan_zif)
 
 	acc_bd = zebra_evpn_acc_vl_find(vid, br_if);
 
-	if (!acc_bd)
+	if (!acc_bd || acc_bd->vni != vni)
 		return 0;
 
 	return 1;

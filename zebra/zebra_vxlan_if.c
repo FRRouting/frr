@@ -565,7 +565,7 @@ static int zebra_vxlan_if_add_update_vni(struct zebra_if *zif,
 	} else {
 		int ret;
 
-		ret = zebra_evpn_vl_vxl_bridge_lookup(vni->access_vlan, zif);
+		ret = zebra_evpn_vl_vxl_bridge_lookup(vni->access_vlan, vni->vni, zif);
 		/* Here ret value 0 implied bridge vlan mapping is not present
 		 * repopulated. Ignore ret value 1 as it means vlan mapping is
 		 * present in bridge table.
@@ -575,7 +575,9 @@ static int zebra_vxlan_if_add_update_vni(struct zebra_if *zif,
 				zlog_debug("%s vxlan %s vni %u has error accessing bridge table.",
 					   __func__, zif->ifp->name, vni->vni);
 
-			return 0;
+			goto done;
+		} else if (ret == 1) {
+			goto done;
 		} else if (ret == 0) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug("%s vxlan %s vni (%u, %u) not present in bridge table",
@@ -586,6 +588,7 @@ static int zebra_vxlan_if_add_update_vni(struct zebra_if *zif,
 	zebra_evpn_vl_vxl_deref(old_vni->access_vlan, old_vni->vni, zif);
 	zebra_evpn_vl_vxl_ref(vni->access_vlan, vni->vni, zif);
 	zebra_vxlan_if_update_vni(zif->ifp, vni, ctx);
+done:
 	zebra_vxlan_vni_free(old_vni);
 
 	return 0;
