@@ -898,6 +898,7 @@ extern bool bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi);
 extern void bgp_clear_route(struct peer *peer, afi_t afi, safi_t safi);
 extern void bgp_clear_route_all(struct peer *peer);
 extern bool bgp_clear_node_queue_drain(struct peer *peer);
+extern void bgp_clear_node_queue_drain_all(struct bgp *bgp);
 /* Clear routes for a batch of peers */
 void bgp_clear_route_batch(struct bgp_clearing_info *cinfo);
 
