@@ -4783,6 +4783,14 @@ int bgp_delete(struct bgp *bgp)
 		}
 		event_cancel(&gr_info->t_select_deferral);
 
+		t = gr_info->t_select_deferral_tier2;
+		if (t) {
+			void *info = EVENT_ARG(t);
+
+			XFREE(MTYPE_TMP, info);
+		}
+		event_cancel(&gr_info->t_select_deferral_tier2);
+
 		t = gr_info->t_route_select;
 		if (t) {
 			void *info = EVENT_ARG(t);
