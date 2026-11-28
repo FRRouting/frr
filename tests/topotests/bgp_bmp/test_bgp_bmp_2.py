@@ -84,16 +84,18 @@ def setup_module(mod):
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
-    tgen.net['r1vrf'].cmd(
+    tgen.net["r1vrf"].cmd(
         """
 
 ip link add vrf1 type vrf table 10
-    """)
-    shutdown_bringup_interface_in_kernel(tgen, 'r1vrf', "vrf1", True)
-    tgen.net['r1vrf'].cmd(
+    """
+    )
+    shutdown_bringup_interface_in_kernel(tgen, "r1vrf", "vrf1", True)
+    tgen.net["r1vrf"].cmd(
         """
 ip link set r1vrf-eth1 master vrf1
-    """)
+    """
+    )
     bmp_reset_seq(bmp_seq_context)
     if DEBUG_PCAP:
         pcap_file = os.path.join(tgen.logdir, "r1vrf/bmp.pcap")
@@ -273,7 +275,7 @@ def test_bgp_instance_flapping():
     tgen = get_topogen()
 
     # create flapping at BMP
-    shutdown_bringup_interface_in_kernel(tgen, 'r1vrf', "vrf1", False)
+    shutdown_bringup_interface_in_kernel(tgen, "r1vrf", "vrf1", False)
 
     peers = ["0.0.0.0"]
     logger.info("checking for BMP peer down LOC-RIB message.")
@@ -289,7 +291,7 @@ def test_bgp_instance_flapping():
     success, _ = topotest.run_and_expect(test_func, True, count=30, wait=1)
     assert success, "Checking the BMP peer down LOC-RIB message failed !."
 
-    shutdown_bringup_interface_in_kernel(tgen, 'r1vrf', "vrf1", True)
+    shutdown_bringup_interface_in_kernel(tgen, "r1vrf", "vrf1", True)
 
     logger.info("checking for BMP peer up LOC-RIB message.")
     test_func = partial(
@@ -355,6 +357,10 @@ def test_bgp_routerid_changed():
     assert (
         success
     ), "Checking the BMP peer up LOC-RIB message with router-id set to 192.168.1.77 failed !."
+
+    # The router-id change resets peers; RD peer-ups need them Established.
+    result = verify_bgp_convergence_from_running_config(tgen, dut="r1vrf")
+    assert result is True, "BGP is not converged after router-id change"
 
 
 def test_reconfigure_route_distinguisher_vrf1():
