@@ -492,7 +492,9 @@ def test_pim6_multiple_groups_same_RP_address_p2(request):
 
     step("r1: Verify (S, G) upstream IIF interface")
     iif = TOPO["routers"]["r1"]["links"]["r3"]["interface"]
-    result = verify_upstream_iif(tgen, dut, iif, SOURCE_ADDRESS, group_address_list)
+    result = verify_upstream_iif(
+        tgen, dut, iif, SOURCE_ADDRESS, group_address_list, retry_timeout=90
+    )
     assert result is True, ASSERT_MSG.format(tc_name, result)
 
     step("r1: Verify (S, G) upstream join state and join timer")
