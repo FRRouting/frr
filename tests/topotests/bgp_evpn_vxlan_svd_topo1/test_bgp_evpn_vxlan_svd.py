@@ -46,6 +46,8 @@ from lib.evpn import (
     evpn_mac_learn_test,
     evpn_mac_test_local_remote,
     evpn_show_vni_json_elide_ifindex,
+    evpn_verify_l3vni_nexthops,
+    evpn_verify_l3vni_rmacs,
 )
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
@@ -545,6 +547,90 @@ def test_pe_advertise_aggr_evpn_route():
     _, result = topotest.run_and_expect(test_func, None, count=45, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(pe1.name)
     assert result is None, assertmsg
+
+
+def test_unchanged_svd_l3_mapping_keeps_state():
+    """An unrelated SVD mapping must not bounce an operational L3VNI."""
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+    pe1, pe2 = tgen.gears["PE1"], tgen.gears["PE2"]
+    pe1.vtysh_cmd("debug zebra vxlan")
+    try:
+        # Both PEs already have vlan400 on their SVD and in vrf-purple.
+        # Originate a peer type-5 route so PE1 has an RMAC and next hop
+        # whose state must survive the mapping-table refresh.
+        pe2.vtysh_cmd(
+            """
+configure terminal
+vrf vrf-purple
+ vni 4000
+exit-vrf
+router bgp 65000 vrf vrf-purple
+ bgp router-id 10.30.30.30
+ no bgp network import-check
+ address-family ipv4 unicast
+  network 203.0.113.2/32
+ exit-address-family
+ address-family l2vpn evpn
+  advertise ipv4 unicast
+ exit-address-family
+end
+"""
+        )
+
+        def l3_state():
+            checks = (
+                partial(
+                    evpn_show_vni_json_elide_ifindex,
+                    pe1,
+                    4000,
+                    {
+                        "vni": 4000,
+                        "type": "L3",
+                        "state": "Up",
+                        "tenantVrf": "vrf-purple",
+                    },
+                ),
+                partial(evpn_verify_l3vni_nexthops, pe1, [4000], ["10.30.30.30"]),
+                partial(evpn_verify_l3vni_rmacs, pe1, [4000], ["10.30.30.30"]),
+            )
+            for check in checks:
+                result = check()
+                if result is not None:
+                    return result
+            return None
+
+        _, result = topotest.run_and_expect(l3_state, None, count=30, wait=1)
+        assert result is None, f"Initial L3VNI state: {result}"
+        mark = len(pe1.net.getLog("log", "zebra"))
+        pe1.cmd_raises("bridge vlan add dev vxlan0 vid 600")
+        pe1.cmd_raises("bridge vlan add dev vxlan0 vid 600 tunnel_info id 600")
+        _, result = topotest.run_and_expect(
+            partial(evpn_show_vni_json_elide_ifindex, pe1, 600, {"vni": 600}),
+            None,
+            count=30,
+            wait=1,
+        )
+        assert result is None, f"New VNI 600 not processed: {result}"
+        _, result = topotest.run_and_expect(l3_state, None, count=30, wait=1)
+        assert result is None, f"L3VNI state after mapping refresh: {result}"
+        log = pe1.net.getLog("log", "zebra")[mark:]
+        down = [line for line in log.splitlines() if "Send L3VNI DEL 4000 " in line]
+        assert not down, f"Unchanged L3VNI sent down to BGP: {down}"
+    finally:
+        pe1.cmd("bridge vlan del dev vxlan0 vid 600")
+        pe2.vtysh_cmd(
+            """
+configure terminal
+no router bgp 65000 vrf vrf-purple
+vrf vrf-purple
+ no vni 4000
+exit-vrf
+end
+"""
+        )
+        pe1.vtysh_cmd("no debug zebra vxlan")
 
 
 def test_memory_leak():
